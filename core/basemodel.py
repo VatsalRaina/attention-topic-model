@@ -5,6 +5,7 @@ import random
 import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.data import Dataset
+import tensorflow.contrib.slim as slim
 try:
     import cPickle as pickle
 except:
@@ -198,6 +199,140 @@ class BaseModel(object):
             iterator = dataset.make_one_shot_iterator()
 
             return iterator.get_next(name='input_data')
+
+    def _bahdanau_attention(self, memory, seq_lens, maxlen, query, size, batch_size, name='Attention'):
+        WD = self.network_architecture['L2']
+        with tf.variable_scope(name) as scope:
+            with slim.arg_scope([slim.model_variable],
+                                initializer=self.network_architecture['initializer'](self._seed),
+                                regularizer=slim.l2_regularizer(WD),
+                                device='/GPU:0'):
+                # Define Attention Parameters
+                v = slim.model_variable('v', shape=[1, size])
+                U = slim.model_variable('u', shape=[size, size])
+                W = slim.model_variable('w', shape=[size, size])
+                biases = slim.model_variable('biases', shape=[size], initializer=tf.constant_initializer(0.1))
+
+                tmp_a = tf.reshape(memory, [-1, size])
+                tmp_a = tf.matmul(tmp_a, U)
+                tmp_a = tf.reshape(tmp_a, [batch_size, -1, size])
+                tmp_q = tf.matmul(query, W)
+                tmp_q = tf.expand_dims(tmp_q, axis=1)
+                tmp = tf.nn.tanh(tmp_q + tmp_a + biases)
+                tmp = tf.reshape(tmp, [-1, size])
+                tmp = tf.matmul(tmp, v, transpose_b=True)
+                tmp = tf.reshape(tmp, [batch_size, -1])
+                mask = tf.sequence_mask(seq_lens, maxlen=maxlen, dtype=tf.float32)
+                a = tf.exp(tmp) * mask
+                attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
+                outputs = tf.reduce_sum(tf.expand_dims(attention, 2) * memory, axis=1)
+
+                return outputs, attention
+
+    def _construct_xent_cost(self, targets, logits, pos_weight, is_training=False):
+        print 'Constructing XENT cost'
+        cost = tf.reduce_mean(
+            tf.nn.weighted_cross_entropy_with_logits(logits=logits, targets=targets, pos_weight=pos_weight,
+                                                     name='total_xentropy_per_batch')) / float(pos_weight)
+
+        if self._debug_mode > 1:
+            tf.scalar_summary('XENT', cost)
+
+        if is_training:
+            tf.add_to_collection('losses', cost)
+            # The total loss is defined as the target loss plus all of the weight
+            # decay terms (L2 loss).
+            total_cost = tf.add_n(tf.get_collection('losses'), name='total_cost')
+            return cost, total_cost
+        else:
+            return cost
+
+    def _parse_func(self, example_proto):
+        contexts, features = tf.parse_single_sequence_example(
+            serialized=example_proto,
+            context_features={"targets": tf.FixedLenFeature([], tf.float32),
+                              "grade": tf.FixedLenFeature([], tf.float32),
+                              "spkr" : tf.FixedLenFeature([], tf.string),
+                              "q_id": tf.FixedLenFeature([], tf.int64)},
+            sequence_features={'response': tf.FixedLenSequenceFeature([], dtype=tf.int64),
+                               'prompt': tf.FixedLenSequenceFeature([], dtype=tf.int64)})
+
+        return contexts['targets'], contexts['q_id'], features['response'], features['prompt']
+
+    def _map_func(self, dataset, num_threads, capacity):
+
+        dataset =  dataset.map(lambda targets, q_id, resp, prompt: (targets,
+                                                                    tf.cast(q_id, dtype=tf.int32),
+                                                                    tf.cast(resp, dtype=tf.int32),
+                                                                    tf.cast(prompt, dtype=tf.int32)),
+                              num_threads=num_threads,
+                              output_buffer_size=capacity)
+
+        return dataset.map(lambda targets, q_id, resp, prompt: (targets, q_id, resp, tf.size(resp), prompt),
+                              num_threads=num_threads,
+                              output_buffer_size=capacity)
+
+    def _batch_func(self, dataset, batch_size, num_buckets=10, bucket_width=10):
+        # Bucket by source sequence length (buckets for lengths 0-9, 10-19, ...)
+        def batching_func(x):
+            return x.padded_batch(
+                batch_size,
+                # The first three entries are the source and target line rows;
+                # these have unknown-length vectors.  The last two entries are
+                # the source and target row sizes; these are scalars.
+                padded_shapes=(
+                    tf.TensorShape([]), # targets -- unused
+                    tf.TensorShape([]), # q_id -- unused
+                    tf.TensorShape([None]),   # resp
+                    tf.TensorShape([]), # resp len -- unused
+                    tf.TensorShape([None])),  # prompt
+                padding_values=(
+                    0.0, # targets -- unused
+                    np.int32(0), # q_id -- unused
+                    np.int32(0), # resp
+                    np.int32(0), # resp len -- unused
+                    np.int32(0)))#.filter(lambda targets, q_id, resp, size, prompt: tf.equal(tf.size(size), batch_size))  # prompt
+
+        def key_func(unused_1, unused_2, unused_3, resp_len, unused_4):
+            # Calculate bucket_width by maximum source sequence length.
+            # Pairs with length [0, bucket_width) go to bucket 0, length
+            # [bucket_width, 2 * bucket_width) go to bucket 1, etc.  Pairs with length
+            # over ((num_bucket-1) * bucket_width) words all go into the last bucket.
+
+            # Bucket sentence pairs by the length of their response
+            bucket_id = resp_len // bucket_width
+            return tf.to_int64(tf.minimum(num_buckets, bucket_id))
+
+        def reduce_func(unused_key, windowed_data):
+            return batching_func(windowed_data)
+
+        batched_dataset = dataset.group_by_window(key_func=key_func,
+                                                  reduce_func=reduce_func,
+                                                  window_size=batch_size)
+
+        return batched_dataset
+
+    def _sampling_function(self, targets, q_ids, unigram_path, batch_size, n_samples, name, distortion=1.0):
+        sampled_indecies, _, _ = tf.nn.fixed_unigram_candidate_sampler(tf.cast(tf.expand_dims(q_ids, axis=1), dtype=tf.int64),
+                                                                       num_true=1,
+                                                                       num_sampled=batch_size * n_samples,
+                                                                       unique=False,
+                                                                       distortion=distortion,
+                                                                       range_max=self.network_architecture['n_topics'],
+                                                                       vocab_file=unigram_path,
+                                                                       seed=self._seed,
+                                                                       name='Unigram_Sampler_'+name)
+        sampled_indecies=tf.cast(sampled_indecies, dtype=tf.int32)
+        targets_sampled = tf.where(tf.equal(tf.tile(q_ids, [n_samples]), sampled_indecies),
+                                   tf.ones(shape=[batch_size * n_samples], dtype=tf.float32),
+                                   tf.zeros(shape=[batch_size * n_samples], dtype=tf.float32))
+
+        q_ids = tf.concat([q_ids, sampled_indecies], axis=0)
+        targets = tf.concat([targets, targets_sampled], axis=0)
+        targets = tf.expand_dims(targets, axis=1)
+
+        return targets, q_ids
+
 
     def write_out(self, txt, name):
         """
