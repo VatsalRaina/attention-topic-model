@@ -30,17 +30,19 @@ commandLineParser.add_argument('--MERGE_SE', type=bool, default=False,
                                help='Use Merged SE scripts')
 commandLineParser.add_argument('dataset', type=str,
                                help='Name of the dataset to process')
+commandLineParser.add_argument('topic_dict_path', type=str,
+                               help='Name of the dataset to process')
 commandLineParser.add_argument('section', type=str, choices=['SA', 'SB', 'SC', 'SD', 'SE'], default='SC',
                                help='Which section to process')
 
 def main(argv=None):
     args = commandLineParser.parse_args()
     if args.MERGE_SE:
-        path = '/home/alta/BLTSpeaking/exp-am969/attention_grader/qa_ALL_dicts.pickle'
+        path = os.path.join(args.topic_dict_path, 'qa_ALL_dicts.pickle')
         q_path = '_questions_merged.txt'
     else:
         q_path = '_questions.txt'
-        path = '/home/alta/BLTSpeaking/exp-am969/attention_grader/qa_' + args.section + '_dicts.pickle'
+        path = os.path.join(args.topic_dict_path, 'qa_' + args.section + '_dicts.pickle')
     with open(path, 'rb') as handle:
         q_dict, a_dict = pickle.load(handle)
 
