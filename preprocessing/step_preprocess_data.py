@@ -24,19 +24,25 @@ commandLineParser.add_argument('input_wlist_path', type=str,
                                help='absolute path to input word list')
 commandLineParser.add_argument('destination_dir', type=str,
                                help='absolute path location wheree to setup ')
-commandLineParser.add_argument('name', type=str,
-                               help='Name of target dataset')
-commandLineParser.add_argument('--test', type=bool, default=False,
-                               help='process test or train data')
 commandLineParser.add_argument('--valid_fraction', type=float, default=0.1,
                                help='fraction of full data to reserve for validation')
 
-#Need to add stuff about splitting train and eval data!!!
+def main(argv=None):
+    """Converts a dataset to tfrecords."""
+    args = commandLineParser.parse_args()
 
-def process_test_data(args):
-    pass
+    if os.path.isdir(args.destination_dir):
+        print 'destination directory exists. Exiting...'
+    else:
+        os.mkdir(args.destination_dir)
 
-def process_train_data(args):
+    if not os.path.isdir('CMDs'):
+        os.mkdir('CMDs')
+
+    with open('CMDs/step_process_relevance_data.cmd', 'a') as f:
+        f.write(' '.join(sys.argv) + '\n')
+        f.write('--------------------------------\n')
+
     # Load responses - check out load_text files...
     responses, _ = load_text(args.input_data_path, args.input_wlist_path)
     prompts, _ = load_text(args.input_prompt_path, args.input_wlist_path)
@@ -135,30 +141,6 @@ def process_train_data(args):
                 'prompt': tfrecord_utils.int64_feature_list(prompt)}))
         writer.write(example.SerializeToString())
     writer.close()
-
-
-
-
-def main(argv=None):
-    """Converts a dataset to tfrecords."""
-    args = commandLineParser.parse_args()
-
-    if os.path.isdir(args.destination_dir):
-        print 'destination directory exists. Exiting...'
-    else:
-        os.mkdir(args.destination_dir)
-
-    if not os.path.isdir('CMDs'):
-        os.mkdir('CMDs')
-
-    with open('CMDs/step_process_relevance_data.cmd', 'a') as f:
-        f.write(' '.join(sys.argv) + '\n')
-        f.write('--------------------------------\n')
-
-    if args.test == True:
-        process_test_data(args)
-    else:
-        process_train_data(args)
 
 
 

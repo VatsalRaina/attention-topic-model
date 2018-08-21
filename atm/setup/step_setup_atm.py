@@ -60,7 +60,7 @@ commandLineParser.add_argument('--sample_distortion', type=bool, default=False,
                                help='which should be loaded')
 commandLineParser.add_argument('--f_activation_fn',
                                choices=activation_fn_list,
-                               default='relu',
+                               default='lrelu',
                                help='which should be loaded')
 commandLineParser.add_argument('--r_activation_fn', choices=activation_fn_list,
                                 default='tanh',
