@@ -56,8 +56,8 @@ def main(argv=None):
         with open(args.section + '_conf.txt', 'w') as conf:
             with open(args.dataset + '_' + args.section + '.dat') as g:
                 with open(args.section + '_data.txt', 'w') as t:
-                    with open('targets_' + args.section + '.tmp.txt', 'r') as f:
-                        with open('targets_' + args.section + '.txt', 'w') as h:
+                    with open('grades_' + args.section + '.tmp.txt', 'r') as f:
+                        with open('grades_' + args.section + '.txt', 'w') as h:
                             with open('speakers_' + args.section + '.txt', 'w') as s:
                                 # with open('features_'+args.section+'.txt', 'w') as m:
                                 with open('topics_' + args.section + '.txt', 'w') as n:

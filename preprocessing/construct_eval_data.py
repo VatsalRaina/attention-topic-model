@@ -11,7 +11,7 @@ commandLineParser.add_argument('conffile', type=str,
                                help='Absolute path to conf score file')
 commandLineParser.add_argument('questionfile', type=str,
                                help='Absolute path to question file')
-commandLineParser.add_argument('targetfile', type=str,
+commandLineParser.add_argument('gradefile', type=str,
                                help='Absolute path to target file')
 commandLineParser.add_argument('speakerfile', type=str,
                                help='Absolute path to speaker file')
@@ -19,6 +19,10 @@ commandLineParser.add_argument('bulats_gradefile', type=str,
                                help='Absolute path to speaker file')
 commandLineParser.add_argument('name', type=str,
                                help='Name of dataset to create')
+commandLineParser.add_argument('path', type=str,
+                               help='Name of dataset to create')
+commandLineParser.add_argument ('section', type=str,
+                                help = 'Absolute path to feature file')
 commandLineParser.add_argument('--samples', type=int, default=10,
                                help='Name of dataset to create')
 # commandLineParser.add_argument ('featurefile', type=str,
@@ -40,10 +44,10 @@ def main(argv=None):
         questions = []
         for line in q.readlines():
             questions.append(line)
-    with open(args.targetfile, 'r') as t:
-        targets = []
+    with open(args.gradefile, 'r') as t:
+        grades = []
         for line in t.readlines():
-            targets.append(float(line.replace('\n', '')))
+            grades.append(float(line.replace('\n', '')))
 
     with open(args.speakerfile, 'r') as s:
         speakers = []
@@ -74,7 +78,7 @@ def main(argv=None):
     rel = 0
     tot = 0
     for sample in xrange(args.samples):
-        for dat, conf, ques, sques, tar, spkr, bul in zip(data, confs, questions, shuf_questions, targets, speakers,
+        for dat, conf, ques, sques, tar, spkr, bul in zip(data, confs, questions, shuf_questions, grades, speakers,
                                                           bulats):
             rel+=1
             tot += 2
@@ -121,21 +125,21 @@ def main(argv=None):
     data = np.random.permutation(data)
 
     print len(bulats)
-    #with open(args.name + '_topic_bulats_grades.txt', 'w') as g:
-    with open(args.name + '_' + args.conffile, 'w') as c:
-        with open(args.name + '_' + args.datafile, 'w') as d:
-            with open(args.name + '_' + args.questionfile, 'w') as q:
-                with open(args.name + '_' + args.targetfile, 'w') as t:
-                    with open(args.name + '_' + args.speakerfile, 'w') as s:
-                        #            with open(name+'_topic_'+args.featurefile, 'w') as f:
-                        for dat, conf, ques, tar, spkr, grd in data:
-                            d.write(dat)
-                            q.write(ques)
-                            t.write(str(tar) + '\n')
-                            s.write(spkr)
-                            c.write(conf)
-                            # f.write(feat)
-                            #g.write(str(int(floor(float(grd)))) + '\n')
+    with open(os.path.join(args.path, args.name + '_' + args.gradefile.split('/')[-1]), 'w') as g:
+        with open(os.path.join(args.path, args.name + '_' + args.conffile.split('/')[-1]), 'w') as c:
+            with open(os.path.join(args.path, args.name + '_' + args.datafile.split('/')[-1]), 'w') as d:
+                with open(os.path.join(args.path, args.name + '_' + args.questionfile.split('/')[-1]), 'w') as q:
+                    with open(os.path.join(args.path, args.name + '_targets_'+args.section+'.txt'), 'w') as t:
+                        with open(os.path.join(args.path, args.name + '_' + args.speakerfile.split('/')[-1]), 'w') as s:
+                        #   with open(name+'_topic_'+args.featurefile, 'w') as f:
+                            for dat, conf, ques, tar, spkr, grd in data:
+                                d.write(dat)
+                                q.write(ques)
+                                t.write(str(tar) + '\n')
+                                s.write(spkr)
+                                c.write(conf)
+                                # f.write(feat)
+                                g.write(str(int(floor(float(grd)))) + '\n')
 
 
 if __name__ == '__main__':
