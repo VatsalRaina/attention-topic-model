@@ -122,11 +122,11 @@ def main(argv=None):
 
     print len(bulats)
     #with open(args.name + '_topic_bulats_grades.txt', 'w') as g:
-    with open(args.name + '_topic_' + args.conffile, 'w') as c:
-        with open(args.name + '_topic_' + args.datafile, 'w') as d:
-            with open(args.name + '_topic_' + args.questionfile, 'w') as q:
-                with open(args.name + '_topic_' + args.targetfile, 'w') as t:
-                    with open(args.name + '_topic_' + args.speakerfile, 'w') as s:
+    with open(args.name + '_' + args.conffile, 'w') as c:
+        with open(args.name + '_' + args.datafile, 'w') as d:
+            with open(args.name + '_' + args.questionfile, 'w') as q:
+                with open(args.name + '_' + args.targetfile, 'w') as t:
+                    with open(args.name + '_' + args.speakerfile, 'w') as s:
                         #            with open(name+'_topic_'+args.featurefile, 'w') as f:
                         for dat, conf, ques, tar, spkr, grd in data:
                             d.write(dat)

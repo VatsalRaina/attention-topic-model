@@ -27,7 +27,7 @@ commandLineParser.add_argument('valid_fraction', type=float,
 commandLineParser.add_argument('destination_dir', type=str,
                                help='absolute path location wheree to setup ')
 
-
+#Need to add stuff about splitting train and eval data!!!
 def main(argv=None):
     """Converts a dataset to tfrecords."""
     args = commandLineParser.parse_args()
