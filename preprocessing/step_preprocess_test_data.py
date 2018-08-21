@@ -63,7 +63,7 @@ def main(argv=None):
     topic_dict = {}
     i=0
     with open(os.path.join(args.sorted_topics_path), 'r') as tfile:
-        for topic in tfile.readlines:
+        for topic in tfile.readlines():
             topic_dict[topic.replace('\n','')] = i
             i+1
 
