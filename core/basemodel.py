@@ -4,7 +4,7 @@ import random
 
 import numpy as np
 import tensorflow as tf
-from tensorflow.contrib.data import Dataset
+from tensorflow.contrib.data import group_by_window
 import tensorflow.contrib.slim as slim
 try:
     import cPickle as pickle
@@ -259,18 +259,16 @@ class BaseModel(object):
 
         return contexts['targets'], contexts['q_id'], features['response'], features['prompt']
 
-    def _map_func(self, dataset, num_threads, capacity):
+    def _map_func(self, dataset, num_threads, capacity, augment=None):
 
         dataset =  dataset.map(lambda targets, q_id, resp, prompt: (targets,
                                                                     tf.cast(q_id, dtype=tf.int32),
                                                                     tf.cast(resp, dtype=tf.int32),
                                                                     tf.cast(prompt, dtype=tf.int32)),
-                              num_threads=num_threads,
-                              output_buffer_size=capacity)
+                               num_parallel_calls=num_threads).prefetch(capacity)
 
         return dataset.map(lambda targets, q_id, resp, prompt: (targets, q_id, resp, tf.size(resp), prompt),
-                              num_threads=num_threads,
-                              output_buffer_size=capacity)
+                           num_parallel_calls=num_threads).prefetch(capacity)
 
     def _batch_func(self, dataset, batch_size, num_buckets=10, bucket_width=10):
         # Bucket by source sequence length (buckets for lengths 0-9, 10-19, ...)
@@ -306,9 +304,9 @@ class BaseModel(object):
         def reduce_func(unused_key, windowed_data):
             return batching_func(windowed_data)
 
-        batched_dataset = dataset.group_by_window(key_func=key_func,
+        batched_dataset = dataset.apply(group_by_window(key_func=key_func,
                                                   reduce_func=reduce_func,
-                                                  window_size=batch_size)
+                                                  window_size=batch_size))
 
         return batched_dataset
 

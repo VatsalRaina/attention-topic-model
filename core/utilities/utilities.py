@@ -172,7 +172,7 @@ def load_text(data_path, input_index, strip_start_end=True):
             else:
                 data.append(line)
                 slens.append(len(line))
-    data = word_to_id(data, input_index)
+    data = np.asarray(word_to_id(data, input_index))
     return data, slens
 
 
