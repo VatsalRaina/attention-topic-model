@@ -44,6 +44,7 @@ class AttentionTopicModel(BaseModel):
                                                            a_seqlens=self.alens,
                                                            q_input=self.x_q,
                                                            q_seqlens=self.qlens,
+                                                           n_samples=0,
                                                            maxlen=self.maxlen,
                                                            batch_size=self.batch_size,
                                                            keep_prob=self.dropout)
@@ -59,7 +60,7 @@ class AttentionTopicModel(BaseModel):
         elif load_path != None:
             self.load(load_path=load_path, step=epoch)
 
-    def _construct_network(self, a_input, a_seqlens, q_input, q_seqlens, maxlen,
+    def _construct_network(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen,
                            batch_size, keep_prob=1.0):
         """ Construct RNNLM network
         Args:
@@ -97,8 +98,8 @@ class AttentionTopicModel(BaseModel):
             cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, output_keep_prob=keep_prob)
             cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw, output_keep_prob=keep_prob)
 
-            initial_state_fw = cell_fw.zero_state(batch_size=batch_size, dtype=tf.float32)
-            initial_state_bw = cell_bw.zero_state(batch_size=batch_size, dtype=tf.float32)
+            initial_state_fw = cell_fw.zero_state(batch_size=batch_size*(n_samples+1), dtype=tf.float32)
+            initial_state_bw = cell_bw.zero_state(batch_size=batch_size*(n_samples+1), dtype=tf.float32)
 
             _, state = tf.nn.bidirectional_dynamic_rnn(cell_fw=cell_fw,
                                                        cell_bw=cell_bw,
@@ -107,7 +108,7 @@ class AttentionTopicModel(BaseModel):
                                                        initial_state_fw=initial_state_fw,
                                                        initial_state_bw=initial_state_bw,
                                                        dtype=tf.float32,
-                                                       #parallel_iterations=32,
+                                                       parallel_iterations=32,
                                                        scope=scope)
 
             question_embeddings = tf.concat([state[0][1], state[1][1]], axis=1)
@@ -137,15 +138,19 @@ class AttentionTopicModel(BaseModel):
                                                              initial_state_fw=initial_state_fw,
                                                              initial_state_bw=initial_state_bw,
                                                              dtype=tf.float32,
-                                                             #parallel_iterations=32,
+                                                             parallel_iterations=32,
                                                              scope=scope)
 
+            a_seqlens= tf.tile(a_seqlens, [n_samples+1])
             outputs = tf.concat([outputs[0], outputs[1]], axis=2)
+            outputs = tf.tile(outputs, [1 + n_samples, 1, 1])
+
+        print outputs.get_shape(), a_seqlens.get_shape()
 
         hidden, attention = self._bahdanau_attention(memory=outputs, seq_lens=a_seqlens, maxlen=maxlen,
                                                      query=question_embeddings,
                                                      size=2 * self.network_architecture['n_rhid'],
-                                                     batch_size=batch_size)
+                                                     batch_size=batch_size*(n_samples+1))
 
         with tf.variable_scope('Grader') as scope:
             for layer in xrange(self.network_architecture['n_flayers']):
@@ -209,8 +214,6 @@ class AttentionTopicModel(BaseModel):
                                                                             train=True,
                                                                             capacity_mul=1000,
                                                                             num_threads=8)
-                responses = tf.tile(responses, [1 + n_samples, 1])
-                response_lengths = tf.tile(response_lengths, [1 + n_samples])
 
                 valid_iterator = self._construct_dataset_from_tfrecord([valid_data],
                                                                        self._parse_func,
@@ -224,9 +227,6 @@ class AttentionTopicModel(BaseModel):
                 valid_q_ids, \
                 valid_responses, \
                 valid_response_lengths, _ = valid_iterator.get_next(name='valid_data')
-
-                valid_responses = tf.tile(valid_responses, [1 + n_samples, 1])
-                valid_response_lengths = tf.tile(valid_response_lengths, [1 + n_samples])
 
 
                 targets, q_ids = self._sampling_function(targets=targets,
@@ -258,10 +258,11 @@ class AttentionTopicModel(BaseModel):
                 trn_probabilities, \
                 trn_logits, _,  = self._construct_network(a_input=responses,
                                                           a_seqlens=response_lengths,
+                                                          n_samples=n_samples,
                                                           q_input=prompts,
                                                           q_seqlens=prompt_lens,
                                                           maxlen=tf.reduce_max(response_lengths),
-                                                          batch_size=batch_size * (1 + n_samples),
+                                                          batch_size=batch_size,
                                                           keep_prob=self.dropout)
 
                 valid_predictions, \
@@ -269,10 +270,11 @@ class AttentionTopicModel(BaseModel):
                 valid_logits, \
                 valid_attention  = self._construct_network(a_input=valid_responses,
                                                            a_seqlens=valid_response_lengths,
+                                                           n_samples=n_samples,
                                                            q_input=valid_prompts,
                                                            q_seqlens=valid_prompt_lens,
                                                            maxlen=tf.reduce_max(valid_response_lengths),
-                                                           batch_size=batch_size * (1 + n_samples),
+                                                           batch_size=batch_size,
                                                            keep_prob=1.0)
 
             # Construct XEntropy training costs
@@ -407,32 +409,32 @@ class AttentionTopicModel(BaseModel):
 
         return test_probs, test_preds, attention, test_loss
 
-    def rank(self, X, topics, name=None):
-        with self._graph.as_default():
-            test_probs = None
-            batch_size = len(topics[1])
-            test_probs = np.zeros(shape=(len(X[0]), batch_size), dtype=np.float32)
-            for i in xrange(len(X[1])):
-                if i % 10 == 0: print i
-                batch_test_probs = self.sess.run(self._probabilities,
-                                                 feed_dict={self.x_a: np.asarray([X[0][i]] * batch_size),
-                                                            self.alens: np.asarray([X[1][i]] * batch_size),
-                                                            self.q_ids: np.arange(batch_size),
-                                                            self.x_q: topics[0],
-                                                            self.qlens: topics[1],
-                                                            self.maxlen: np.max(X[1]),
-                                                            self.batch_size: batch_size})
-                test_probs[i, :] = np.squeeze(batch_test_probs)
-            np.savetxt(name + '_probabilities_topics.txt', test_probs)
-            test_probs = np.reshape(test_probs, newshape=(batch_size * len(X[0])))
-            hist = np.histogram(test_probs, bins=100, range=[0.0, 1.0], density=True)
-
-            plt.plot(hist[0])
-            plt.xticks(np.arange(0, 101, 20), [str(i / 100.0) for i in xrange(0, 101, 20)])
-            plt.ylim(0, 50)
-            plt.ylabel('Density')
-            plt.xlabel('Relevance Probability')
-            plt.title('Empirical PDF of Relevance Probabilities')
-            # plt.show()
-            plt.savefig('histogram_LINSKneg02.png')
-            plt.close()
+    # def rank(self, X, topics, name=None):
+    #     with self._graph.as_default():
+    #         test_probs = None
+    #         batch_size = len(topics[1])
+    #         test_probs = np.zeros(shape=(len(X[0]), batch_size), dtype=np.float32)
+    #         for i in xrange(len(X[1])):
+    #             if i % 10 == 0: print i
+    #             batch_test_probs = self.sess.run(self._probabilities,
+    #                                              feed_dict={self.x_a: np.asarray([X[0][i]] * batch_size),
+    #                                                         self.alens: np.asarray([X[1][i]] * batch_size),
+    #                                                         self.q_ids: np.arange(batch_size),
+    #                                                         self.x_q: topics[0],
+    #                                                         self.qlens: topics[1],
+    #                                                         self.maxlen: np.max(X[1]),
+    #                                                         self.batch_size: batch_size})
+    #             test_probs[i, :] = np.squeeze(batch_test_probs)
+    #         np.savetxt(name + '_probabilities_topics.txt', test_probs)
+    #         test_probs = np.reshape(test_probs, newshape=(batch_size * len(X[0])))
+    #         hist = np.histogram(test_probs, bins=100, range=[0.0, 1.0], density=True)
+    #
+    #         plt.plot(hist[0])
+    #         plt.xticks(np.arange(0, 101, 20), [str(i / 100.0) for i in xrange(0, 101, 20)])
+    #         plt.ylim(0, 50)
+    #         plt.ylabel('Density')
+    #         plt.xlabel('Relevance Probability')
+    #         plt.title('Empirical PDF of Relevance Probabilities')
+    #         # plt.show()
+    #         plt.savefig('histogram_LINSKneg02.png')
+    #         plt.close()
