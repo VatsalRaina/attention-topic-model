@@ -107,7 +107,7 @@ class AttentionTopicModel(BaseModel):
                                                        initial_state_fw=initial_state_fw,
                                                        initial_state_bw=initial_state_bw,
                                                        dtype=tf.float32,
-                                                       parallel_iterations=32,
+                                                       #parallel_iterations=32,
                                                        scope=scope)
 
             question_embeddings = tf.concat([state[0][1], state[1][1]], axis=1)
@@ -137,7 +137,7 @@ class AttentionTopicModel(BaseModel):
                                                              initial_state_fw=initial_state_fw,
                                                              initial_state_bw=initial_state_bw,
                                                              dtype=tf.float32,
-                                                             parallel_iterations=32,
+                                                             #parallel_iterations=32,
                                                              scope=scope)
 
             outputs = tf.concat([outputs[0], outputs[1]], axis=2)
