@@ -95,7 +95,7 @@ def main(argv=None):
             elif int(np.floor(tar)) == 6:
                 C2.append([dat, conf, ques, 1, spkr, tar])
                 C2.append([dat, conf, sques, qtar, spkr, tar])
-            shuf_questions = np.random.permutation(shuf_questions)
+        shuf_questions = np.random.permutation(shuf_questions)
 
     print 'percent relevant:', float(rel) / float(tot)
     print len(pre_A1), len(A1), len(A2), len(B1), len(B2), len(C1), len(C2)
