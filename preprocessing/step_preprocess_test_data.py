@@ -31,6 +31,7 @@ commandLineParser.add_argument('destination_dir', type=str,
 commandLineParser.add_argument('name', type=str,
                                help='absolute path location wheree to setup ')
 
+
 def main(argv=None):
     """Converts a dataset to tfrecords."""
     args = commandLineParser.parse_args()
@@ -45,37 +46,32 @@ def main(argv=None):
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
-    # Load responses - check out load_text files...
+    # Load responses and prompts as sequences of word ids
     responses, _ = load_text(args.input_data_path, args.input_wlist_path)
     prompts, _ = load_text(args.input_prompt_path, args.input_wlist_path)
 
-    # Load up the prompts file
-    with open(args.input_prompt_path, 'r') as file:
-        topics = [line.replace('\n', '') for line in file.readlines()]
-
-    # Load up the speakers and speakers
+    # Load up the grades, targets and speakers
     grades = np.loadtxt(args.input_grade_path)
     targets = np.loadtxt(args.input_tgt_path, dtype=np.float32)
     with open(args.input_spkr_path, 'r') as file:
         speakers = np.asarray([line.replace('\n', '') for line in file.readlines()])
 
-    # Load up sorted topics and (re)construct the topic dict so that I map each prompt to it's q_id
+    # Load up sorted topics and (re)construct the topic dict so that I map each prompt word sequence to its q_id
     topic_dict = {}
-    i=0
+    i = 0
     with open(os.path.join(args.sorted_topics_path), 'r') as tfile:
         for topic in tfile.readlines():
-            topic_dict[topic.replace('\n','')] = i
-            i+1
+            topic_dict[topic.replace('\n', '')] = i
+            i+=1
 
-    # Create a list of topic IDs for every response
+    # Load up the prompts as sequences of words and convert to q_id
     with open(args.input_prompt_path, 'r') as file:
         q_ids = np.asarray([topic_dict[line.replace('\n', '')] for line in file.readlines()])
 
-
     # Create the training TF Record file
-    filename = args.name+'.tfrecords'
+    filename = args.name + '.tfrecords'
     print 'Writing', filename
-    writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir,filename))
+    writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir, filename))
     for response, prompt, q_id, grd, spkr, tgt in zip(responses, prompts, q_ids, grades, speakers, targets):
         example = tf.train.SequenceExample(
             context=tf.train.Features(feature={

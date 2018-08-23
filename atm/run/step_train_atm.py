@@ -76,7 +76,6 @@ def main(argv=None):
             topic_lens=topic_lens,
             unigram_path=args.topic_count_path,
             train_size=264228,
-            valid_size=29358,
             learning_rate=args.learning_rate,
             lr_decay=args.lr_decay,
             dropout=args.dropout,

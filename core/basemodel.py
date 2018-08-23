@@ -61,6 +61,8 @@ class BaseModel(object):
             random.seed(self._seed)
             self.sess = tf.Session(config=config)
 
+    # Model loading/saving functions
+
     def save(self, step=None):
         """ Saves model and parameters to self._save_path """
         with self._graph.as_default():
@@ -108,41 +110,7 @@ class BaseModel(object):
         param_path = os.path.join(load_path, 'model/weights.ckpt')
         sampling_saver.restore(self.sess, param_path)
 
-    def _construct_dataset_from_numpy(self,
-                                      data_list,
-                                      batch_size,
-                                      capacity_mul=1000,
-                                      num_threads=4):
-        """ Helper Function. Used for feeding Dataset with data from a variable in memory.
-            Better than using constant to store data.
-
-            Args:
-              data: a numpy array of fixed shape
-            Returns:
-              returns a data variable and initializer
-        """
-        with tf.device('/cpu:0'):
-            feed_dict = {}
-            data_placeholders = []
-            for data in data_list:
-                if data.dtype == np.float32:
-                    dtype = tf.float32
-                elif data.dtype == np.int32:
-                    dtype = tf.int32
-                data_placeholder = tf.placeholder(dtype=data.dtype, shape=data.shape)
-                data_placeholders.append(data_placeholder)
-                feed_dict[data_placeholder] = data
-
-            capacity = batch_size * capacity_mul
-
-            dataset = Dataset.from_tensor_slices(tuple(data_placeholders))
-            dataset = dataset.shuffle(capacity, self._seed).repeat()
-            dataset = dataset.batch(batch_size)
-
-            iterator = dataset.make_initializable_iterator()
-            self.sess.run(iterator.initializer, feed_dict=feed_dict)
-
-            return iterator.get_next(name='input_data')
+    # Data Loading Pipleline functions
 
     def _construct_dataset_from_tfrecord(self,
                                          filenames,
@@ -176,29 +144,93 @@ class BaseModel(object):
                 iterator = dataset.make_initializable_iterator()
                 return iterator
 
-    def _construct_dataset_from_csv(self, filenames, _parse_func, _map_func, _batch_func, batch_size=1,
-                                    capacity_mul=1000, skip_header_lines=1, num_threads=4):
-        with tf.device('/cpu:0'):
-            capacity = batch_size * capacity_mul
-            dataset = tf.contrib.data.TextLineDataset(filenames).skip(skip_header_lines)
+    def _parse_func(self, example_proto):
+        contexts, features = tf.parse_single_sequence_example(
+            serialized=example_proto,
+            context_features={"targets": tf.FixedLenFeature([], tf.float32),
+                              "grade": tf.FixedLenFeature([], tf.float32),
+                              "spkr" : tf.FixedLenFeature([], tf.string),
+                              "q_id": tf.FixedLenFeature([], tf.int64)},
+            sequence_features={'response': tf.FixedLenSequenceFeature([], dtype=tf.int64),
+                               'prompt': tf.FixedLenSequenceFeature([], dtype=tf.int64)})
 
-            dataset = dataset.map(_parse_func,
-                                  num_threads=num_threads,
-                                  output_buffer_size=capacity)
+        return contexts['targets'], contexts['q_id'], features['response'], features['prompt']
 
-            # Apply any other possible mapping possible mapping.
-            dataset = _map_func(dataset, num_threads, capacity)
+    def _map_func(self, dataset, num_threads, capacity, augment=None):
 
-            # Apply shuffle dataset and repeat it indefinitely
-            dataset = dataset.shuffle(capacity, self._seed).repeat()
+        dataset =  dataset.map(lambda targets, q_id, resp, prompt: (targets,
+                                                                    tf.cast(q_id, dtype=tf.int32),
+                                                                    tf.cast(resp, dtype=tf.int32),
+                                                                    tf.cast(prompt, dtype=tf.int32)),
+                               num_parallel_calls=num_threads).prefetch(capacity)
 
-            # Apply shuffle dataset and repeat it indefinitely
-            dataset = _batch_func(dataset, batch_size)
+        return dataset.map(lambda targets, q_id, resp, prompt: (targets, q_id, resp, tf.size(resp), prompt, tf.size(prompt)),
+                           num_parallel_calls=num_threads).prefetch(capacity)
 
-            # Create an iterator for the dataset
-            iterator = dataset.make_one_shot_iterator()
+    def _batch_func(self, dataset, batch_size, num_buckets=10, bucket_width=10):
+        # Bucket by source sequence length (buckets for lengths 0-9, 10-19, ...)
+        def batching_func(x):
+            return x.padded_batch(
+                batch_size,
+                # The first three entries are the source and target line rows;
+                # these have unknown-length vectors.  The last two entries are
+                # the source and target row sizes; these are scalars.
+                padded_shapes=(
+                    tf.TensorShape([]), # targets -- unused
+                    tf.TensorShape([]), # q_id -- unused
+                    tf.TensorShape([None]),   # resp
+                    tf.TensorShape([]), # resp len -- unused
+                    tf.TensorShape([None]),  # prompt
+                    tf.TensorShape([])),  # prompt len -- unused
+                padding_values=(
+                    0.0, # targets -- unused
+                    np.int32(0), # q_id -- unused
+                    np.int32(0), # resp
+                    np.int32(0), # resp len -- unused
+                    np.int32(0),  # resp len -- unused
+                    np.int32(0)))#.filter(lambda targets, q_id, resp, size, prompt: tf.equal(tf.size(size), batch_size))  # prompt
 
-            return iterator.get_next(name='input_data')
+        def key_func(unused_1, unused_2, unused_3, resp_len, unused_4, unused_5):
+            # Calculate bucket_width by maximum source sequence length.
+            # Pairs with length [0, bucket_width) go to bucket 0, length
+            # [bucket_width, 2 * bucket_width) go to bucket 1, etc.  Pairs with length
+            # over ((num_bucket-1) * bucket_width) words all go into the last bucket.
+
+            # Bucket sentence pairs by the length of their response
+            bucket_id = resp_len // bucket_width
+            return tf.to_int64(tf.minimum(num_buckets, bucket_id))
+
+        def reduce_func(unused_key, windowed_data):
+            return batching_func(windowed_data)
+
+        batched_dataset = dataset.apply(group_by_window(key_func=key_func,
+                                                  reduce_func=reduce_func,
+                                                  window_size=batch_size))
+
+        return batched_dataset
+
+    # Trainnig cost/attention sampling functions
+
+    def _sampling_function(self, targets, q_ids, unigram_path, batch_size, n_samples, name, distortion=1.0):
+        sampled_indecies, _, _ = tf.nn.fixed_unigram_candidate_sampler(tf.cast(tf.expand_dims(q_ids, axis=1), dtype=tf.int64),
+                                                                       num_true=1,
+                                                                       num_sampled=batch_size * n_samples,
+                                                                       unique=False,
+                                                                       distortion=distortion,
+                                                                       range_max=self.network_architecture['n_topics'],
+                                                                       vocab_file=unigram_path,
+                                                                       seed=self._seed,
+                                                                       name='Unigram_Sampler_'+name)
+        sampled_indecies=tf.cast(sampled_indecies, dtype=tf.int32)
+        targets_sampled = tf.where(tf.equal(tf.tile(q_ids, [n_samples]), sampled_indecies),
+                                   tf.ones(shape=[batch_size * n_samples], dtype=tf.float32),
+                                   tf.zeros(shape=[batch_size * n_samples], dtype=tf.float32))
+
+        q_ids = tf.concat([q_ids, sampled_indecies], axis=0)
+        targets = tf.concat([targets, targets_sampled], axis=0)
+        targets = tf.expand_dims(targets, axis=1)
+
+        return targets, q_ids
 
     def _bahdanau_attention(self, memory, seq_lens, maxlen, query, size, batch_size, name='Attention'):
         WD = self.network_architecture['L2']
@@ -246,98 +278,3 @@ class BaseModel(object):
             return cost, total_cost
         else:
             return cost
-
-    def _parse_func(self, example_proto):
-        contexts, features = tf.parse_single_sequence_example(
-            serialized=example_proto,
-            context_features={"targets": tf.FixedLenFeature([], tf.float32),
-                              "grade": tf.FixedLenFeature([], tf.float32),
-                              "spkr" : tf.FixedLenFeature([], tf.string),
-                              "q_id": tf.FixedLenFeature([], tf.int64)},
-            sequence_features={'response': tf.FixedLenSequenceFeature([], dtype=tf.int64),
-                               'prompt': tf.FixedLenSequenceFeature([], dtype=tf.int64)})
-
-        return contexts['targets'], contexts['q_id'], features['response'], features['prompt']
-
-    def _map_func(self, dataset, num_threads, capacity, augment=None):
-
-        dataset =  dataset.map(lambda targets, q_id, resp, prompt: (targets,
-                                                                    tf.cast(q_id, dtype=tf.int32),
-                                                                    tf.cast(resp, dtype=tf.int32),
-                                                                    tf.cast(prompt, dtype=tf.int32)),
-                               num_parallel_calls=num_threads).prefetch(capacity)
-
-        return dataset.map(lambda targets, q_id, resp, prompt: (targets, q_id, resp, tf.size(resp), prompt),
-                           num_parallel_calls=num_threads).prefetch(capacity)
-
-    def _batch_func(self, dataset, batch_size, num_buckets=10, bucket_width=10):
-        # Bucket by source sequence length (buckets for lengths 0-9, 10-19, ...)
-        def batching_func(x):
-            return x.padded_batch(
-                batch_size,
-                # The first three entries are the source and target line rows;
-                # these have unknown-length vectors.  The last two entries are
-                # the source and target row sizes; these are scalars.
-                padded_shapes=(
-                    tf.TensorShape([]), # targets -- unused
-                    tf.TensorShape([]), # q_id -- unused
-                    tf.TensorShape([None]),   # resp
-                    tf.TensorShape([]), # resp len -- unused
-                    tf.TensorShape([None])),  # prompt
-                padding_values=(
-                    0.0, # targets -- unused
-                    np.int32(0), # q_id -- unused
-                    np.int32(0), # resp
-                    np.int32(0), # resp len -- unused
-                    np.int32(0)))#.filter(lambda targets, q_id, resp, size, prompt: tf.equal(tf.size(size), batch_size))  # prompt
-
-        def key_func(unused_1, unused_2, unused_3, resp_len, unused_4):
-            # Calculate bucket_width by maximum source sequence length.
-            # Pairs with length [0, bucket_width) go to bucket 0, length
-            # [bucket_width, 2 * bucket_width) go to bucket 1, etc.  Pairs with length
-            # over ((num_bucket-1) * bucket_width) words all go into the last bucket.
-
-            # Bucket sentence pairs by the length of their response
-            bucket_id = resp_len // bucket_width
-            return tf.to_int64(tf.minimum(num_buckets, bucket_id))
-
-        def reduce_func(unused_key, windowed_data):
-            return batching_func(windowed_data)
-
-        batched_dataset = dataset.apply(group_by_window(key_func=key_func,
-                                                  reduce_func=reduce_func,
-                                                  window_size=batch_size))
-
-        return batched_dataset
-
-    def _sampling_function(self, targets, q_ids, unigram_path, batch_size, n_samples, name, distortion=1.0):
-        sampled_indecies, _, _ = tf.nn.fixed_unigram_candidate_sampler(tf.cast(tf.expand_dims(q_ids, axis=1), dtype=tf.int64),
-                                                                       num_true=1,
-                                                                       num_sampled=batch_size * n_samples,
-                                                                       unique=False,
-                                                                       distortion=distortion,
-                                                                       range_max=self.network_architecture['n_topics'],
-                                                                       vocab_file=unigram_path,
-                                                                       seed=self._seed,
-                                                                       name='Unigram_Sampler_'+name)
-        sampled_indecies=tf.cast(sampled_indecies, dtype=tf.int32)
-        targets_sampled = tf.where(tf.equal(tf.tile(q_ids, [n_samples]), sampled_indecies),
-                                   tf.ones(shape=[batch_size * n_samples], dtype=tf.float32),
-                                   tf.zeros(shape=[batch_size * n_samples], dtype=tf.float32))
-
-        q_ids = tf.concat([q_ids, sampled_indecies], axis=0)
-        targets = tf.concat([targets, targets_sampled], axis=0)
-        targets = tf.expand_dims(targets, axis=1)
-
-        return targets, q_ids
-
-
-    def write_out(self, txt, name):
-        """
-        Save array to file
-        :param txt: String to save to file
-        :param name: File name
-        :return:
-        """
-        with open(self._save_path + '/' + name + '.txt', 'w') as fout:
-            fout.write(str(txt))

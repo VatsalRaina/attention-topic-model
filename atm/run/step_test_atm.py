@@ -24,16 +24,8 @@ commandLineParser.add_argument('--debug', type=int, default=0,
                                help='Specify path to model which should be loaded')
 commandLineParser.add_argument('--epoch', type=str, default=None,
                                help='which should be loaded')
-commandLineParser.add_argument('data_path', type=str,
+commandLineParser.add_argument('data_pattern', type=str,
                                help='absolute path to response data')
-commandLineParser.add_argument('prompt_path', type=str,
-                               help='absolute path to prompt data')
-commandLineParser.add_argument('target_path', type=str,
-                               help='absolute path to response data')
-commandLineParser.add_argument('wlist_path', type=str,
-                               help='absolute path to input word list')
-commandLineParser.add_argument('topic_path', type=str,
-                               help='absolute path to input word list')
 commandLineParser.add_argument('name', type=str, default=None,
                                help='which should be loaded')
 
@@ -46,12 +38,6 @@ def main(argv=None):
     with open('CMDs/step_test_attention_grader.cmd', 'a') as f:
         f.write(' '.join(sys.argv) + '\n')
 
-    # Process test data
-    targets = np.loadtxt(args.target_path, dtype=np.int32)
-    responses, response_lens = text_to_array(args.data_path, args.wlist_path)
-    prompts, prompt_lens = text_to_array(args.prompt_path, args.wlist_path)
-
-    data = [targets, responses, response_lens, prompts, prompt_lens]
 
     # Initialize and Run the Model
     atm = AttentionTopicModel(network_architecture=None,
@@ -59,13 +45,12 @@ def main(argv=None):
                               debug_mode=args.debug,
                               epoch=args.epoch)
 
-    test_probs, test_preds, attention, test_loss = atm.predict(data)
+    test_labels, test_probs, test_loss = atm.predict(args.data_pattern)
     # Do evaluations, calculate metrics, etc...
 
-    format_str = ('Test Loss, %.4f, Test ROC AUC = %.3f, Test Accuracy = %.3f')
-    roc_score = roc(np.asarray(np.asarray(targets, dtype=np.int32)), test_probs)
-    accuracy = accuracy_score(np.asarray(targets, dtype=np.int32), test_preds, normalize=True)
-    print format_str % (test_loss, roc_score, accuracy)
+    format_str = ('Test Loss, %.4f, Test ROC AUC = %.3f')
+    roc_score = roc(np.squeeze(test_labels), np.squeeze(test_probs))
+    print format_str % (test_loss, roc_score)
 
 
     # np.savetxt('probs_' + args.name + '.txt', test_probs)

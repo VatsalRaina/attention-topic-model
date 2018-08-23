@@ -43,11 +43,11 @@ def main(argv=None):
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
-    # Load responses - check out load_text files...
+        # Load responses and prompts as sequences of word ids
     responses, _ = load_text(args.input_data_path, args.input_wlist_path)
     prompts, _ = load_text(args.input_prompt_path, args.input_wlist_path)
 
-    # Load up the prompts file
+    # Load up the prompts as sequences of words
     with open(args.input_prompt_path, 'r') as file:
         topics = [line.replace('\n', '') for line in file.readlines()]
 
@@ -103,7 +103,6 @@ def main(argv=None):
     valid_grades = grades[inded_valid]
 
     # Create the training TF Record file
-    ### Maybe want to split into multiple files???
     filename = 'relevance.train.tfrecords'
     print 'Writing', filename
     writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir,filename))
