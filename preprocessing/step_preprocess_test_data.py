@@ -37,10 +37,10 @@ def main(argv=None):
     args = commandLineParser.parse_args()
 
     if not os.path.isdir(args.destination_dir):
-        os.mkdir(args.destination_dir)
+        os.makedirs(args.destination_dir)
 
     if not os.path.isdir('CMDs'):
-        os.mkdir('CMDs')
+        os.makedirs('CMDs')
 
     with open('CMDs/step_preprocess_test_data.cmd', 'a') as f:
         f.write(' '.join(sys.argv) + '\n')

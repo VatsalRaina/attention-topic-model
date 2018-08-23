@@ -31,7 +31,7 @@ commandLineParser.add_argument('--samples', type=int, default=10,
 def main(argv=None):
     args = commandLineParser.parse_args()
     if not os.path.isdir('CMDs'):
-        os.mkdir('CMDs')
+        os.makedirs('CMDs')
     with open('CMDs/step_construct_eval_data.cmd', 'a') as f:
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
@@ -65,8 +65,7 @@ def main(argv=None):
     rel = 0
     tot = 0
     for sample in xrange(args.samples):
-        for dat, conf, ques, sques, tar, spkr, bul in zip(data, confs, questions, shuf_questions, grades, speakers,
-                                                          bulats):
+        for dat, conf, ques, sques, tar, spkr in zip(data, confs, questions, shuf_questions, grades, speakers):
             rel += 1
             tot += 2
             if ques == sques:
