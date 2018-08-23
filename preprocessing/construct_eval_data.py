@@ -51,7 +51,7 @@ def main(argv=None):
     #    features= [line for line in f.readlines()]
 
     # Copy questions
-    np.random.seed(1000)
+    np.random.seed(100)
     shuf_questions = questions[:]
     shuf_questions = np.random.permutation(shuf_questions)
     pre_A1 = []
