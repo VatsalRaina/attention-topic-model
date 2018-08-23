@@ -40,6 +40,8 @@ commandLineParser.add_argument('--epoch', type=str, default=None,
                                help='which should be loaded')
 commandLineParser.add_argument('train_data', type=str,
                                help='which should be loaded')
+commandLineParser.add_argument('train_size', type=int,
+                               help='which should be loaded')
 commandLineParser.add_argument('valid_data', type=str,
                                help='which should be loaded')
 commandLineParser.add_argument('topic_path', type=str,
@@ -75,7 +77,7 @@ def main(argv=None):
             topics=topics,
             topic_lens=topic_lens,
             unigram_path=args.topic_count_path,
-            train_size=264228,
+            train_size=args.train_size,
             learning_rate=args.learning_rate,
             lr_decay=args.lr_decay,
             dropout=args.dropout,

@@ -15,8 +15,6 @@ commandLineParser.add_argument('gradefile', type=str,
                                help='Absolute path to target file')
 commandLineParser.add_argument('speakerfile', type=str,
                                help='Absolute path to speaker file')
-commandLineParser.add_argument('bulats_gradefile', type=str,
-                               help='Absolute path to speaker file')
 commandLineParser.add_argument('name', type=str,
                                help='Name of dataset to create')
 commandLineParser.add_argument('path', type=str,
@@ -49,8 +47,6 @@ def main(argv=None):
         grades = [float(line.replace('\n', '')) for line in t.readlines()]
     with open(args.speakerfile, 'r') as s:
         speakers = [line for line in s.readlines()]
-    with open(args.bulats_gradefile, 'r') as f:
-        bulats = [float(line.replace('\n', '')) for line in f.readlines()]
     # with open(args.featurefile, 'r') as f:
     #    features= [line for line in f.readlines()]
 
@@ -80,26 +76,26 @@ def main(argv=None):
                 qtar = 0
 
             if int(np.floor(tar)) == 0:
-                pre_A1.append([dat, conf, ques, 1, spkr, bul])
-                pre_A1.append([dat, conf, sques, qtar, spkr, bul])
+                pre_A1.append([dat, conf, ques, 1, spkr, tar])
+                pre_A1.append([dat, conf, sques, qtar, spkr, tar])
             elif int(np.floor(tar)) == 1:
-                A1.append([dat, conf, ques, 1, spkr, bul])
-                A1.append([dat, conf, sques, qtar, spkr, bul])
+                A1.append([dat, conf, ques, 1, spkr, tar])
+                A1.append([dat, conf, sques, qtar, spkr, tar])
             elif int(np.floor(tar)) == 2:
-                A2.append([dat, conf, ques, 1, spkr, bul])
-                A2.append([dat, conf, sques, qtar, spkr, bul])
+                A2.append([dat, conf, ques, 1, spkr, tar])
+                A2.append([dat, conf, sques, qtar, spkr, tar])
             elif int(np.floor(tar)) == 3:
-                B1.append([dat, conf, ques, 1, spkr, bul])
-                B1.append([dat, conf, sques, qtar, spkr, bul])
+                B1.append([dat, conf, ques, 1, spkr, tar])
+                B1.append([dat, conf, sques, qtar, spkr, tar])
             elif int(np.floor(tar)) == 4:
-                B2.append([dat, conf, ques, 1, spkr, bul])
-                B2.append([dat, conf, sques, qtar, spkr, bul])
+                B2.append([dat, conf, ques, 1, spkr, tar])
+                B2.append([dat, conf, sques, qtar, spkr, tar])
             elif int(np.floor(tar)) == 5:
-                C1.append([dat, conf, ques, 1, spkr, bul])
-                C1.append([dat, conf, sques, qtar, spkr, bul])
+                C1.append([dat, conf, ques, 1, spkr, tar])
+                C1.append([dat, conf, sques, qtar, spkr, tar])
             elif int(np.floor(tar)) == 6:
-                C2.append([dat, conf, ques, 1, spkr, bul])
-                C2.append([dat, conf, sques, qtar, spkr, bul])
+                C2.append([dat, conf, ques, 1, spkr, tar])
+                C2.append([dat, conf, sques, qtar, spkr, tar])
             shuf_questions = np.random.permutation(shuf_questions)
 
     print 'percent relevant:', float(rel) / float(tot)
@@ -114,7 +110,6 @@ def main(argv=None):
     data.extend(C2)
     data = np.random.permutation(data)
 
-    print len(bulats)
     with open(os.path.join(args.path, args.name + '_' + args.gradefile.split('/')[-1]), 'w') as g:
         with open(os.path.join(args.path, args.name + '_' + args.conffile.split('/')[-1]), 'w') as c:
             with open(os.path.join(args.path, args.name + '_' + args.datafile.split('/')[-1]), 'w') as d:
