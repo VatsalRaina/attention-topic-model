@@ -92,7 +92,7 @@ def main(argv=None):
     os.chdir(args.destination_dir)
     os.mkdir('model')
     os.symlink(args.data_path, 'data')
-    os.symlink(args.library_path, 'MalLib')
+    os.symlink(args.library_path, 'atm')
 
     #Define network architecture
     network_architecture=dict(model_name=args.name,         # Define Model Type

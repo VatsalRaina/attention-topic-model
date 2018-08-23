@@ -39,7 +39,7 @@ def main(argv=None):
     if not os.path.isdir('CMDs'):
         os.mkdir('CMDs')
 
-    with open('CMDs/step_process_relevance_data.cmd', 'a') as f:
+    with open('CMDs/step_preprocess_data.cmd', 'a') as f:
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 

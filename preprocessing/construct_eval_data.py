@@ -20,48 +20,39 @@ commandLineParser.add_argument('bulats_gradefile', type=str,
 commandLineParser.add_argument('name', type=str,
                                help='Name of dataset to create')
 commandLineParser.add_argument('path', type=str,
-                               help='Name of dataset to create')
-commandLineParser.add_argument ('section', type=str,
-                                help = 'Absolute path to feature file')
+                               help='location where to save data')
+commandLineParser.add_argument('section', type=str,
+                               help='Absolute path to feature file')
 commandLineParser.add_argument('--samples', type=int, default=10,
                                help='Name of dataset to create')
+
+
 # commandLineParser.add_argument ('featurefile', type=str,
 #                                help = 'Absolute path to feature file')
 
 def main(argv=None):
     args = commandLineParser.parse_args()
+    if not os.path.isdir('CMDs'):
+        os.mkdir('CMDs')
+    with open('CMDs/step_construct_eval_data.cmd', 'a') as f:
+        f.write(' '.join(sys.argv) + '\n')
+        f.write('--------------------------------\n')
 
     # Open All the files
     with open(args.datafile, 'r') as d:
-        data = []
-        for line in d.readlines():
-            data.append(line)
+        data = [line for line in d.readlines()]
     with open(args.conffile, 'r') as d:
-        confs = []
-        for line in d.readlines():
-            confs.append(line)
+        confs = [line for line in d.readlines()]
     with open(args.questionfile, 'r') as q:
-        questions = []
-        for line in q.readlines():
-            questions.append(line)
+        questions = [line for line in q.readlines()]
     with open(args.gradefile, 'r') as t:
-        grades = []
-        for line in t.readlines():
-            grades.append(float(line.replace('\n', '')))
-
+        grades = [float(line.replace('\n', '')) for line in t.readlines()]
     with open(args.speakerfile, 'r') as s:
-        speakers = []
-        for line in s.readlines():
-            speakers.append(line)
+        speakers = [line for line in s.readlines()]
     with open(args.bulats_gradefile, 'r') as f:
-        bulats = []
-        for line in f.readlines():
-            bulats.append(float(line.replace('\n', '')))
-
-    #  with open(args.featurefile, 'r') as f:
-    #    features=[]
-    #    for line in f.readlines():
-    #      features.append(line)
+        bulats = [float(line.replace('\n', '')) for line in f.readlines()]
+    # with open(args.featurefile, 'r') as f:
+    #    features= [line for line in f.readlines()]
 
     # Copy questions
     np.random.seed(1000)
@@ -80,7 +71,7 @@ def main(argv=None):
     for sample in xrange(args.samples):
         for dat, conf, ques, sques, tar, spkr, bul in zip(data, confs, questions, shuf_questions, grades, speakers,
                                                           bulats):
-            rel+=1
+            rel += 1
             tot += 2
             if ques == sques:
                 qtar = 1
@@ -111,7 +102,6 @@ def main(argv=None):
                 C2.append([dat, conf, sques, qtar, spkr, bul])
             shuf_questions = np.random.permutation(shuf_questions)
 
-
     print 'percent relevant:', float(rel) / float(tot)
     print len(pre_A1), len(A1), len(A2), len(B1), len(B2), len(C1), len(C2)
     data = []
@@ -129,9 +119,9 @@ def main(argv=None):
         with open(os.path.join(args.path, args.name + '_' + args.conffile.split('/')[-1]), 'w') as c:
             with open(os.path.join(args.path, args.name + '_' + args.datafile.split('/')[-1]), 'w') as d:
                 with open(os.path.join(args.path, args.name + '_' + args.questionfile.split('/')[-1]), 'w') as q:
-                    with open(os.path.join(args.path, args.name + '_targets_'+args.section+'.txt'), 'w') as t:
+                    with open(os.path.join(args.path, args.name + '_targets_' + args.section + '.txt'), 'w') as t:
                         with open(os.path.join(args.path, args.name + '_' + args.speakerfile.split('/')[-1]), 'w') as s:
-                        #   with open(name+'_topic_'+args.featurefile, 'w') as f:
+                            #   with open(name+'_topic_'+args.featurefile, 'w') as f:
                             for dat, conf, ques, tar, spkr, grd in data:
                                 d.write(dat)
                                 q.write(ques)
