@@ -112,8 +112,7 @@ def main(argv=None):
                 'targets': tfrecord_utils.float_feature([1.0]),
                 'grade': tfrecord_utils.float_feature([grd]),
                 'spkr': tfrecord_utils.bytes_feature([spkr]),
-                'q_id': tfrecord_utils.int64_feature([q_id])  # ,
-                # 'section': tfrecord_utils.int64_feature(section),
+                'q_id': tfrecord_utils.int64_feature([q_id])
             }),
             feature_lists=tf.train.FeatureLists(feature_list={
                 'response': tfrecord_utils.int64_feature_list(response),
@@ -132,8 +131,7 @@ def main(argv=None):
                 'targets': tfrecord_utils.float_feature([1.0]),
                 'grade': tfrecord_utils.float_feature([grd]),
                 'spkr': tfrecord_utils.bytes_feature([spkr]),
-                'q_id': tfrecord_utils.int64_feature([q_id])  # ,
-                # 'section': tfrecord_utils.int64_feature(section),
+                'q_id': tfrecord_utils.int64_feature([q_id])
             }),
             feature_lists=tf.train.FeatureLists(feature_list={
                 'response': tfrecord_utils.int64_feature_list(response),
