@@ -51,9 +51,9 @@ def main(argv=None):
     #    features= [line for line in f.readlines()]
 
     # Copy questions
-    np.random.seed(100)
+    np.random.seed(1000)
     shuf_questions = questions[:]
-    shuf_questions = np.random.permutation(shuf_questions)
+
     pre_A1 = []
     A1 = []
     A2 = []
@@ -61,10 +61,10 @@ def main(argv=None):
     B2 = []
     C1 = []
     C2 = []
-
     rel = 0
     tot = 0
     for sample in xrange(args.samples):
+        shuf_questions = np.random.permutation(shuf_questions)
         for dat, conf, ques, sques, tar, spkr in zip(data, confs, questions, shuf_questions, grades, speakers):
             rel += 1
             tot += 2
@@ -95,7 +95,6 @@ def main(argv=None):
             elif int(np.floor(tar)) == 6:
                 C2.append([dat, conf, ques, 1, spkr, tar])
                 C2.append([dat, conf, sques, qtar, spkr, tar])
-        shuf_questions = np.random.permutation(shuf_questions)
 
     print 'percent relevant:', float(rel) / float(tot)
     print len(pre_A1), len(A1), len(A2), len(B1), len(B2), len(C1), len(C2)
