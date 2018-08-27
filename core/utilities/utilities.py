@@ -1,3 +1,6 @@
+from __future__ import print_function, division
+from builtins import range
+
 import os
 import sys
 
@@ -106,7 +109,7 @@ def load_data(path, use_aux=False, expert=False, shuffle=False, integer=False, s
         ncols = len(f.readline().split())
         features = np.loadtxt(path + '/features.txt', dtype=np.float32, delimiter=' ', skiprows=1,
                               usecols=range(1, ncols))
-        print features.shape
+        print(features.shape)
     if use_aux:
         with open(path + '/aux.txt') as f:
             ncols = len(f.readline().split())
@@ -123,7 +126,7 @@ def load_data(path, use_aux=False, expert=False, shuffle=False, integer=False, s
                 features.reshape(len(features), -1), aux.reshape(len(aux), -1), targets.reshape(len(targets), -1)]
             np.random.seed(seed)
             np.random.shuffle(data)
-            print features.size // len(features)
+            print(features.size // len(features))
             features = data[:, :features.size // len(features)].reshape(features.shape)
             aux = data[:, features.size // len(features):aux.size // len(aux) + features.size // len(features)].reshape(
                 aux.shape)
@@ -181,7 +184,7 @@ def text_to_array(data_path, input_index, strip_start_end=True):
 
     slens = np.asarray(slens, dtype=np.int32)
     processed_data = np.zeros((len(slens), np.max(slens)), dtype=np.int32)
-    for i, length in zip(xrange(len(data)), slens):
+    for i, length in zip(range(len(data)), slens):
         processed_data[i][0:slens[i]] = data[i]
 
     return processed_data, slens
@@ -206,7 +209,7 @@ def process_data_lm(data, path, input_index, output_index, bptt, spId=False):
         input_processed_data = np.zeros((len(slens), np.max(slens)), dtype=np.int32)
         target_processed_data = np.zeros((len(slens), np.max(slens)), dtype=np.int32)
 
-        for i in xrange(len(in_data)):
+        for i in range(len(in_data)):
             input = in_data[i][:-1]
             output = out_data[i][1:]
             input_processed_data[i][0:slens[i]] = input
@@ -225,17 +228,17 @@ def process_data_lm(data, path, input_index, output_index, bptt, spId=False):
                 if s > 0:
                     sequence_lengths.append(s)
         sequence_lengths = np.asarray(sequence_lengths, dtype=np.int32)
-        # print np.mean(sequence_lengths), np.std(sequence_lengths),
+        # print(np.mean(sequence_lengths), np.std(sequence_lengths),)
 
-        # print sequence_lengths.shape[0], len(id_data)
+        # print(sequence_lengths.shape[0], len(id_data))
         input_processed_data = np.zeros((len(sequence_lengths), bptt), dtype=np.int32)
         target_processed_data = np.zeros((len(sequence_lengths), bptt), dtype=np.int32)
         row = 0
-        for i, length in zip(xrange(len(in_data)), slens):
+        for i, length in zip(range(len(in_data)), slens):
             input = in_data[i][:-1]
             output = out_data[i][1:]
             lines = int(np.ceil(length / float(bptt)))
-            for j in xrange(lines):
+            for j in range(lines):
                 input_processed_data[row + j][0:sequence_lengths[row + j]] = input[j * bptt:(j + 1) * bptt]
                 target_processed_data[row + j][0:sequence_lengths[row + j]] = output[j * bptt:(j + 1) * bptt]
             row += lines
@@ -257,7 +260,7 @@ def process_data_bucket(data, path, spId, input_index):
     data = word_to_id(data, path, input_index)
 
     slens = np.array(slens, dtype=np.int32)
-    print np.mean(slens), np.std(slens), np.max(slens)
+    print(np.mean(slens), np.std(slens), np.max(slens))
 
     processed_data = []
 

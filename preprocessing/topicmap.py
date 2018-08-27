@@ -1,4 +1,6 @@
 #!/usr/bin/python
+from __future__ import print_function, division
+from builtins import range
 
 import sys
 import os
@@ -48,7 +50,7 @@ def main(argv=None):
                                    'SA0079',
                                    'SA0081',
                                    'SA0121']:
-                        #               print 'here'
+                        #               print('here')
                         value = ' '.join(line[0:2])
                     else:
                         value = line[1]
@@ -74,7 +76,7 @@ def main(argv=None):
     index_text_dict = {}
     index_names_dict = {}
     names_names_dict = {}
-    for item, i in zip(tmp.items(), xrange(len(tmp.items()))):
+    for item, i in zip(tmp.items(), range(len(tmp.items()))):
         # item 0 is text item 1 is name, i is index.
         text_index_dict[item[0]] = i
         text_names_dict[item[0]] = item[1]
@@ -86,38 +88,38 @@ def main(argv=None):
                         key = name.split()[0] + ' SE0006'
                         text = ' '.join([inv_tmp[key], item[0]])
                     except:
-                        print 'SE0006 missing in', item[1]
+                        print('SE0006 missing in', item[1])
             names_names_dict[name] = item[1]
             names_text_dict[name] = text
             names_index_dict[name] = i
         index_text_dict[i] = text
         index_names_dict[i] = item[1]
-        # print item[0], item[1], i
+        # print(item[0], item[1], i)
         q_dict[i] = text
         for key in item[1]:
             a_dict[key] = i
 
     if args.INPUT == 'question_name':
         if args.OUTPUT == 'question_names':
-            print names_names_dict[args.input]
+            print(names_names_dict[args.input])
         elif args.OUTPUT == 'question_text':
-            print names_text_dict[args.input]
+            print(names_text_dict[args.input])
         elif args.OUTPUT == 'question_index':
-            print names_index_dict[args.input]
+            print(names_index_dict[args.input])
     elif args.INPUT == 'question_text':
         if args.OUTPUT == 'question_names':
-            print text_names_dict[args.input]
+            print(text_names_dict[args.input])
         elif args.OUTPUT == 'question_text':
-            print args.input
+            print(args.input)
         elif args.OUTPUT == 'question_index':
-            print text_index_dict[args.input]
+            print(text_index_dict[args.input])
     elif args.INPUT == 'question_index':
         if args.OUTPUT == 'question_names':
-            print index_names_dict[int(args.input)]
+            print(index_names_dict[int(args.input)])
         elif args.OUTPUT == 'question_text':
-            print index_text_dict[int(args.input)]
+            print(index_text_dict[int(args.input)])
         elif args.OUTPUT == 'question_index':
-            print args.input
+            print(args.input)
 
     path = 'qa_ALL_dicts.pickle'
     with open(path, 'wb') as handle:

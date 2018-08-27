@@ -1,4 +1,6 @@
 #!/usr/bin/python
+from __future__ import print_function, division
+from builtins import range
 
 import sys
 import os
@@ -21,7 +23,7 @@ def main(argv=None):
     args = commandLineParser.parse_args()
     path = os.path.join('/home/alta/BLTSpeaking/exp-am969/dnn_grader/', args.dataset, args.acoustic_model,
                         'F3/raw_features.txt')
-    print path
+    print(path)
     features_dict = {}
     with open(path, 'r') as handle:
         for line in handle.readlines():

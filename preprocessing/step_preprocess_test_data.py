@@ -1,5 +1,6 @@
 #! /usr/bin/env python
-
+from __future__ import print_function, division
+from builtins import range
 
 import argparse
 import os
@@ -62,7 +63,7 @@ def main(argv=None):
     with open(os.path.join(args.sorted_topics_path), 'r') as tfile:
         for topic in tfile.readlines():
             topic_dict[topic.replace('\n', '')] = i
-            i+=1
+            i += 1
 
     # Load up the prompts as sequences of words and convert to q_id
     with open(args.input_prompt_path, 'r') as file:
@@ -70,7 +71,7 @@ def main(argv=None):
 
     # Create the training TF Record file
     filename = args.name + '.tfrecords'
-    print 'Writing', filename
+    print('Writing', filename)
     writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir, filename))
     for response, prompt, q_id, grd, spkr, tgt in zip(responses, prompts, q_ids, grades, speakers, targets):
         example = tf.train.SequenceExample(

@@ -1,4 +1,6 @@
 # !/usr/bin/python
+from __future__ import print_function, division
+from builtins import range
 
 import sys
 import os
@@ -35,6 +37,7 @@ commandLineParser.add_argument('topic_dict_path', type=str,
 commandLineParser.add_argument('section', type=str, choices=['SA', 'SB', 'SC', 'SD', 'SE'], default='SC',
                                help='Which section to process')
 
+
 def main(argv=None):
     args = commandLineParser.parse_args()
     if args.MERGE_SE:
@@ -49,7 +52,7 @@ def main(argv=None):
     # path = 'features_' + args.dataset + '_dict.pickle'
     #  with open(path, 'rb') as handle:
     #     feature_dict = pickle.load(handle)
-    #lines = []
+    # lines = []
 
     missing = []
     with open(args.dataset + '_' + args.section + '.conf') as conf_raw:

@@ -1,4 +1,7 @@
 #!/usr/bin/python
+from __future__ import print_function, division
+from builtins import range
+
 import argparse
 
 commandLineParser = argparse.ArgumentParser(description='Compute features from labels.')
@@ -40,6 +43,7 @@ def main(argv=None):
         handle.write(text)
     with open(args.TXT + '.conf', 'w') as handle:
         handle.write(confidences)
+
 
 if __name__ == '__main__':
     main()

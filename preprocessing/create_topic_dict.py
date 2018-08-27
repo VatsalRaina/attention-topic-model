@@ -1,4 +1,6 @@
 #!/usr/bin/python
+from __future__ import print_function, division
+from builtins import range
 
 import sys
 import os
@@ -53,13 +55,13 @@ def main(argv=None):
             else:
                 tmp[key] = [value]
 
-        for item, i in zip(tmp.items(), xrange(len(tmp.items()))):
-            #       print item[0], item[1], i
+        for item, i in zip(tmp.items(), range(len(tmp.items()))):
+            #       print(item[0], item[1], i)
             q_dict[i] = item[0]
             for key in item[1]:
                 a_dict[key] = i
 
-                # print q_dict
+                # print(q_dict)
         path = 'qa_' + args.section + '_dicts.pickle'
         with open(path, 'wb') as handle:
             pickle.dump([q_dict, a_dict], handle, protocol=pickle.HIGHEST_PROTOCOL)

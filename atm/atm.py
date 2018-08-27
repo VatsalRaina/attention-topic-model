@@ -1,3 +1,6 @@
+from __future__ import print_function, division
+from builtins import range
+
 import os
 import time
 
@@ -59,116 +62,6 @@ class AttentionTopicModel(BaseModel):
                 # If necessary, restore model from previous
         elif load_path != None:
             self.load(load_path=load_path, step=epoch)
-
-    # def _construct_network(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen,
-    #                        batch_size, keep_prob=1.0):
-    #     """ Construct RNNLM network
-    #     Args:
-    #       ?
-    #     Returns:
-    #       predictions, logits
-    #     """
-    #
-    #     L2 = self.network_architecture['L2']
-    #     initializer = self.network_architecture['initializer']
-    #
-    #     # Question Encoder RNN
-    #     with tf.variable_scope('Embeddings', initializer=initializer(self._seed)) as scope:
-    #         embedding = slim.model_variable('word_embedding',
-    #                                         shape=[self.network_architecture['n_in'],
-    #                                                self.network_architecture['n_ehid']],
-    #                                         initializer=tf.truncated_normal_initializer(stddev=0.1),
-    #                                         regularizer=slim.l2_regularizer(L2),
-    #                                         device='/GPU:0')
-    #         a_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, a_input, name='embedded_data'),
-    #                                  keep_prob=keep_prob, seed=self._seed + 1)
-    #         q_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_input, name='embedded_data'),
-    #                                  keep_prob=keep_prob, seed=self._seed + 2)
-    #
-    #     with tf.variable_scope('RNN_Q', initializer=initializer(self._seed)) as scope:
-    #         cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=self.network_architecture['n_phid'],
-    #                                                forget_bias=1.0,
-    #                                                activation=self.network_architecture['r_activation_fn'],
-    #                                                state_is_tuple=True)
-    #         cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=self.network_architecture['n_phid'],
-    #                                                forget_bias=1.0,
-    #                                                activation=self.network_architecture['r_activation_fn'],
-    #                                                state_is_tuple=True)
-    #
-    #         cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, output_keep_prob=keep_prob)
-    #         cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw, output_keep_prob=keep_prob)
-    #
-    #         initial_state_fw = cell_fw.zero_state(batch_size=batch_size * (n_samples + 1), dtype=tf.float32)
-    #         initial_state_bw = cell_bw.zero_state(batch_size=batch_size * (n_samples + 1), dtype=tf.float32)
-    #
-    #         _, state = tf.nn.bidirectional_dynamic_rnn(cell_fw=cell_fw,
-    #                                                    cell_bw=cell_bw,
-    #                                                    inputs=q_inputs,
-    #                                                    sequence_length=q_seqlens,
-    #                                                    initial_state_fw=initial_state_fw,
-    #                                                    initial_state_bw=initial_state_bw,
-    #                                                    dtype=tf.float32,
-    #                                                    parallel_iterations=32,
-    #                                                    scope=scope)
-    #
-    #         question_embeddings = tf.concat([state[0][1], state[1][1]], axis=1)
-    #         question_embeddings = tf.nn.dropout(question_embeddings, keep_prob=keep_prob, seed=self._seed)
-    #
-    #     # Response Encoder RNN
-    #     with tf.variable_scope('RNN_A', initializer=initializer(self._seed)) as scope:
-    #         cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=self.network_architecture['n_rhid'],
-    #                                                forget_bias=1.0,
-    #                                                activation=self.network_architecture['r_activation_fn'],
-    #                                                state_is_tuple=True)
-    #         cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=self.network_architecture['n_rhid'],
-    #                                                forget_bias=1.0,
-    #                                                activation=self.network_architecture['r_activation_fn'],
-    #                                                state_is_tuple=True)
-    #
-    #         initial_state_fw = cell_fw.zero_state(batch_size=batch_size, dtype=tf.float32)
-    #         initial_state_bw = cell_bw.zero_state(batch_size=batch_size, dtype=tf.float32)
-    #
-    #         cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, output_keep_prob=keep_prob)
-    #         cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw, output_keep_prob=keep_prob)
-    #
-    #         outputs, state = tf.nn.bidirectional_dynamic_rnn(cell_fw=cell_fw,
-    #                                                          cell_bw=cell_bw,
-    #                                                          inputs=a_inputs,
-    #                                                          sequence_length=a_seqlens,
-    #                                                          initial_state_fw=initial_state_fw,
-    #                                                          initial_state_bw=initial_state_bw,
-    #                                                          dtype=tf.float32,
-    #                                                          parallel_iterations=32,
-    #                                                          scope=scope)
-    #
-    #         a_seqlens = tf.tile(a_seqlens, [n_samples + 1])
-    #         outputs = tf.concat([outputs[0], outputs[1]], axis=2)
-    #         outputs = tf.tile(outputs, [1 + n_samples, 1, 1])
-    #
-    #     print outputs.get_shape(), a_seqlens.get_shape()
-    #
-    #     hidden, attention = self._bahdanau_attention(memory=outputs, seq_lens=a_seqlens, maxlen=maxlen,
-    #                                                  query=question_embeddings,
-    #                                                  size=2 * self.network_architecture['n_rhid'],
-    #                                                  batch_size=batch_size * (n_samples + 1))
-    #
-    #     with tf.variable_scope('Grader') as scope:
-    #         for layer in xrange(self.network_architecture['n_flayers']):
-    #             hidden = slim.fully_connected(hidden,
-    #                                           self.network_architecture['n_fhid'],
-    #                                           activation_fn=self.network_architecture['f_activation_fn'],
-    #                                           weights_regularizer=slim.l2_regularizer(L2),
-    #                                           scope="hidden_layer_" + str(layer))
-    #             hidden = tf.nn.dropout(hidden, keep_prob=keep_prob, seed=self._seed + layer)
-    #
-    #         logits = slim.fully_connected(hidden,
-    #                                       self.network_architecture['n_out'],
-    #                                       activation_fn=None,
-    #                                       scope="output_layer")
-    #         probabilities = self.network_architecture['output_fn'](logits)
-    #         predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
-    #
-    #     return predictions, probabilities, logits, attention
 
     def _construct_network(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen, batch_size, keep_prob=1.0):
         """ Construct RNNLM network
@@ -236,7 +129,7 @@ class AttentionTopicModel(BaseModel):
                                                      batch_size=batch_size * (n_samples + 1))
 
         with tf.variable_scope('Grader') as scope:
-            for layer in xrange(self.network_architecture['n_flayers']):
+            for layer in range(self.network_architecture['n_flayers']):
                 hidden = slim.fully_connected(hidden,
                                               self.network_architecture['n_fhid'],
                                               activation_fn=self.network_architecture['f_activation_fn'],
@@ -398,13 +291,13 @@ class AttentionTopicModel(BaseModel):
 
             format_str = (
                 'Epoch %d, Train Loss = %.2f, Valid Loss = %.2f, Valid ROC = %.2f, (%.1f examples/sec; %.3f ' 'sec/batch)')
-            print "Starting Training!\n-----------------------------"
+            print("Starting Training!\n-----------------------------")
             start_time = time.time()
-            for epoch in xrange(epoch + 1, epoch + n_epochs + 1):
+            for epoch in range(epoch + 1, epoch + n_epochs + 1):
                 # Run Training Loop
                 loss = 0.0
                 batch_time = time.time()
-                for batch in xrange(n_batches):
+                for batch in range(n_batches):
                     _, loss_value = self.sess.run([train_op, trn_cost], feed_dict={self.dropout: dropout})
                     assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
                     loss += loss_value
@@ -458,7 +351,7 @@ class AttentionTopicModel(BaseModel):
                 format_str = ('Training took %.3f sec')
                 f.write('\n' + format_str % (duration) + '\n')
                 f.write('----------------------------------------------------------\n')
-            print (format_str % (duration))
+            print(format_str % duration)
             self.save()
 
     def predict(self, test_pattern, batch_size=20):
@@ -520,32 +413,3 @@ class AttentionTopicModel(BaseModel):
 
         return test_labels, test_probs, test_loss
 
-        # def rank(self, X, topics, name=None):
-        #     with self._graph.as_default():
-        #         test_probs = None
-        #         batch_size = len(topics[1])
-        #         test_probs = np.zeros(shape=(len(X[0]), batch_size), dtype=np.float32)
-        #         for i in xrange(len(X[1])):
-        #             if i % 10 == 0: print i
-        #             batch_test_probs = self.sess.run(self._probabilities,
-        #                                              feed_dict={self.x_a: np.asarray([X[0][i]] * batch_size),
-        #                                                         self.alens: np.asarray([X[1][i]] * batch_size),
-        #                                                         self.q_ids: np.arange(batch_size),
-        #                                                         self.x_q: topics[0],
-        #                                                         self.qlens: topics[1],
-        #                                                         self.maxlen: np.max(X[1]),
-        #                                                         self.batch_size: batch_size})
-        #             test_probs[i, :] = np.squeeze(batch_test_probs)
-        #         np.savetxt(name + '_probabilities_topics.txt', test_probs)
-        #         test_probs = np.reshape(test_probs, newshape=(batch_size * len(X[0])))
-        #         hist = np.histogram(test_probs, bins=100, range=[0.0, 1.0], density=True)
-        #
-        #         plt.plot(hist[0])
-        #         plt.xticks(np.arange(0, 101, 20), [str(i / 100.0) for i in xrange(0, 101, 20)])
-        #         plt.ylim(0, 50)
-        #         plt.ylabel('Density')
-        #         plt.xlabel('Relevance Probability')
-        #         plt.title('Empirical PDF of Relevance Probabilities')
-        #         # plt.show()
-        #         plt.savefig('histogram_LINSKneg02.png')
-        #         plt.close()

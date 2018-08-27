@@ -1,4 +1,6 @@
 #! /usr/bin/env python
+from __future__ import print_function, division
+from builtins import range
 
 import argparse
 import os
@@ -30,7 +32,6 @@ commandLineParser.add_argument('name', type=str, default=None,
                                help='which should be loaded')
 
 
-
 def main(argv=None):
     args = commandLineParser.parse_args()
     if not os.path.isdir('CMDs'):
@@ -50,34 +51,7 @@ def main(argv=None):
 
     format_str = ('Test Loss, %.4f, Test ROC AUC = %.3f')
     roc_score = roc(np.squeeze(test_labels), np.squeeze(test_probs))
-    print format_str % (test_loss, roc_score)
-
-
-    # np.savetxt('probs_' + args.name + '.txt', test_probs)
-    # np.savetxt('test_attention.txt', attention)
-    # np.savetxt('probs_' + args.name + '.txt', test_probs)
-    #
-    # fpr, tpr, thresholds = roc_curve(np.asarray(np.squeeze(targets), dtype=np.int32), test_probs)
-    # plt.plot(fpr, tpr, c='r')
-    # plt.plot([0, 1], [0, 1], 'k--', lw=4)
-    # plt.xlim([0.0, 1.0])
-    # plt.ylim([0.0, 1.0])
-    # plt.xlabel('False Positive Rate')
-    # plt.ylabel('True Positive Rate')
-    # plt.title('Test ROC for Topic Detection')
-    # plt.savefig('test_roc_' + args.name + '.png')
-    # plt.close()
-    # # scatter(np.round(np.squeeze(X[0])), test_preds, name='test',dir='./')
-    #
-    # # plot_confusion_matrix(np.round(np.squeeze(X[0])), test_preds, classes=self.network_architecture['n_out'], name='test',dir='./')
-    # np.savetxt('./fpr_' + args.name + '.txt', fpr)
-    # np.savetxt('./tpr_' + args.name + '.txt', tpr)
-    # # if name is None:
-    # #  np.savetxt('./fpr_'+name+'.txt', fpr)
-    # #  np.savetxt('./tpr_'+name+'.txt', tpr)
-    # # else:
-    # #  np.savetxt(name, sent_embeddings)
-
+    print(format_str % (test_loss, roc_score))
 
 
 if __name__ == '__main__':

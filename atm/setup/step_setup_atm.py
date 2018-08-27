@@ -1,4 +1,7 @@
 #! /usr/bin/env python
+from __future__ import print_function, division
+from builtins import range
+
 import argparse
 import os
 import sys
@@ -84,7 +87,7 @@ def main(argv=None):
         f.write('--------------------------------\n')
 
     if os.path.isdir(args.destination_dir):
-        print 'destination directory exists. Exiting...'
+        print('destination directory exists. Exiting...')
     else:
         os.mkdir(args.destination_dir)
 

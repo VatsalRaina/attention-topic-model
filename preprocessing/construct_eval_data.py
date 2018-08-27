@@ -1,4 +1,7 @@
 #! /usr/bin/env python
+from __future__ import print_function, division
+from builtins import range
+
 import numpy as np
 from math import floor
 import sys, os, re
@@ -63,7 +66,7 @@ def main(argv=None):
     C2 = []
     rel = 0
     tot = 0
-    for sample in xrange(args.samples):
+    for sample in range(args.samples):
         shuf_questions = np.random.permutation(shuf_questions)
         for dat, conf, ques, sques, tar, spkr in zip(data, confs, questions, shuf_questions, grades, speakers):
             rel += 1
@@ -96,8 +99,8 @@ def main(argv=None):
                 C2.append([dat, conf, ques, 1, spkr, tar])
                 C2.append([dat, conf, sques, qtar, spkr, tar])
 
-    print 'percent relevant:', float(rel) / float(tot)
-    print len(pre_A1), len(A1), len(A2), len(B1), len(B2), len(C1), len(C2)
+    print('percent relevant:', float(rel) / float(tot))
+    print(len(pre_A1), len(A1), len(A2), len(B1), len(B2), len(C1), len(C2))
     data = []
     data.extend(pre_A1)
     data.extend(A1)
