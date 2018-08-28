@@ -342,7 +342,7 @@ class AttentionTopicModel(BaseModel):
                 # Summarize Epoch
                 with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
                     f.write(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch) + '\n')
-                print (format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
+                print(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
                 self.save(step=epoch)
 
             # Finish Training
@@ -412,4 +412,3 @@ class AttentionTopicModel(BaseModel):
             test_loss = test_loss / float(total_size)
 
         return test_labels, test_probs, test_loss
-
