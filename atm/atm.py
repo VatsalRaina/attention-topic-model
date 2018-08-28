@@ -511,7 +511,7 @@ class AttentionTopicModel(BaseModel):
                         test_labels = batch_test_targets
                     else:
                         test_probs = np.concatenate((test_probs, batch_test_probs), axis=0)
-                        test_labels = np.concatenate((test_targets, batch_test_targets), axis=0)
+                        test_labels = np.concatenate((test_labels, batch_test_targets), axis=0)
                     total_size += size
                     count+=1
                 except:  # tf.errors.OutOfRangeError:
