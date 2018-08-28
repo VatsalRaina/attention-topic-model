@@ -56,6 +56,8 @@ def main(argv=None):
 
     test_labels, test_probs, test_loss = atm.predict(args.data_pattern)
 
+
+    print test_labels.shape, test_probs.shape
     data=np.concatenate((test_labels[:,np.newaxis], test_probs[:,np.newaxis]), axis=1)
     np.savetxt(os.path.join(args.output_dir, 'labels-probs.txt'), data)
     # Do evaluations, calculate metrics, etc...
