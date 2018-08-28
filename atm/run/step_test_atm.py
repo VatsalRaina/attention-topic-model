@@ -57,14 +57,15 @@ def main(argv=None):
     test_labels, test_probs, test_loss = atm.predict(args.data_pattern)
 
     print test_labels.shape, test_probs.shape
-    test_probs = np.squeeze(test_probs)
-    data=np.concatenate((test_labels[:,np.newaxis], test_probs[:,np.newaxis]), axis=1)
+    data=np.concatenate((test_labels, test_probs), axis=1)
     np.savetxt(os.path.join(args.output_dir, 'labels-probs.txt'), data)
     # Do evaluations, calculate metrics, etc...
     roc_score = roc(np.squeeze(test_labels), np.squeeze(test_probs))
 
+    test_labels = np.squeeze(test_labels)
+    test_probs = np.squeeze(test_probs)
 
-    fpr, tpr, thresholds = roc_curve(np.asarray(np.squeeze(test_labels), dtype=np.int32), test_probs)
+    fpr, tpr, thresholds = roc_curve(np.asarray(test_labels, dtype=np.int32),test_probs)
     plt.plot(fpr, tpr, c='r')
     plt.plot([0, 1], [0, 1], 'k--', lw=4)
     plt.xlim([0.0, 1.0])
