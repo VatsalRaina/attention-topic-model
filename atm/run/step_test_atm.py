@@ -17,6 +17,7 @@ from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import auc
 sns.set()
 
+import context
 from atm.atm import AttentionTopicModel
 from core.utilities.utilities import text_to_array
 

@@ -7,6 +7,7 @@ try:
 except:
     import pickle
 
+import context
 from atm.atm import AttentionTopicModel
 from core.utilities.utilities import activation_dict
 from core.utilities.utilities import initializer_dict

@@ -11,6 +11,7 @@ from sklearn.metrics import roc_auc_score as roc
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
+import context
 from core.basemodel import BaseModel
 import core.utilities.utilities as util
 
