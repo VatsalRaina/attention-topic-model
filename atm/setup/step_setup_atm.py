@@ -18,9 +18,9 @@ commandLineParser = argparse.ArgumentParser(description='Compute features from l
 commandLineParser.add_argument('data_path', type=str,
                                help='absolute path to data')
 commandLineParser.add_argument('destination_dir', type=str,
-                               help='absolute path location wheree to setup ')
+                               help='absolute path location where to setup')
 commandLineParser.add_argument('library_path', type=str,
-                               help='absolute path location wheree to setup ')
+                               help='absolute path location where to setup')
 commandLineParser.add_argument('wlist_path', type=str,
                                help='which should be loaded')
 commandLineParser.add_argument('--name', type=str, default='attention_based_topic_model',
