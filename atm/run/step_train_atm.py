@@ -8,6 +8,7 @@ import sys
 
 import tensorflow as tf
 
+import context
 from core.utilities.utilities import text_to_array
 from atm.atm import AttentionTopicModel
 
