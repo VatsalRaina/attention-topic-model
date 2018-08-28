@@ -31,8 +31,6 @@ commandLineParser.add_argument('data_pattern', type=str,
                                help='absolute path to response data')
 commandLineParser.add_argument('output_dir', type=str, default=None,
                                help='which should be loaded')
-commandLineParser.add_argument('name', type=str, default=None,
-                               help='which should be loaded')
 
 
 
@@ -56,7 +54,6 @@ def main(argv=None):
 
     test_labels, test_probs, test_loss = atm.predict(args.data_pattern)
 
-    print test_labels.shape, test_probs.shape
     data=np.concatenate((test_labels, test_probs), axis=1)
     np.savetxt(os.path.join(args.output_dir, 'labels-probs.txt'), data)
     # Do evaluations, calculate metrics, etc...
