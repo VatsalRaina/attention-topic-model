@@ -9,7 +9,7 @@ import numpy as np
 import scipy.stats
 import math
 import matplotlib
-# matplotlib.use('Agg')
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from sklearn.metrics import roc_auc_score
@@ -151,7 +151,8 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     roc_auc_scores = np.zeros_like(proportions_included)
     for i in range(resolution):
         proportion = proportions_included[i]
-        last_idx = math.floor(num_examples * proportion) + 1
+        last_idx = int(math.floor(num_examples * proportion)) + 1
+        print(last_idx)
         labels_subset = labels_sorted[:last_idx]
         predictions_subset = predictions_sorted[:last_idx]
 
@@ -222,12 +223,12 @@ def main():
     savedir = "/home/alta/WebDir/ind_reports/bkm28"
 
     # Make std_spread histogram plot:
-    plot_spread_histogram(plt, correct, incorrect, std_spread, n_bins=30)
+    plot_spread_histogram(correct, incorrect, std_spread, n_bins=30)
     plt.savefig(savedir + '/std_spread_histogram.png', bbox_inches='tight')
     plt.clf()
 
     # Make range_spread histogram plot:
-    plot_spread_histogram(plt, correct, incorrect, range_spread, n_bins=30)
+    plot_spread_histogram(correct, incorrect, range_spread, n_bins=30)
     plt.savefig(savedir + '/range_spread_histogram.png', bbox_inches='tight')
     plt.clf()
 
@@ -239,9 +240,9 @@ def main():
     # Make std_spread vs mean deviation plot
     # Positive examples
     plt.scatter(np.extract(labels.astype(np.bool), std_spread),
-                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.2, color=green)
+                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.2, color=green, marker='o', s=0.5)
     plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.2, color=red)
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.2, color=red, marker='x', s=0.5)
     plt.savefig(savedir + '/spread_vs_mean_chart.png', bbox_inches='tight')
     plt.clf()
 
