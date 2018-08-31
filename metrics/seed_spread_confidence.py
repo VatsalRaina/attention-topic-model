@@ -9,6 +9,7 @@ import numpy as np
 import scipy.stats
 import math
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -83,6 +84,7 @@ def plot_ratio_bar_chart(correct, incorrect, spread, n_bins=20, ax=None, y_lim=[
     :param spread: spread of ensemble for each example
     :param n_bins: int
     :param ax: either an plt.ax object or None. If None, default figure will be used.
+    :param y_lim: range of y values on the plot
     """
     if ax is None:
         # If ax not given, just plot on the current figure
@@ -122,7 +124,7 @@ def plot_ratio_bar_chart(correct, incorrect, spread, n_bins=20, ax=None, y_lim=[
             ax.fill_between(edges[i:i + 2], ratio_correct[i], 1., color=red)
             ax.fill_between(edges[i:i + 2], 0., ratio_correct[i], color=green)
 
-    ax.plot(plot_point_x, plot_point_y, color='white')
+    ax.plot(plot_point_x, plot_point_y, color='blue')
 
     ax.xlim([edges[0], edges[-1]])
     ax.ylim(y_lim)
@@ -164,7 +166,7 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
             roc_auc_scores[i] = np.nan
 
     print(roc_auc_scores)
-    plt.plot(proportions_included, roc_auc_scores, color='black')
+    plt.plot(proportions_included, roc_auc_scores, color=(.2, .2, .6))
 
     return
 
@@ -224,18 +226,20 @@ def main():
 
     # Make std_spread histogram plot:
     plot_spread_histogram(correct, incorrect, std_spread, n_bins=30)
+    plt.xlabel("Spread (std of ensemble predictions)")
+    plt.ylabel("Example Count")
     plt.savefig(savedir + '/std_spread_histogram.png', bbox_inches='tight')
     plt.clf()
 
     # Make range_spread histogram plot:
     plot_spread_histogram(correct, incorrect, range_spread, n_bins=30)
     plt.savefig(savedir + '/range_spread_histogram.png', bbox_inches='tight')
-    plt.xlabel("Spread (std of ensemble prediction)")
-    plt.ylabel("ROC AUC score on the subset examples included")
+    plt.xlabel("Spread (range of ensemble predictions)")
+    plt.ylabel("Example Count")
     plt.clf()
 
     # Make the ratios plots
-    plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=30)
+    plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=30, y_lim=[0.9, 1.0])
     plt.savefig(savedir + '/ratios_std_spread_histogram.png', bbox_inches='tight')
     plt.clf()
 
@@ -244,7 +248,8 @@ def main():
     plt.scatter(np.extract(labels.astype(np.bool), std_spread),
                 np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.2, color=green, marker='o', s=0.5)
     plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.2, color=red, marker='x', s=0.5)
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.2, color=red, marker='x',
+                s=0.5)
     plt.savefig(savedir + '/spread_vs_mean_chart.png', bbox_inches='tight')
     plt.clf()
 
