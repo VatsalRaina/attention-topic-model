@@ -229,6 +229,8 @@ def main():
     # Make range_spread histogram plot:
     plot_spread_histogram(plt, correct, incorrect, range_spread, n_bins=30)
     plt.savefig(savedir + '/range_spread_histogram.png', bbox_inches='tight')
+    plt.xlabel("Spread (std of ensemble prediction)")
+    plt.ylabel("ROC AUC score on the subset examples included")
     plt.clf()
 
     # Make the ratios plots
@@ -247,6 +249,8 @@ def main():
 
     # Make AUC vs. cumulative samples included by spread
     plot_auc_vs_percentage_included(labels, avg_predictions, std_spread, resolution=200)
+    plt.xlabel("Percentage examples included as sorted by std of ensemble predictions (from low to high)")
+    plt.ylabel("ROC AUC score on the subset examples included")
     plt.savefig(savedir + '/auc_vs_cumulative_samples_included.png', bbox_inches='tight')
     plt.clf()
     return
