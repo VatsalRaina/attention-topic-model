@@ -77,9 +77,7 @@ def main(argv=None):
     print 'Writing', filename
 
     writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir, filename))
-    print responses, prompts, q_ids, grades, speakers, targets
     for response, prompt, q_id, grd, spkr, tgt in zip(responses, prompts, q_ids, grades, speakers, targets):
-        print response, prompt, q_id, grd, spkr, tgt
         example = tf.train.SequenceExample(
             context=tf.train.Features(feature={
                 'targets': tfrecord_utils.float_feature([tgt]),
