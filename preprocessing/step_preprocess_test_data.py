@@ -69,7 +69,7 @@ def main(argv=None):
         try:
             q_ids = np.asarray([topic_dict[line.replace('\n', '')] for line in file.readlines()])
         except:
-            q_ids = -1
+            q_ids = np.asarray([-1 for line in file.readlines()])
 
     # Create the training TF Record file
     filename = args.name + '.tfrecords'
