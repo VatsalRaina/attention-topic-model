@@ -23,7 +23,7 @@ commandLineParser.add_argument('input_spkr_path', type=str,
 commandLineParser.add_argument('input_wlist_path', type=str,
                                help='absolute path to input word list')
 commandLineParser.add_argument('destination_dir', type=str,
-                               help='absolute path location wheree to setup ')
+                               help='absolute path location where to setup ')
 commandLineParser.add_argument('--valid_fraction', type=float, default=0.1,
                                help='fraction of full data to reserve for validation')
 

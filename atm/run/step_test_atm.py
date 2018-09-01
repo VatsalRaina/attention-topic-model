@@ -17,6 +17,7 @@ from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import auc
 sns.set()
 
+import context
 from atm.atm import AttentionTopicModel
 from core.utilities.utilities import text_to_array
 
@@ -94,10 +95,11 @@ def main(argv=None):
     plt.close()
 
     with open(os.path.join(args.output_dir, 'results.txt'), 'a') as f:
-        f.write('ROC AUC:' + str(np.round(roc_score,3)) + '\n')
+        f.write('Epoch: ' + str(args.epoch) + '\n')
+        f.write('ROC AUC:' + str(np.round(roc_score, 3)) + '\n')
         f.write('ROC PR Detect Relevant:' + str(np.round(aupr_rel, 3)) + '\n')
         f.write('ROC PR Detect Non-Relevant:' + str(np.round(aupr_nonrel, 3)) + '\n')
-        f.write('Cross Entropy:' + str(np.round(test_loss, 3)) + '\n')
+        f.write('Cross Entropy:' + str(np.round(test_loss, 3)) + '\n\n')
 
 if __name__ == '__main__':
     main()
