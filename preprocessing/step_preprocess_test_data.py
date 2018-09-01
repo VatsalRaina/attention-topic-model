@@ -66,7 +66,10 @@ def main(argv=None):
 
     # Load up the prompts as sequences of words and convert to q_id
     with open(args.input_prompt_path, 'r') as file:
-        q_ids = np.asarray([topic_dict[line.replace('\n', '')] for line in file.readlines()])
+        try:
+            q_ids = np.asarray([topic_dict[line.replace('\n', '')] for line in file.readlines()])
+        except:
+            q_ids = -1
 
     # Create the training TF Record file
     filename = args.name + '.tfrecords'
