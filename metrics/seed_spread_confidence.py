@@ -99,8 +99,6 @@ def plot_ratio_bar_chart(correct, incorrect, spread, n_bins=20, ax=None, y_lim=[
     assert np.all(edges_correct == edges_incorrect)
     edges = edges_correct
 
-    print(correct_binned)
-    print(incorrect_binned)
     total_binned = correct_binned + incorrect_binned
     with np.errstate(divide='ignore', invalid='ignore'):
         ratio_correct = np.divide(correct_binned, total_binned)
@@ -152,7 +150,6 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     for i in range(resolution):
         proportion = proportions_included[i]
         last_idx = int(math.floor(num_examples * proportion)) + 1
-        print(last_idx)
         labels_subset = labels_sorted[:last_idx]
         predictions_subset = predictions_sorted[:last_idx]
 
@@ -259,6 +256,8 @@ def main():
     plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
                 np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.2, color=red, marker='x',
                 s=0.5)
+    plt.xlabel("Spread (std of ensemble predictions)")
+    plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/spread_vs_mean_chart.png', bbox_inches='tight')
     plt.clf()
 
