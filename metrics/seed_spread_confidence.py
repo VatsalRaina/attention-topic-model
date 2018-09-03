@@ -71,8 +71,8 @@ def plot_spread_histogram(correct, incorrect, spread, n_bins=20, ax=None):
     spread_incorrect = np.extract(incorrect, spread)
     ax.hist((spread_correct, spread_incorrect), n_bins, density=True,
             histtype='bar', stacked=True, color=['green', 'red'])
-    ax.hist(spread_correct, n_bins, density=True, fill=False,
-            histtype='step', stacked=True, color='white')
+    ax.hist((spread_correct, spread_incorrect), n_bins, density=True, fill=False,
+            histtype='step', stacked=True, color=['white', 'white'])
     return ax
 
 
@@ -105,8 +105,6 @@ def plot_ratio_bar_chart(correct, incorrect, spread, n_bins=20, ax=None, y_lim=[
     with np.errstate(divide='ignore', invalid='ignore'):
         ratio_correct = np.divide(correct_binned, total_binned)
         ratio_correct[~ np.isfinite(ratio_correct)] = 0.
-    print("shape bin count : ", ratio_correct.shape)
-    print("shape edges ", edges.shape)
 
     # Construct plot points:
     plot_point_x = np.empty(shape=[len(ratio_correct) * 2])
@@ -173,11 +171,22 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
 
 def test_ratio_bar_chart():
     num_examples = 10000
-    correct = np.random.randint(0, 2, size=num_examples).astype(dtype=np.bool)
-    incorrect = np.invert(correct)
-    spread = np.random.randn(num_examples)
+    num_correct = int(0.7 * num_examples)
+    num_incorrect = num_examples - num_correct
 
+    correct_spread = np.random.randn(num_correct)
+    incorrect_spread = np.random.uniform(-3, 3, size=num_incorrect)
+
+    correct = np.empty(num_examples, dtype=np.bool)
+    correct[:num_correct] = True
+    correct[num_correct:] = False
+    incorrect = np.invert(correct)
+    spread = np.hstack((correct_spread, incorrect_spread))
+
+    plt.figure(0)
     plot_ratio_bar_chart(correct, incorrect, spread, n_bins=40)
+    plt.figure(1)
+    plot_spread_histogram(correct, incorrect, spread, n_bins=40)
     plt.show()
     return
 
@@ -239,7 +248,7 @@ def main():
     plt.clf()
 
     # Make the ratios plots
-    plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=30, y_lim=[0.9, 1.0])
+    plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=30, y_lim=[0.0, 1.0])
     plt.savefig(savedir + '/ratios_std_spread_histogram.png', bbox_inches='tight')
     plt.clf()
 
@@ -263,5 +272,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    test_ratio_bar_chart()
     # test_plot_auc_vs_percentage_included()
