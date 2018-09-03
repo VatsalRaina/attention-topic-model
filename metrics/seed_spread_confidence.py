@@ -15,10 +15,14 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
+from matplotlib.collections import LineCollection
+from matplotlib.colors import ListedColormap, BoundaryNorm
 
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 
+
+matplotlib.rcParams['savefig.dpi'] = 200
 # Specify the colours
 green = (0.3, 0.9, 0.3)
 red = (0.9, 0.3, 0.3)
@@ -186,9 +190,9 @@ def plot_pr_spread_mesh(labels, predictions, sort_by_array, pos_labels=1, resolu
     predictions_sorted = predictions[sorted_order]
 
     proportions_included = np.linspace(0, 1, num=resolution)
-    # roc_auc_scores = np.zeros_like(proportions_included)
     fig = plt.figure()
     ax = fig.gca(projection='3d')
+
 
     for i in range(resolution):
         proportion = proportions_included[i]
@@ -198,13 +202,13 @@ def plot_pr_spread_mesh(labels, predictions, sort_by_array, pos_labels=1, resolu
         predictions_thresh = predictions_sorted.copy()
         predictions_thresh[last_idx:] = 0.
 
-        precision, recall, _ = precision_recall_curve(labels, predictions_thresh)
-        ax.plot3D(recall, proportion, precision)
+        precision, recall, _ = precision_recall_curve(labels_sorted, predictions_thresh)
+        ax.plot(recall, np.ones_like(recall) * proportion, precision, linewidth=0.6)
 
         del predictions_thresh
 
     ax.set_xlabel('Recall')
-    ax.set_ylabel('Proportion classified by ensemble as sorted by ' + spread_name + '.')
+    ax.set_ylabel('Proportion classified by ensemble' + spread_name + '.')
     ax.set_zlabel('Precision')
     return
 
@@ -360,7 +364,7 @@ def main():
 
     # Make precision recall 3D plot
     plot_pr_spread_mesh(labels, avg_predictions, std_spread, pos_labels=0)
-    plt.savefig(savedir + '/ensemble_3d_pr_curve.png', bbox_inches='tight')
+    plt.savefig(savedir + '/ensemble_3d_pr_curve.png')
     plt.clf()
 
     return
