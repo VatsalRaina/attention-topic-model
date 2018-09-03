@@ -12,6 +12,9 @@ import matplotlib
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
@@ -168,6 +171,44 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     return
 
 
+def plot_pr_spread_mesh(labels, predictions, sort_by_array, pos_labels=1, resolution=40, spread_name='std'):
+    assert pos_labels == 1 or pos_labels == 0
+
+    if pos_labels == 0:
+        labels = 1 - labels
+        predictions = 1 - predictions
+
+    num_examples = len(labels)
+
+    sorted_order = np.argsort(sort_by_array)
+
+    labels_sorted = labels[sorted_order]
+    predictions_sorted = predictions[sorted_order]
+
+    proportions_included = np.linspace(0, 1, num=resolution)
+    # roc_auc_scores = np.zeros_like(proportions_included)
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+
+    for i in range(resolution):
+        proportion = proportions_included[i]
+        last_idx = int(math.floor(num_examples * proportion)) + 1
+
+        # Threshold the predictions based on sorted order:
+        predictions_thresh = predictions_sorted.copy()
+        predictions_thresh[last_idx:] = 0.
+
+        precision, recall, _ = precision_recall_curve(labels, predictions_thresh)
+        ax.plot3D(recall, proportion, precision)
+
+        del predictions_thresh
+
+    ax.set_xlabel('Recall')
+    ax.set_ylabel('Proportion classified by ensemble as sorted by ' + spread_name + '.')
+    ax.set_zlabel('Precision')
+    return
+
+
 def test_ratio_bar_chart(savedir=None):
     num_examples = 10000
     num_correct = int(0.7 * num_examples)
@@ -316,7 +357,12 @@ def main():
     plt.xlim(0.0, 1.0)
     plt.savefig(savedir + '/ensemble_pr_curve.png', bbox_inches='tight')
     plt.clf()
-    
+
+    # Make precision recall 3D plot
+    plot_pr_spread_mesh(labels, avg_predictions, std_spread, pos_labels=0)
+    plt.savefig(savedir + '/ensemble_3d_pr_curve.png', bbox_inches='tight')
+    plt.clf()
+
     return
 
 
