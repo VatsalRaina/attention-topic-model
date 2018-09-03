@@ -14,10 +14,12 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from sklearn.metrics import roc_auc_score
+from sklearn.metrics import precision_recall_curve
 
 # Specify the colours
 green = (0.3, 0.9, 0.3)
 red = (0.9, 0.3, 0.3)
+dark_blue = (0.1, 0.15, 0.27)
 
 
 def get_ensemble_predictions(model_dirs, rel_labels_filepath='eval4_naive/labels-probs.txt'):
@@ -30,7 +32,7 @@ def get_ensemble_predictions(model_dirs, rel_labels_filepath='eval4_naive/labels
     labels_files = map(lambda model_dir: os.path.join(model_dir, rel_labels_filepath), model_dirs)
 
     # Get the target labels:
-    labels, _ = get_label_predictions(labels_files[0])
+    labels, _ = get_label_predictions(list(labels_files)[0])
 
     # List to store predictions from all the models considered
     all_predictions = []
@@ -93,16 +95,16 @@ def plot_ratio_bar_chart(correct, incorrect, spread, n_bins=20, ax=None, y_lim=[
     max_x = np.max(spread)
     spread_correct = np.extract(correct, spread)
     spread_incorrect = np.extract(incorrect, spread)
-    correct_binned, edges_correct = np.histogram(spread_correct, bins=n_bins, range=(min_x, max_x), density=False)
-    incorrect_binned, edges_incorrect = np.histogram(spread_incorrect, bins=n_bins, range=(min_x, max_x), density=False)
+    correct_binned, edges_correct = np.histogram(spread_correct, bins=n_bins, range=(min_x, max_x), density=False, normed=False)
+    incorrect_binned, edges_incorrect = np.histogram(spread_incorrect, bins=n_bins, range=(min_x, max_x), density=False, normed=False)
 
     assert np.all(edges_correct == edges_incorrect)
     edges = edges_correct
 
     total_binned = correct_binned + incorrect_binned
     with np.errstate(divide='ignore', invalid='ignore'):
-        ratio_correct = np.divide(correct_binned, total_binned)
-        ratio_correct[~ np.isfinite(ratio_correct)] = 0.
+        ratio_correct = np.divide(correct_binned.astype(np.float32), total_binned.astype(np.float32))
+        ratio_correct[ ~ np.isfinite(ratio_correct)] = 0.
 
     # Construct plot points:
     plot_point_x = np.empty(shape=[len(ratio_correct) * 2])
@@ -120,7 +122,7 @@ def plot_ratio_bar_chart(correct, incorrect, spread, n_bins=20, ax=None, y_lim=[
             ax.fill_between(edges[i:i + 2], ratio_correct[i], 1., color=red)
             ax.fill_between(edges[i:i + 2], 0., ratio_correct[i], color=green)
 
-    ax.plot(plot_point_x, plot_point_y, color='blue')
+    ax.plot(plot_point_x, plot_point_y, color='white')
 
     ax.xlim([edges[0], edges[-1]])
     ax.ylim(y_lim)
@@ -160,13 +162,13 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
         except ValueError:
             roc_auc_scores[i] = np.nan
 
-    print(roc_auc_scores)
+    print("ROC AUC Scores as binnes: ", roc_auc_scores)
     plt.plot(proportions_included, roc_auc_scores, color=(.2, .2, .6))
 
     return
 
 
-def test_ratio_bar_chart():
+def test_ratio_bar_chart(savedir=None):
     num_examples = 10000
     num_correct = int(0.7 * num_examples)
     num_incorrect = num_examples - num_correct
@@ -182,8 +184,12 @@ def test_ratio_bar_chart():
 
     plt.figure(0)
     plot_ratio_bar_chart(correct, incorrect, spread, n_bins=40)
+    if savedir:
+        plt.savefig(savedir + '/test_ratio_bar_chart__ratio.png')
     plt.figure(1)
     plot_spread_histogram(correct, incorrect, spread, n_bins=40)
+    if savedir:
+        plt.savefig(savedir + '/test_ratio_bar_chart__histogram.png')
     plt.show()
     return
 
@@ -207,7 +213,7 @@ def main():
     models_parent_dir = '/home/miproj/urop.2018/bkm28/seed_experiments'
     model_dirs = [os.path.join(models_parent_dir, "atm_seed_{}".format(int(i))) for i in range(1, 11)]
 
-    labels, ensemble_predictions = get_ensemble_predictions(model_dirs)
+    labels, ensemble_predictions = get_ensemble_predictions(model_dirs, rel_labels_filepath='linsk_eval03/labels-probs.txt')
     # print(ensemble_predictions[:5, :])  # todo: remove
     # print(ensemble_predictions.shape)
     # print("Predictions retrieved")
@@ -216,7 +222,6 @@ def main():
     # print("avg_predictions\n", avg_predictions.shape, "\n", avg_predictions[:5])  # todo: remove
 
     std_spread = np.std(ensemble_predictions, axis=1)
-    # print("std_spread:\n", std_spread[:5])  # todo: remove
     range_spread = np.ptp(ensemble_predictions, axis=1)
     iqr_spread = scipy.stats.iqr(ensemble_predictions, axis=1)  # interquartile range (IQR)
 
@@ -228,7 +233,21 @@ def main():
     print("Metrics calculated")
 
     # Make the plots:
-    savedir = "/home/alta/WebDir/ind_reports/bkm28"
+    savedir = "/home/alta/WebDir/ind_reports/bkm28/linsk_plots"
+
+    # Make the std ratios plots
+    plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=40, y_lim=[0.0, 1.0])
+    plt.xlabel("Spread (std of ensemble predictions)")
+    plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
+    plt.savefig(savedir + '/ratios_std_spread_histogram.png', bbox_inches='tight')
+    plt.clf()
+
+    # Make the range ratios plots
+    plot_ratio_bar_chart(correct, incorrect, range_spread, n_bins=40, y_lim=[0.0, 1.0])
+    plt.xlabel("Spread (range of ensemble predictions)")
+    plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
+    plt.savefig(savedir + '/ratios_range_spread_histogram.png', bbox_inches='tight')
+    plt.clf()
 
     # Make std_spread histogram plot:
     plot_spread_histogram(correct, incorrect, std_spread, n_bins=30)
@@ -243,34 +262,65 @@ def main():
     plt.xlabel("Spread (range of ensemble predictions)")
     plt.ylabel("Example Count")
     plt.clf()
-
-    # Make the ratios plots
-    plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=30, y_lim=[0.0, 1.0])
-    plt.savefig(savedir + '/ratios_std_spread_histogram.png', bbox_inches='tight')
-    plt.clf()
-
+    
     # Make std_spread vs mean deviation plot
+    marker_size = 0.01
     # Positive examples
     plt.scatter(np.extract(labels.astype(np.bool), std_spread),
-                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.2, color=green, marker='o', s=0.5)
+                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.15, color=green, marker='o', s=marker_size)
+    # Negative examples
     plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.2, color=red, marker='x',
-                s=0.5)
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.15, color=red, marker='x',
+                s=marker_size)
     plt.xlabel("Spread (std of ensemble predictions)")
     plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + '/spread_vs_mean_chart.png', bbox_inches='tight')
+    plt.savefig(savedir + '/std_spread_vs_mean_chart.png', bbox_inches='tight')
     plt.clf()
 
-    # Make AUC vs. cumulative samples included by spread
-    plot_auc_vs_percentage_included(labels, avg_predictions, std_spread, resolution=200)
-    plt.xlabel("Percentage examples included as sorted by std of ensemble predictions (from low to high)")
-    plt.ylabel("ROC AUC score on the subset examples included")
-    plt.savefig(savedir + '/auc_vs_cumulative_samples_included.png', bbox_inches='tight')
+    # Make range vs mean deviation plot
+    # Positive examples
+    plt.scatter(np.extract(labels.astype(np.bool), std_spread),
+                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.15, color=green, marker='o', s=marker_size)
+    # Negative examples
+    plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.15, color=red, marker='x',
+                s=marker_size)
+    plt.xlabel("Spread (range of ensemble predictions)")
+    plt.ylabel("Deviation of average ensemble prediction from label")
+    plt.savefig(savedir + '/range_spread_vs_mean_chart.png', bbox_inches='tight')
     plt.clf()
+
+    # Make AUC vs. cumulative samples included by std spread
+    # plot_auc_vs_percentage_included(labels, avg_predictions, std_spread, resolution=200)
+    # plt.xlabel("Percentage examples included as sorted by std of ensemble predictions (from low to high)")
+    # plt.ylabel("ROC AUC score on the subset examples included")
+    # plt.savefig(savedir + '/auc_vs_cumulative_samples_included_std.png', bbox_inches='tight')
+    plt.clf()
+
+    # Make AUC vs. cumulative samples included by range spread
+    # plot_auc_vs_percentage_included(labels, avg_predictions, range_spread, resolution=200)
+    # plt.xlabel("Percentage examples included as sorted by range of ensemble predictions (from low to high)")
+    # plt.ylabel("ROC AUC score on the subset examples included")
+    # plt.savefig(savedir + '/auc_vs_cumulative_samples_included_range.png', bbox_inches='tight')
+    plt.clf()
+    
+    # Make precision recall curve for average of predictions
+    for i in range(10):
+        precision, recall, _ = precision_recall_curve(1 - labels, 1 - ensemble_predictions[:, i])
+        plt.plot(recall, precision, color='black', alpha=0.1, linewidth=0.6)
+    precision, recall, thresholds = precision_recall_curve(1 - labels, 1 - avg_predictions)
+    plt.plot(recall, precision, color=dark_blue, alpha=1.0)
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.ylim(0.0, 1.0)
+    plt.xlim(0.0, 1.0)
+    plt.savefig(savedir + '/ensemble_pr_curve.png', bbox_inches='tight')
+    plt.clf()
+    
     return
 
 
 if __name__ == "__main__":
-    # main()
-    test_ratio_bar_chart()
+    main()
+    test_ratio_bar_chart(savedir="/home/alta/WebDir/ind_reports/bkm28")
     # test_plot_auc_vs_percentage_included()
