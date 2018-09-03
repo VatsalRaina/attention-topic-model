@@ -9,6 +9,7 @@ import numpy as np
 import scipy.stats
 import math
 import matplotlib
+import argparse
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -21,6 +22,11 @@ from matplotlib.colors import ListedColormap, BoundaryNorm
 
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
+
+parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
+parser.add_argument('--save_dir', type=str, default='./',
+                               help='Path to directory where to save the plots')
+parser.add_argument('--rel_labels_path', type=str, default='eval4_naive/labels-probs.txt')
 
 
 matplotlib.rcParams['savefig.dpi'] = 200
@@ -296,7 +302,7 @@ def main():
     models_parent_dir = '/home/miproj/urop.2018/bkm28/seed_experiments'
     model_dirs = [os.path.join(models_parent_dir, "atm_seed_{}".format(int(i))) for i in range(1, 11)]
 
-    labels, ensemble_predictions = get_ensemble_predictions(model_dirs, rel_labels_filepath='eval4_naive/labels-probs.txt')
+    labels, ensemble_predictions = get_ensemble_predictions(model_dirs, rel_labels_filepath=parser.rel_labels_path)
     # print(ensemble_predictions[:5, :])  # todo: remove
     # print(ensemble_predictions.shape)
     # print("Predictions retrieved")
@@ -316,7 +322,7 @@ def main():
     print("Metrics calculated")
 
     # Make the plots:
-    savedir = "/home/alta/WebDir/ind_reports/bkm28/bulats_plots"
+    savedir = parser.savedir
 
     # Make the std ratios plots
     plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=40, y_lim=[0.0, 1.0])
