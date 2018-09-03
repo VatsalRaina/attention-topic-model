@@ -13,7 +13,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
+import matplotlib.cm
+import matplotlib.colors
 from matplotlib.ticker import LinearLocator, FormatStrFormatter
 from matplotlib.collections import LineCollection
 from matplotlib.colors import ListedColormap, BoundaryNorm
@@ -169,7 +170,6 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
         except ValueError:
             roc_auc_scores[i] = np.nan
 
-    print("ROC AUC Scores as binnes: ", roc_auc_scores)
     plt.plot(proportions_included, roc_auc_scores, color=(.2, .2, .6))
 
     return
@@ -203,13 +203,51 @@ def plot_pr_spread_mesh(labels, predictions, sort_by_array, pos_labels=1, resolu
         predictions_thresh[last_idx:] = 0.
 
         precision, recall, _ = precision_recall_curve(labels_sorted, predictions_thresh)
-        ax.plot(recall, np.ones_like(recall) * proportion, precision, linewidth=0.6)
+        ax.plot(recall, np.ones_like(recall) * proportion, precision, color=dark_blue, linewidth=0.6)
 
         del predictions_thresh
 
     ax.set_xlabel('Recall')
     ax.set_ylabel('Proportion classified by ensemble' + spread_name + '.')
     ax.set_zlabel('Precision')
+    return
+
+
+def plot_family_of_curves_pr(labels, predictions, sort_by_array, proportions_included, pos_labels=1, spread_name='std'):
+    assert pos_labels == 1 or pos_labels == 0
+
+    if pos_labels == 0:
+        labels = 1 - labels
+        predictions = 1 - predictions
+
+    num_examples = len(labels)
+    sorted_order = np.argsort(sort_by_array)
+
+    labels_sorted = labels[sorted_order]
+    predictions_sorted = predictions[sorted_order]
+
+    # Set a color map
+    viridis = plt.get_cmap('viridis') 
+    c_norm  = matplotlib.colors.Normalize(vmin=0, vmax=len(proportions_included))
+    scalar_map = matplotlib.cm.ScalarMappable(norm=c_norm, cmap=viridis)
+
+    for i in range(len(proportions_included)):
+        proportion = proportions_included[i]
+
+        last_idx = int(math.floor(num_examples * proportion)) + 1
+
+        # Threshold the predictions based on sorted order:
+        predictions_thresh = predictions_sorted.copy()
+        predictions_thresh[last_idx:] = 0.
+
+        precision, recall, _ = precision_recall_curve(labels_sorted, predictions_thresh)
+
+        color_val = scalar_map.to_rgba(i)
+        plt.plot(recall, precision, color=color_val, linewidth=1.6, label="{0:.2f}".format(proportion))
+
+        del predictions_thresh
+
+    plt.legend(loc="lower left", ncol=2, prop={'size': 7}, title="Proportion Thresholded")
     return
 
 
@@ -258,7 +296,7 @@ def main():
     models_parent_dir = '/home/miproj/urop.2018/bkm28/seed_experiments'
     model_dirs = [os.path.join(models_parent_dir, "atm_seed_{}".format(int(i))) for i in range(1, 11)]
 
-    labels, ensemble_predictions = get_ensemble_predictions(model_dirs, rel_labels_filepath='linsk_eval03/labels-probs.txt')
+    labels, ensemble_predictions = get_ensemble_predictions(model_dirs, rel_labels_filepath='eval4_naive/labels-probs.txt')
     # print(ensemble_predictions[:5, :])  # todo: remove
     # print(ensemble_predictions.shape)
     # print("Predictions retrieved")
@@ -278,7 +316,7 @@ def main():
     print("Metrics calculated")
 
     # Make the plots:
-    savedir = "/home/alta/WebDir/ind_reports/bkm28/linsk_plots"
+    savedir = "/home/alta/WebDir/ind_reports/bkm28/bulats_plots"
 
     # Make the std ratios plots
     plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=40, y_lim=[0.0, 1.0])
@@ -336,17 +374,17 @@ def main():
     plt.clf()
 
     # Make AUC vs. cumulative samples included by std spread
-    # plot_auc_vs_percentage_included(labels, avg_predictions, std_spread, resolution=200)
-    # plt.xlabel("Percentage examples included as sorted by std of ensemble predictions (from low to high)")
-    # plt.ylabel("ROC AUC score on the subset examples included")
-    # plt.savefig(savedir + '/auc_vs_cumulative_samples_included_std.png', bbox_inches='tight')
+    plot_auc_vs_percentage_included(labels, avg_predictions, std_spread, resolution=200)
+    plt.xlabel("Percentage examples included as sorted by std of ensemble predictions (from low to high)")
+    plt.ylabel("ROC AUC score on the subset examples included")
+    plt.savefig(savedir + '/auc_vs_cumulative_samples_included_std.png', bbox_inches='tight')
     plt.clf()
 
     # Make AUC vs. cumulative samples included by range spread
-    # plot_auc_vs_percentage_included(labels, avg_predictions, range_spread, resolution=200)
-    # plt.xlabel("Percentage examples included as sorted by range of ensemble predictions (from low to high)")
-    # plt.ylabel("ROC AUC score on the subset examples included")
-    # plt.savefig(savedir + '/auc_vs_cumulative_samples_included_range.png', bbox_inches='tight')
+    plot_auc_vs_percentage_included(labels, avg_predictions, range_spread, resolution=200)
+    plt.xlabel("Percentage examples included as sorted by range of ensemble predictions (from low to high)")
+    plt.ylabel("ROC AUC score on the subset examples included")
+    plt.savefig(savedir + '/auc_vs_cumulative_samples_included_range.png', bbox_inches='tight')
     plt.clf()
     
     # Make precision recall curve for average of predictions
@@ -364,8 +402,14 @@ def main():
 
     # Make precision recall 3D plot
     plot_pr_spread_mesh(labels, avg_predictions, std_spread, pos_labels=0)
-    plt.savefig(savedir + '/ensemble_3d_pr_curve.png')
+    plt.savefig(savedir + '/ensemble_3d_pr_curve_std.png')
     plt.clf()
+
+    # Make family of curves precision recall plot
+    plot_family_of_curves_pr(labels, avg_predictions, std_spread, proportions_included=[0.2, 0.4, 0.6, 0.8, 1.0], pos_labels=0, spread_name='std')
+    plt.savefig(savedir + '/ensemble_family_pr_curve_std.png')
+    plt.clf()
+
 
     return
 
