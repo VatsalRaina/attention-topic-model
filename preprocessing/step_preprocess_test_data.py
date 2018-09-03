@@ -65,12 +65,17 @@ def main(argv=None):
             i+=1
 
     # Load up the prompts as sequences of words and convert to q_id
-    with open(args.input_prompt_path, 'r') as file:
-        q_ids = np.asarray([topic_dict[line.replace('\n', '')] for line in file.readlines()])
+    try:
+        with open(args.input_prompt_path, 'r') as file:
+            q_ids = np.asarray([topic_dict[line.replace('\n', '')] for line in file.readlines()])
+    except:
+        with open(args.input_prompt_path, 'r') as file:
+            q_ids = np.asarray([-1 for line in file.readlines()])
 
     # Create the training TF Record file
     filename = args.name + '.tfrecords'
     print 'Writing', filename
+
     writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir, filename))
     for response, prompt, q_id, grd, spkr, tgt in zip(responses, prompts, q_ids, grades, speakers, targets):
         example = tf.train.SequenceExample(
