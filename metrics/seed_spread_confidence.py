@@ -10,6 +10,7 @@ import scipy.stats
 import math
 import matplotlib
 import argparse
+import matplotlib
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -24,7 +25,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
-parser.add_argument('--save_dir', type=str, default='./',
+parser.add_argument('--savedir', type=str, default='./',
                                help='Path to directory where to save the plots')
 parser.add_argument('--rel_labels_path', type=str, default='eval4_naive/labels-probs.txt')
 
@@ -209,12 +210,14 @@ def plot_pr_spread_mesh(labels, predictions, sort_by_array, pos_labels=1, resolu
         predictions_thresh[last_idx:] = 0.
 
         precision, recall, _ = precision_recall_curve(labels_sorted, predictions_thresh)
+        # Get rid of the last value (messes up the plot)
+        precision, recall = precision[1:], recall[1:]
         ax.plot(recall, np.ones_like(recall) * proportion, precision, color=dark_blue, linewidth=0.6)
 
         del predictions_thresh
 
     ax.set_xlabel('Recall')
-    ax.set_ylabel('Proportion classified by ensemble' + spread_name + '.')
+    ax.set_ylabel('Proportion classified by ensemble (' + spread_name + ')')
     ax.set_zlabel('Precision')
     return
 
@@ -247,9 +250,11 @@ def plot_family_of_curves_pr(labels, predictions, sort_by_array, proportions_inc
         predictions_thresh[last_idx:] = 0.
 
         precision, recall, _ = precision_recall_curve(labels_sorted, predictions_thresh)
+        # Get rid of the first value (messes up the plot)
+        precision, recall = precision[1:], recall[1:]
 
         color_val = scalar_map.to_rgba(i)
-        plt.plot(recall, precision, color=color_val, linewidth=1.6, label="{0:.2f}".format(proportion))
+        plt.plot(recall, precision, color=color_val, linewidth=1.0, label="{0:.2f}".format(proportion), alpha=0.8)
 
         del predictions_thresh
 
@@ -299,10 +304,12 @@ def test_plot_auc_vs_percentage_included():
 
 
 def main():
+    args = parser.parse_args()
+
     models_parent_dir = '/home/miproj/urop.2018/bkm28/seed_experiments'
     model_dirs = [os.path.join(models_parent_dir, "atm_seed_{}".format(int(i))) for i in range(1, 11)]
 
-    labels, ensemble_predictions = get_ensemble_predictions(model_dirs, rel_labels_filepath=parser.rel_labels_path)
+    labels, ensemble_predictions = get_ensemble_predictions(model_dirs, rel_labels_filepath=args.rel_labels_path)
     # print(ensemble_predictions[:5, :])  # todo: remove
     # print(ensemble_predictions.shape)
     # print("Predictions retrieved")
@@ -322,7 +329,7 @@ def main():
     print("Metrics calculated")
 
     # Make the plots:
-    savedir = parser.savedir
+    savedir = args.savedir
 
     # Make the std ratios plots
     plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=40, y_lim=[0.0, 1.0])
@@ -365,6 +372,24 @@ def main():
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/std_spread_vs_mean_chart.png', bbox_inches='tight')
     plt.clf()
+    
+    # Split positive and negative examples into separate plots as well:
+    # Positive examples
+    plt.scatter(np.extract(labels.astype(np.bool), std_spread),
+                1 - np.extract(labels.astype(np.bool), avg_predictions), alpha=0.15, color=green, marker='o', s=marker_size)
+    plt.xlabel("Spread (std of ensemble predictions)")
+    plt.ylabel("Ensemble Prediction (1 = off-topic)")
+    plt.savefig(savedir + '/std_spread_vs_prediction_on_topic.png', bbox_inches='tight')
+    plt.clf()
+    # Negative examples
+    plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
+                1 - np.extract(np.invert(labels.astype(np.bool)), avg_predictions), alpha=0.15, color=red, marker='x',
+                s=marker_size)
+    plt.xlabel("Spread (std of ensemble predictions)")
+    plt.ylabel("Ensemble Prediction (1 = off-topic)")
+    plt.savefig(savedir + '/std_spread_vs_prediction_off_topic.png', bbox_inches='tight')
+    plt.clf()
+    
 
     # Make range vs mean deviation plot
     # Positive examples
@@ -412,8 +437,11 @@ def main():
     plt.clf()
 
     # Make family of curves precision recall plot
-    plot_family_of_curves_pr(labels, avg_predictions, std_spread, proportions_included=[0.2, 0.4, 0.6, 0.8, 1.0], pos_labels=0, spread_name='std')
-    plt.savefig(savedir + '/ensemble_family_pr_curve_std.png')
+    plot_family_of_curves_pr(labels, avg_predictions, std_spread, proportions_included=[0.05, 0.1, 0.2, 0.4, 0.6, 1.0], pos_labels=0, spread_name='std')
+    plt.xlabel('Recall')
+    plt.ylabel('Precision')
+    plt.xlim(0.0, 1.0)
+    plt.savefig(savedir + '/ensemble_family_pr_curve_std.png', bbox_inches='tight')
     plt.clf()
 
 
