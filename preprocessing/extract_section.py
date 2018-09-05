@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import sys
 import os
 import re
@@ -140,11 +141,9 @@ def main(argv=None):
     for key, i in zip(key_sec_ids, xrange(len(key_sec_ids))):
         for topic, j in zip(topic_sec_ids, xrange(len(topic_sec_ids))):
             confusion[key][topic] += alignment_matrix[i][j]
-    print
-    confusion  # , np.sum(confusion,axis=1)
+    print(confusion)  # , np.sum(confusion,axis=1)
     confusion = confusion / np.sum(confusion, axis=1)[:, np.newaxis]
-    print
-    confusion
+    print(confusion)
     plt.matshow(confusion, cmap=plt.cm.Blues)
     plt.savefig('confusion_matrix.png', bbox_inches='tight')
     plt.close()

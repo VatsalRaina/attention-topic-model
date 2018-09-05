@@ -15,6 +15,12 @@ For the responses the expected format is:
 If a section is composed of an overall question with multiple subquestion, the section is being referred to as
 multi-section. The overall section question is referred to as master question.
 
+
+
+Some other quirks:
+If the prompt section id number is above that of a master section id given in the flag, it will be set to be that of
+the flag.
+
 -----
 
 Generates files:
@@ -53,7 +59,7 @@ parser.add_argument('--multi_sections_master', nargs='*', type=str, default=['SE
 sub_prompt_separator = " </s> <s> "
 
 
-def process_prompts_file(scripts_path, fixed_sections):
+def process_prompts_file(scripts_path, fixed_sections, multi_sections_master):
     """
     Assumes the mapping from prompt_ids to prompts is surjective, but not necessarily injective: many prompt_ids
     can point to the same prompt. Hence in the inverse mapping, each prompt points to a list of prompt_ids that point
@@ -200,11 +206,6 @@ def process_responses_file(responses_path, exclude_sections):
                 raise ValueError("Unexpected pattern in file: " + line)
 
     # Assert number of elements of  responses, response confidences, speakers, and prompt_ids is the same
-    # todo: remove the print functions once confident in script
-    print(len(responses))
-    print(len(confidences))
-    print(len(speakers))
-    print(len(prompt_ids))
     assert len({len(responses), len(confidences), len(speakers), len(prompt_ids)}) == 1
 
     return responses, confidences, speakers, prompt_ids
@@ -232,7 +233,8 @@ def main(args):
 
     start_time = time.time()
     # Process the prompts
-    mapping, inv_mapping = process_prompts_file(args.scripts_path, args.fixed_sections)
+    mapping, inv_mapping = process_prompts_file(args.scripts_path, args.fixed_sections, args.multi_sections_master)
+
     print("Prompt script file processed. Mappings generated. Time elapsed: ", time.time() - start_time)
 
     # todo: print mapping to see if correct
