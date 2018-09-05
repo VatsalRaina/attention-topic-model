@@ -84,8 +84,7 @@ def calc_avg_predictions(ensemble_predictions):
 
 
 def calc_entropy(predictions):
-    log_predictions = np.log(predictions)
-    entropy = -(predictions * log_predictions + (1 - predictions) + (1 - log_predictions))
+    entropy = -(predictions * np.log(predictions) + (1 - predictions) * np.log(1 - predictions))
     return entropy
 
 
@@ -116,7 +115,7 @@ def plot_spread_histogram(correct, incorrect, spread, n_bins=20, ax=None, spread
     return ax
 
 
-def plot_ratio_bar_chart(correct, incorrect, spread, n_bins=20, ax=None, y_lim=[0., 1.0]):
+def plot_ratio_bar_chart(correct, incorrect, spread, n_bins=20, ax=None, y_lim=(0., 1.0)):
     """
     Plots the ratio of correct to incorrect for each bin in the histogram, where the bins are taken over spread.
     :param correct: ndarray of bool representing which examples are correct
@@ -131,6 +130,7 @@ def plot_ratio_bar_chart(correct, incorrect, spread, n_bins=20, ax=None, y_lim=[
         ax = plt
     min_x = 0.
     max_x = np.max(spread)
+    assert max_x > min_x
     spread_correct = np.extract(correct, spread)
     spread_incorrect = np.extract(incorrect, spread)
     correct_binned, edges_correct = np.histogram(spread_correct, bins=n_bins, range=(min_x, max_x), density=False,
@@ -156,8 +156,6 @@ def plot_ratio_bar_chart(correct, incorrect, spread, n_bins=20, ax=None, y_lim=[
 
     # Fill the colours:
     for i in range(n_bins):
-        # ax.fill_between(edges[i:i+2], plot_point_y[2*i: 2*i + 2], 1., color=green)
-        # ax.fill_between(edges[i:i+2], 0., plot_point_y[2])
         if total_binned[i] != 0:
             ax.fill_between(edges[i:i + 2], ratio_correct[i], 1., color=red)
             ax.fill_between(edges[i:i + 2], 0., ratio_correct[i], color=green)
@@ -220,14 +218,14 @@ def plot_confusion_matrix_ratio_chart(tp, fp, tn, fn, spread, n_bins=20, ax=None
     # Fill the colours:
     for i in range(n_bins):
         if total_binned[i] != 0:
-            ax.fill_between(edges[i:i + 2], 0., plot_point_y_tp[i], color=green)
-            ax.fill_between(edges[i:i + 2], plot_point_y_tp[i], plot_point_y_tn[i], color=dark_green)
-            ax.fill_between(edges[i:i + 2], plot_point_y_tn[i], plot_point_y_fn[i], color=dark_orange)
-            ax.fill_between(edges[i:i + 2], plot_point_y_fn[i], 1., color=red)
+            ax.fill_between(plot_point_x[i*2:i*2 + 2], 0., plot_point_y_tp[i*2:i*2 + 2], color=green)
+            ax.fill_between(plot_point_x[i*2:i*2 + 2], plot_point_y_tp[i*2:i*2 + 2], plot_point_y_tn[i*2:i*2 + 2], color=dark_green)
+            ax.fill_between(plot_point_x[i*2:i*2 + 2], plot_point_y_tn[i*2:i*2 + 2], plot_point_y_fn[i*2:i*2 + 2], color=dark_orange)
+            ax.fill_between(plot_point_x[i*2:i*2 + 2], plot_point_y_fn[i*2:i*2 + 2], 1., color=red)
 
     # Plot the white contour
     for plot_point_y in [plot_point_y_tp, plot_point_y_tn, plot_point_y_fn]:
-        ax.plot(plot_point_x, plot_point_y, color='white')
+        ax.plot(plot_point_x, plot_point_y, color='white', linewidth=0.9)
 
     ax.xlim([edges[0], edges[-1]])
     ax.ylim(y_lim)
@@ -237,7 +235,7 @@ def plot_confusion_matrix_ratio_chart(tp, fp, tn, fn, spread, n_bins=20, ax=None
     tn_patch = mpatches.Patch(color=dark_green, label='True Negatives')
     fn_patch = mpatches.Patch(color=dark_orange, label='False Negatives')
     fp_patch = mpatches.Patch(color=red, label='False Positives')
-    plt.legend(handles=[tp_patch, tn_patch, fn_patch, tp_patch], bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+    plt.legend(handles=[tp_patch, tn_patch, fp_patch, fn_patch], bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
                ncol=2, mode="expand", borderaxespad=0.)
     return ax
 
@@ -418,6 +416,8 @@ def main():
     range_spread = np.ptp(ensemble_predictions, axis=1)
     iqr_spread = scipy.stats.iqr(ensemble_predictions, axis=1)  # interquartile range (IQR)
     mutual_information, entropy_of_avg = calc_mutual_information(ensemble_predictions)
+
+    assert np.all(mutual_information >= 0.)
 
     mean_target_deviation = np.abs(labels - avg_predictions)
     # print("mean_target_deviation\n", mean_target_deviation.shape, "\n", mean_target_deviation[:5])
