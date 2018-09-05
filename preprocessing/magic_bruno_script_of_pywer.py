@@ -186,11 +186,13 @@ def process_responses_file(responses_path, exclude_sections):
                 response_words = []
                 confidences_temp = []
             elif len(line.split()) > 1:
-                try:  # todo: remove once confident in the format
-                    assert re.match(r"[0-9]* [0-9]* [\"%A-Za-z'\\_.]+ [0-9.]*$", line)
-                except AssertionError as e:
-                    print(line)
-                    raise e
+                if re.match(r"[0-9]* [0-9]* [\"%A-Za-z'\\_.]+ [0-9.]*$", line):
+                    pass
+                elif re.match(r"[\"%A-Za-z'\\_.]+ [0-9.]*$", line):
+                        # this should match the eval data
+                    pass
+                else:
+                    raise ValueError("Unexpected line: ", line)
                 line = line.split()
                 word = line[-2]
                 conf = line[-1]
@@ -224,7 +226,7 @@ def main(args):
         for section in args.fixed_sections + args.exclude_sections + args.multi_sections:
             assert re.match(r'[A-Z]', section)
         for section_id in args.multi_sections_master:
-            assert re.match(r'[A-Z0-9]')
+            assert re.match(r'[A-Z0-9]', section_id)
         assert len(args.multi_sections) == len(args.multi_sections_master)
     except AssertionError:
         raise ValueError(
@@ -243,29 +245,29 @@ def main(args):
     print("Responses transcription processed. Time elapsed: ", time.time() - start_time)
 
     # Extract the section data for each response (A, B, C, ...)
-    sections = map(lambda prompt_id: prompt_id.split('-')[1][1], prompt_ids)
+    sections = list(map(lambda prompt_id: prompt_id.split('-')[1][1], prompt_ids))
 
     # Reduce prompt ids for fixed section to section ids:
     prompt_ids_red = map(lambda prompt_id: fixed_section_filter(prompt_id, args.fixed_sections), prompt_ids)
 
     # Generate the prompts list (in the same order as responses)
-    prompts = map(lambda prompt_id: inv_mapping.setdefault(prompt_id, None), prompt_ids_red)
+    prompts = list(map(lambda prompt_id: inv_mapping.setdefault(prompt_id, None), prompt_ids_red))
 
     print('Any unmapped: ', None in prompts)
     # todo: Filter the responses, prompts, ... e.t.c. where prompts is None
 
     # Handle the multi subquestion prompts
-    for i in xrange(len(sections)):
+    for i in range(len(sections)):
         if sections[i] in args.multi_sections:
             # Get the section_id of the master question
             master_section_id = args.multi_sections_master[args.multi_sections.index(sections[i])]
             # Get the whole prompt id of the master question
             location_id = prompt_ids[i].split('-')[0]
-            master_prompt_id = '-'.join(location_id, master_section_id)
+            master_prompt_id = '-'.join((location_id, master_section_id))
 
             # Prepend the master prompt to the subquestion prompts.
             prev_prompt = prompts[i]
-            master_prompt = inv_mapping(master_prompt_id)
+            master_prompt = inv_mapping[master_prompt_id]
             new_prompt = master_prompt + sub_prompt_separator + prev_prompt
             prompts[i] = new_prompt
 
