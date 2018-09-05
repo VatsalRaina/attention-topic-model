@@ -62,7 +62,6 @@ def get_ensemble_predictions(model_dirs, rel_labels_filepath='eval4_naive/labels
         # Get the predictions from each of the models
         _, model_predictions = get_label_predictions(labels_filepath)
         all_predictions.append(model_predictions)
-    # print("shape of 1 pred", all_predictions[0].shape)  # todo:
     all_predictions = np.stack(all_predictions, axis=1)
     return labels, all_predictions
 
@@ -106,12 +105,46 @@ def calc_mutual_information(ensemble_predictions):
     return mutual_information, entropy_of_expected, expected_entropy
 
 
+def calc_confusion_matrix(y_true, y_pred, thresh):
+    y_class_pred = (y_pred >= thresh)
+    y_true = y_true.astype(np.bool)
+    y_class_pred_inv = np.logical_not(y_class_pred)
+    y_true_inv = np.logical_not(y_true)
+    tp = np.sum(np.logical_and(y_class_pred, y_true))
+    fp = np.sum(np.logical_and(y_class_pred, y_true_inv))
+    fn = np.sum(np.logical_and(y_class_pred_inv, y_true))
+    tn = np.sum(np.logical_and(y_class_pred_inv, y_true_inv))
+    conf_mat = np.array([[tp, fp], [fn, tn]])
+    return conf_mat
+
+
+def calc_recall(conf_mat):
+    tp = conf_mat[0, 0]
+    fn = conf_mat[1, 0]
+    if tp + fn == 0:
+        return np.nan
+    else:
+        return tp / (tp + fn)
+
+
+def calc_precision(conf_mat):
+    tp = conf_mat[0, 0]
+    fp = conf_mat[0, 1]
+    if tp + fp == 0:
+        return np.nan
+    else:
+        return tp / (tp + fp)
+
+
 def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, predictions_unseen, save_dir,
-                                  resolution=200):
+                                  resolution=100):
     # Plot the normal, joint PR curve
     plt.figure(1)
     precision, recall, thresholds = precision_recall_curve(np.hstack((labels_seen, labels_unseen)),
                                                            np.hstack((predictions_seen, predictions_unseen)))
+    # Get rid of the last values which are set manually by the sklrean algorithm
+    precision = precision[:-1]
+    recall = recall[:-1]
     plt.plot(recall, precision, color=dark_blue)
     plt.xlabel("Recall")
     plt.ylabel("Precision")
@@ -120,11 +153,19 @@ def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, 
     print("Made first plot")
 
     # Optimise the number of thresholds to plot
+    # First sort by recall value
+    sort_idx = np.argsort(recall)
+    recall = recall[sort_idx]
+    thresholds = thresholds[sort_idx]
     x = np.linspace(np.min(recall), np.max(recall), resolution, endpoint=False)
     select = np.empty(recall.shape, dtype=np.bool)
+    select[:] = False
+    select[-1] = True
     for i in range(len(x)):
         # Get only the recall values that approximate a grid with a particular resolution
-        next_select_idx = np.argmax(recall > x[i])
+        next_select_idx = np.argmax(recall >= x[i])
+        if next_select_idx >= len(select):
+            break
         select[next_select_idx] = True
     recall_opt = np.extract(select, recall)
     thresholds_opt = np.extract(select, thresholds)
@@ -138,30 +179,37 @@ def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, 
     precision_unseen = np.empty_like(recall_opt)
 
     for i in range(len(thresholds_opt)):
-        class_predicted_seen = (predictions_seen > thresholds_opt[i]).astype(np.int16)
-        class_predicted_unseen = (predictions_unseen > thresholds_opt[i]).astype(np.int16)
-        recall_seen[i] = recall_score(labels_seen, class_predicted_seen, average='binary')
-        recall_unseen[i] = recall_score(labels_unseen, class_predicted_unseen, average='binary')
-        precision_seen[i] = precision_score(labels_seen, class_predicted_seen, average='binary')
-        precision_unseen[i] = precision_score(labels_unseen, class_predicted_unseen, average='binary')
+        conf_mat_seen = calc_confusion_matrix(labels_seen, predictions_seen, thresholds_opt[i])
+        conf_mat_unseen = calc_confusion_matrix(labels_unseen, predictions_unseen, thresholds_opt[i])
+        recall_seen[i] = calc_recall(conf_mat_seen)
+        recall_unseen[i] = calc_recall(conf_mat_unseen)
+        precision_seen[i] = calc_precision(conf_mat_seen)
+        precision_unseen[i] = calc_precision(conf_mat_unseen)
+    marker_size = 1.1
+    plt.plot([0, 1], [0, 1], linewidth=0.8, alpha=0.5, color='black')
     plt.plot(recall_opt, recall_seen, color=dark_orange, label='Seen - Seen')
     plt.plot(recall_opt, recall_unseen, color=dark_blue, label='Unseen - Unseen')
+    plt.scatter(recall_opt, recall_seen, color=red, marker='o', s=marker_size, alpha=0.7)
+    plt.scatter(recall_opt, recall_unseen, color='black', marker='o', s=marker_size, alpha=0.7)
     plt.xlabel("Total Recall")
     plt.ylabel("Subset Recall")
     plt.xlim(0, 1)
-    plt.legend(title="Dataset:", loc='upper left')
+    plt.ylim(0, 1)
+    plt.legend(title="Dataset:", loc='lower right')
 
     plt.savefig(os.path.join(save_dir, "subset_recall_v_total_recall.png"), bbox_inches='tight')
 
     print("Made second plot.")
     # Plot the PR curve for each individual dataset
     plt.figure(3)
-    plt.plot(recall_opt, precision_seen, color=dark_orange, label='Seen - Seen Dataset')
-    plt.plot(recall_opt, precision_unseen, color=dark_blue, label='Unseen - Unseen Dataset')
+    plt.plot(recall_opt, precision_seen, color=dark_orange, label='Seen - Seen')
+    plt.plot(recall_opt, precision_unseen, color=dark_blue, label='Unseen - Unseen')
+    plt.scatter(recall_opt, precision_seen, color=red, marker='o', s=marker_size, alpha=0.7)
+    plt.scatter(recall_opt, precision_unseen, color='black', marker='o', s=marker_size, alpha=0.7)
     plt.xlabel("Total Recall")
     plt.ylabel("Subset Precision")
     plt.xlim(0, 1)
-    plt.legend(title="Dataset:", loc='bottom left')
+    plt.legend(title="Dataset:", loc='lower left')
 
     plt.savefig(os.path.join(save_dir, "subset_pr.png"), bbox_inches='tight')
     plt.close()
@@ -206,10 +254,16 @@ def main():
     labels_unseen, ensemble_pred_unseen = get_ensemble_predictions(model_dirs,
                                                                    rel_labels_filepath=args.rel_labels_path_unseen)
     print("Label Data Loaded.")
+
+    # Invert everything so that off-topic is 1:
+    labels_seen, ensemble_pred_seen, labels_unseen, ensemble_pred_unseen = map(lambda x: 1 - x,
+                                                                               [labels_seen, ensemble_pred_seen,
+                                                                                labels_unseen, ensemble_pred_unseen])
     metrics_seen = calc_metrics(labels_seen, ensemble_pred_seen)
     metrics_unseen = calc_metrics(labels_unseen, ensemble_pred_unseen)
 
     print("Metrics calculated")
+    print("Ratio seen-seen dataset to unseen-unseen dataset:", float(len(labels_seen)) / float(len(labels_unseen) + len(labels_seen)))
 
     # Make the plots:
     save_dir = args.savedir
