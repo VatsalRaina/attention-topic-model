@@ -1,5 +1,20 @@
 """
 
+
+The jargon used in the documentation of this code that might be non-trivial to infer:
+
+The expected format of the prompt identifiers in the .mlf script file looks like:
+"ABC111-XXXXX-XXXXXXXX-SA0001-en.lab"
+of which:
+ABC111 - is being referred to as location_id
+SA0001 - is being referred to as section_id where A is the actual section
+
+For the responses the expected format is:
+# todo
+
+If a section is composed of an overall question with multiple subquestion, the section is being referred to as
+multi-section. The overall section question is referred to as master question.
+
 -----
 
 Generates files:
@@ -10,6 +25,7 @@ from __future__ import print_function
 import sys
 import os
 import re
+import time
 import argparse
 
 parser = argparse.ArgumentParser(description="We'll see what this actually does")  # todo
@@ -17,16 +33,44 @@ parser = argparse.ArgumentParser(description="We'll see what this actually does"
 parser.add_argument('scripts_path', type=str, help='Path to a scripts (prompts) .mlf file')
 parser.add_argument('responses_path', type=str, help='Path to a transcript of responses .mlf file')
 parser.add_argument('save_dir', type=str, help='Path to the directory in which to save the processed files.')
-parser.add_argument('--exclude_AB', type=bool, default=True,
-                    help='Whether to exclude section A and B')
+parser.add_argument('--fixed_sections', nargs='*', type=str, default=['A', 'B'],
+                    help='Which sections if any are fixed (questions are always the same). Takes space separated '
+                         'indentifiers, e.g. --fixed_sections A B')
+parser.add_argument('--exclude_sections', nargs='*', type=str, default=['A', 'B'],
+                    help='Sections to exclude from the output. '
+                         'Takes space separated identifiers, e.g. --exclude_sections A B')
+parser.add_argument('--multi_sections', nargs='*', type=str, default=['E'],
+                    help='Which sections if any are multisections, i.e. when generating prompts a master question '
+                         'should be pre-pended before each subquestion. Takes space separated '
+                         'indentifiers, e.g. --multi_sections E F')
+parser.add_argument('--multi_sections_master', nargs='*', type=str, default=['SE0006'],
+                    help='The master question section id for each multi-section. For instance, if two sections '
+                         'E and F are multi-sections with section ids SE0006 and SF0008 for the master or "parent"'
+                         'questions to be prepended before subquestion, use:'
+                         '--multi_sections_master SE0006 SF0008')
 
-word_match = r"[%A-Za-z'\\._]"
 
-def process_prompts_file(scripts_path):
+sub_prompt_separator = " </s> <s> "
+
+
+def process_prompts_file(scripts_path, fixed_sections):
     """
     Assumes the mapping from prompt_ids to prompts is surjective, but not necessarily injective: many prompt_ids
     can point to the same prompt. Hence in the inverse mapping, each prompt points to a list of prompt_ids that point
     to it.
+
+    The prompt id's take the form:
+    prompt_id = 'ABC999-SA0001' where ABC999 is the location_id and SA0001 the question number:
+    A indicates the section, and 0001 indicates question 1 within that section.
+
+    For prompts that have been marked with a fixed_sections flag, i.e. the corresponding question of each section is
+    always the same, we store additional prompt_id key pointing to the prompt which is just the section identifier
+    without the location identifier, i.e.:
+    If 'A' is in fixed_section:
+    'ABC999-SA0001' -> prompt1
+    and also:
+    'SA0001' -> prompt1
+
     :return: mapping dict, inv_mapping dict
     """
 
@@ -42,7 +86,7 @@ def process_prompts_file(scripts_path):
                 continue
             elif ".lab" in line:
                 assert re.match(r'"[A-Z0-9]*-[A-Z0-9]*-[A-Z0-9]*-[A-Z0-9]*-[a-z]*.lab"$', line)
-                line = line[1:-5] # Ignore the " at the beginning and .lab" at the end
+                line = line[1:-5]  # Ignore the " at the beginning and .lab" at the end
                 line = line.split('-')
                 location_id = line[0]
                 section = line[-2]
@@ -55,6 +99,11 @@ def process_prompts_file(scripts_path):
                 mapping.setdefault(prompt, [])
                 mapping[prompt].append(prompt_id)
                 inv_mapping[prompt_id] = prompt
+
+                # Handle the fixed_sections
+                section_id = prompt_id.split('-')[1]  # Extracts the section id, for example 'SA0001'
+                if section_id[1] in fixed_sections:
+                    inv_mapping[section_id] = prompt
 
                 # Reset the variables for storing the elements of the prompt
                 prompt_id = None
@@ -74,7 +123,12 @@ def prepend_multiquestion_master(prompts, sections, multi_section='SE', master_q
     return
 
 
-def process_responses_file(responses_path):
+def process_responses_file(responses_path, exclude_sections):
+    """
+    :param responses_path: path to the file with the transcriptions of responses
+    :param exclude_sections: list of sections to exclude, e.g. ['A', 'B']
+    :return: responses, confidences, speakers, prompt_ids
+    """
     responses = []
     confidences = []
     speakers = []
@@ -82,9 +136,17 @@ def process_responses_file(responses_path):
 
     response_words = []  # Temporarily stores words for each response before adding to list
     confidences_temp = []  # Temporarily stores confidences for each response before adding to list
+
+    skip_response = False
     with open(responses_path, 'r') as file:
         for line in file.readlines():
             line = line.strip()
+
+            if skip_response:
+                if line == ".":
+                    skip_response = False
+                continue
+
             # Ignore the file type prefix line
             if line == '#!MLF!#':
                 continue
@@ -97,9 +159,15 @@ def process_responses_file(responses_path):
                 line = line.split('-')
                 location_id = line[0]
                 speaker_number = line[1]
-                section = line[3]
+                section_id = line[3]
+
+                # Check if this response should be skipped
+                if section_id[1] in exclude_sections:
+                    skip_response = True
+                    continue
+
                 speaker = '-'.join((location_id, speaker_number))  # Should extract the speaker id
-                prompt_id = '-'.join((location_id, section))
+                prompt_id = '-'.join((location_id, section_id))
 
                 # Store the relevant 'metadata'
                 speakers.append(speaker)
@@ -142,32 +210,68 @@ def process_responses_file(responses_path):
     return responses, confidences, speakers, prompt_ids
 
 
+def fixed_section_filter(prompt_id, fixed_sections):
+    section_id = prompt_id.split('-')[1]  # Extracts the section id, for example 'SA0001'
+    if section_id[1] in fixed_sections:
+        return section_id
+    else:
+        return prompt_id
+
+
 def main(args):
+    # Check the input flag arguments are correct:
+    try:
+        for section in args.fixed_sections + args.exclude_sections + args.multi_sections:
+            assert re.match(r'[A-Z]', section)
+        for section_id in args.multi_sections_master:
+            assert re.match(r'[A-Z0-9]')
+        assert len(args.multi_sections) == len(args.multi_sections_master)
+    except AssertionError:
+        raise ValueError(
+            "The flag arguments provided don't match the expected format. See the manual for expected arguments.")
+
+    start_time = time.time()
     # Process the prompts
-    mapping, inv_mapping = process_prompts_file(args.scripts_path)
-    print("Prompt script file processed. Mappings generated.")
+    mapping, inv_mapping = process_prompts_file(args.scripts_path, args.fixed_sections)
+    print("Prompt script file processed. Mappings generated. Time elapsed: ", time.time() - start_time)
 
     # todo: print mapping to see if correct
     # todo: possibly store the mapping
 
     # Process the responses
-    responses, confidences, speakers, prompt_ids = process_responses_file(args.responses_path)
-    print("Responses transcription processed.")
+    responses, confidences, speakers, prompt_ids = process_responses_file(args.responses_path, args.exclude_sections)
+    print("Responses transcription processed. Time elapsed: ", time.time() - start_time)
+
+    # Extract the section data for each response (A, B, C, ...)
+    sections = map(lambda prompt_id: prompt_id.split('-')[1][1], prompt_ids)
+
+    # Reduce prompt ids for fixed section to section ids:
+    prompt_ids_red = map(lambda prompt_id: fixed_section_filter(prompt_id, args.fixed_sections), prompt_ids)
 
     # Generate the prompts list (in the same order as responses)
-    prompts = map(lambda prompt_id: inv_mapping.setdefault(prompt_id, None), prompt_ids)
+    prompts = map(lambda prompt_id: inv_mapping.setdefault(prompt_id, None), prompt_ids_red)
 
+    print('Any unmapped: ', None in prompts)
     # todo: Filter the responses, prompts, ... e.t.c. where prompts is None
 
-
-    # Extract the section data for each response (SA, SB, SC, ...)
-    sections = map(lambda prompt_id: prompt_id.split('-')[1][:2], prompt_ids)
-
     # Handle the multi subquestion prompts
+    for i in xrange(len(sections)):
+        if sections[i] in args.multi_sections:
+            # Get the section_id of the master question
+            master_section_id = args.multi_sections_master[args.multi_sections.index(sections[i])]
+            # Get the whole prompt id of the master question
+            location_id = prompt_ids[i].split('-')[0]
+            master_prompt_id = '-'.join(location_id, master_section_id)
+
+            # Prepend the master prompt to the subquestion prompts.
+            prev_prompt = prompts[i]
+            master_prompt = inv_mapping(master_prompt_id)
+            new_prompt = master_prompt + sub_prompt_separator + prev_prompt
+            prompts[i] = new_prompt
 
     # Write the data to the save directory:
     suffix = '.txt'
-    
+
     # Make sure the directory exists:
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)

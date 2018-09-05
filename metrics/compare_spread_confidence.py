@@ -205,6 +205,7 @@ def main():
                                                                rel_labels_filepath=args.rel_labels_path_seen)
     labels_unseen, ensemble_pred_unseen = get_ensemble_predictions(model_dirs,
                                                                    rel_labels_filepath=args.rel_labels_path_unseen)
+    print("Label Data Loaded.")
     metrics_seen = calc_metrics(labels_seen, ensemble_pred_seen)
     metrics_unseen = calc_metrics(labels_unseen, ensemble_pred_unseen)
 
