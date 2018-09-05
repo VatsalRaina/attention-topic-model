@@ -20,6 +20,7 @@ parser.add_argument('save_dir', type=str, help='Path to the directory in which t
 parser.add_argument('--exclude_AB', type=bool, default=True,
                     help='Whether to exclude section A and B')
 
+word_match = r"[%A-Za-z'\\._]"
 
 def process_prompts_file(scripts_path):
     """
@@ -32,7 +33,7 @@ def process_prompts_file(scripts_path):
     mapping = {}  # Mapping from prompts to a list of identifiers
     inv_mapping = {}  # Mapping from identifiers to prompts
 
-    with open(scripts_path) as file:
+    with open(scripts_path, 'r') as file:
         prompt_words = []
         for line in file.readlines():
             line = line.strip()  # Remove the \n at the end of line
@@ -58,7 +59,7 @@ def process_prompts_file(scripts_path):
                 # Reset the variables for storing the elements of the prompt
                 prompt_id = None
                 prompt_words = []
-            elif re.match(r'[A-Z]$', line):
+            elif re.match(r"[%A-Za-z'\\_.]+$", line):
                 prompt_words.append(line)
             else:
                 raise ValueError("Unexpected pattern in file: " + line)
@@ -107,6 +108,7 @@ def process_responses_file(responses_path):
                 # A "." indicates end of response -> add the response to the list
                 response = " ".join(response_words)
                 response_conf = " ".join(confidences_temp)
+                assert len(confidences_temp) == len(response_words)
                 assert len(response) > 0
 
                 responses.append(response)
@@ -116,16 +118,25 @@ def process_responses_file(responses_path):
                 response_words = []
                 confidences_temp = []
             elif len(line.split()) > 1:
-                assert re.match(r"[0-9]* [0-9]* [A-Z%'\\]* [0-9.]*$", line)  # todo: remove once confident in the format
+                try:  # todo: remove once confident in the format
+                    assert re.match(r"[0-9]* [0-9]* [\"%A-Za-z'\\_.]+ [0-9.]*$", line)
+                except AssertionError as e:
+                    print(line)
+                    raise e
                 line = line.split()
                 word = line[-2]
                 conf = line[-1]
                 response_words.append(word)
-                confidences.append(conf)
+                confidences_temp.append(conf)
             else:
                 raise ValueError("Unexpected pattern in file: " + line)
 
     # Assert number of elements of  responses, response confidences, speakers, and prompt_ids is the same
+    # todo: remove the print functions once confident in script
+    print(len(responses))
+    print(len(confidences))
+    print(len(speakers))
+    print(len(prompt_ids))
     assert len({len(responses), len(confidences), len(speakers), len(prompt_ids)}) == 1
 
     return responses, confidences, speakers, prompt_ids
@@ -134,12 +145,14 @@ def process_responses_file(responses_path):
 def main(args):
     # Process the prompts
     mapping, inv_mapping = process_prompts_file(args.scripts_path)
+    print("Prompt script file processed. Mappings generated.")
 
     # todo: print mapping to see if correct
     # todo: possibly store the mapping
 
     # Process the responses
     responses, confidences, speakers, prompt_ids = process_responses_file(args.responses_path)
+    print("Responses transcription processed.")
 
     # Generate the prompts list (in the same order as responses)
     prompts = map(lambda prompt_id: inv_mapping[prompt_id], prompt_ids)
@@ -152,10 +165,14 @@ def main(args):
 
     # Write the data to the save directory:
     suffix = '.txt'
+    
+    # Make sure the directory exists:
+    if not os.path.exists(args.save_dir):
+        os.makedirs(args.save_dir)
     for data, filename in zip([responses, confidences, speakers, prompts, prompt_ids, sections],
                               ['responses', 'confidences', 'speakers', 'prompts', 'prompt_ids', 'sections']):
         file_path = os.path.join(args.save_dir, filename + suffix)
-        with open(file_path) as file:
+        with open(file_path, 'w') as file:
             file.write('\n'.join(data))
     return
 
