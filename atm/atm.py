@@ -171,6 +171,45 @@ class AttentionTopicModel(BaseModel):
     #
     #     return predictions, probabilities, logits, attention
 
+    def _construct_prompt_encoder(self, p_input, p_seqlens):
+        """ Construct RNNLM network
+        Args:
+          ?
+        Returns:
+          predictions, probabilities, logits, attention
+        """
+
+        L2 = self.network_architecture['L2']
+        initializer = self.network_architecture['initializer']
+
+        # Question Encoder RNN
+        with tf.variable_scope('Embeddings', initializer=initializer(self._seed)) as scope:
+            embedding = slim.model_variable('word_embedding',
+                                            shape=[self.network_architecture['n_in'],
+                                                   self.network_architecture['n_ehid']],
+                                            initializer=tf.truncated_normal_initializer(stddev=0.1),
+                                            regularizer=slim.l2_regularizer(L2),
+                                            device='/GPU:0')
+
+            p_inputs = tf.nn.embedding_lookup(embedding, p_input, name='embedded_data')
+
+            p_inputs_fw = tf.transpose(p_inputs, [1, 0, 2])
+            p_inputs_bw = tf.transpose(tf.reverse_sequence(p_inputs, seq_lengths=p_seqlens, seq_axis=1, batch_axis=0),
+                                       [1, 0, 2])
+
+        # Prompt Encoder RNN
+        with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
+            rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            _, state_fw = rnn_fw(p_inputs_fw, sequence_length=p_seqlens, dtype=tf.float32)
+
+        with tf.variable_scope('RNN_Q_BW', initializer=initializer(self._seed)) as scope:
+            rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            _, state_bw = rnn_bw(p_inputs_bw, sequence_length=p_seqlens, dtype=tf.float32)
+
+            prompt_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
+
+        return prompt_embeddings
+
     def _construct_network(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen, batch_size, keep_prob=1.0):
         """ Construct RNNLM network
         Args:

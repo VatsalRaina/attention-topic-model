@@ -26,11 +26,11 @@ class HierarchicialAttentionTopicModel(BaseModel):
             with tf.variable_scope('input') as scope:
                 self._input_scope = scope
                 self.x_a = tf.placeholder(tf.int32, [None, None])
-                self.x_q = tf.placeholder(tf.int32, [None, None])
-                self.qlens = tf.placeholder(tf.int32, [None])
-                self.q_ids = tf.placeholder(tf.int32, [None])
-                self.q_ids_lens = tf.placeholder(tf.int32, [None])
-                self.q_ids_seq = tf.placeholder(tf.int32, [None, None])
+                self.x_p = tf.placeholder(tf.int32, [None, None])
+                self.plens = tf.placeholder(tf.int32, [None])
+                self.p_ids = tf.placeholder(tf.int32, [None])
+                self.p_ids_lens = tf.placeholder(tf.int32, [None])
+                self.p_ids_seq = tf.placeholder(tf.int32, [None, None])
                 self.alens = tf.placeholder(tf.int32, [None])
                 self.y = tf.placeholder(tf.float32, [None, 1])
                 self.maxlen = tf.placeholder(dtype=tf.int32, shape=[])
@@ -39,16 +39,19 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 self.batch_size = tf.placeholder(tf.int32, [])
 
             with tf.variable_scope('atm') as scope:
+                prompt_embeddings=np.loadtxt(os.path.join(load_path,'prompt_embeddings.txt'),dtype=np.float32)
+                self.prompt_embeddings= tf.constant(prompt_embeddings,dtype=tf.float32)
                 self._model_scope = scope
                 self._predictions, \
                 self._probabilities, \
                 self._logits, \
                 self.attention, = self._construct_network(a_input=self.x_a,
                                                           a_seqlens=self.alens,
-                                                          q_input=self.x_q,
-                                                          q_seqlens=self.qlens,
+                                                          p_input=self.x_p,
+                                                          p_seqlens=self.plens,
                                                           n_samples=0,
                                                           maxlen=self.maxlen,
+                                                          p_ids=self.p_ids,
                                                           batch_size=self.batch_size,
                                                           keep_prob=self.dropout)
 
@@ -63,139 +66,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
         elif load_path != None:
             self.load(load_path=load_path, step=epoch)
 
-    # def _construct_sentence_embedding(self,
-    #                                   a_input,
-    #                                   a_seqlens,
-    #                                   q_ids,
-    #                                   q_ids_seq,
-    #                                   q_ids_lens,
-    #                                   q_input,
-    #                                   q_seqlens,
-    #                                   maxlen,
-    #                                   batch_size,
-    #                                   keep_prob=1.0,
-    #                                   is_training=True,
-    #                                   temp=0.0,
-    #                                   hatn=False,
-    #                                   unseen=False,
-    #                                   n_topics=367):
-    #     """ Construct RNNLM network
-    #     Args:
-    #       ?
-    #     Returns:
-    #       predictions, logits
-    #     """
-    #
-    #     n_in = self.network_architecture['n_in']
-    #     n_hid = self.network_architecture['n_hidr']
-    #     WD = self.network_architecture['L2']
-    #     initializer = self.network_architecture['initializer']
-    #
-    #     # Question Encoder RNN
-    #     with tf.variable_scope('Embeddings', initializer=initializer(self._seed)) as scope:
-    #         embedding = self._variable_with_weight_decay("word_embedding", [n_in, n_hid], trainable=False)
-    #         a_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, a_input, name='embedded_data'),
-    #                                  keep_prob=keep_prob)
-    #         q_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_input, name='embedded_data'),
-    #                                  keep_prob=keep_prob)
-    #         foo = tf.nn.embedding_lookup(embedding, q_input, name='embedded_data')
-    #         if q_ids is not None:
-    #             key_inputs = tf.stop_gradient(tf.nn.embedding_lookup(foo, q_ids))
-    #             key_lens = tf.nn.embedding_lookup(q_seqlens, q_ids)
-    #         if q_ids_seq is not None:
-    #             q_ids_seq = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_ids_seq, name='embedded_data'),
-    #                                       keep_prob=keep_prob)
-    #
-    #     with tf.variable_scope('RNN_Q', initializer=initializer(self._seed)) as scope:
-    #         # Compute Embedding of "Known" Questions
-    #         _, state = tf.nn.bidirectional_dynamic_rnn(cell_fw=cell_fw,
-    #                                                    cell_bw=cell_bw,
-    #                                                    inputs=q_inputs,
-    #                                                    sequence_length=q_seqlens,
-    #                                                    dtype=tf.float32,
-    #                                                    parallel_iterations=32,
-    #                                                    scope=scope)
-    #         question_embedding_matrix = tf.concat([state[0][1], state[1][1]], axis=1)
-    #         # Compute Representation of the Keys for this question
-    #         ####FIRST GET SAMPLING WORKING###
-    #         # attended_key = tf.nn.embedding_lookup(question_embedding_matrix, q_ids)
-    #     with tf.variable_scope('RNN_KEY', initializer=initializer(self._seed)) as scope:
-    #         # Compute Embedding of "Known" Questions
-    #         if q_ids_seq is not None and q_ids_lens is not None and q_ids is None:
-    #             # If this is training, we don't want to process the seen questions again many times.
-    #             key_inputs = q_ids_seq
-    #             key_lens = q_ids_lens
-    #         elif q_ids_seq is not None and q_ids_lens is not None and q_ids is not None:
-    #             print 'KEY RNN HERE!'
-    #             key_inputs = tf.concat([key_inputs, q_ids_seq], axis=0)
-    #             key_lens = tf.concat([key_lens, q_ids_lens], axis=0)
-    #
-    #         _, state = tf.nn.bidirectional_dynamic_rnn(cell_fw=cell_fw,
-    #                                                    cell_bw=cell_bw,
-    #                                                    inputs=key_inputs,
-    #                                                    sequence_length=key_lens,
-    #                                                    # initial_state_fw=initial_state_fw,
-    #                                                    # initial_state_bw=initial_state_bw,
-    #                                                    dtype=tf.float32,
-    #                                                    parallel_iterations=32,
-    #                                                    scope=scope)
-    #
-    #         keys = tf.nn.dropout(tf.concat([state[0][1], state[1][1]], axis=1), keep_prob=keep_prob,
-    #                              seed=self._seed + 10)
-    #
-
-        # with tf.variable_scope('PROMPT_ATN', initializer=initializer(self._seed)) as scope:
-        #     # Compute Attention over known questions
-        #     mems = slim.fully_connected(
-        #         tf.nn.dropout(question_embedding_matrix, keep_prob=keep_prob, seed=self._seed + 2),
-        #         2 * n_hid,
-        #         activation_fn=None,
-        #         weights_regularizer=slim.l2_regularizer(WD),
-        #         scope="mem")
-        #     tkeys = slim.fully_connected(keys,
-        #                                  2 * n_hid,
-        #                                  activation_fn=None,
-        #                                  weights_regularizer=slim.l2_regularizer(WD),
-        #                                  scope="tkeys")
-        #
-        #     e_mems = tf.expand_dims(mems, axis=0, name='expanded_mems')
-        #     e_tkeys = tf.expand_dims(tkeys, axis=1, name='expanded_mems')
-        #     tmp = tf.nn.tanh(e_mems + e_tkeys)
-        #     print tmp.get_shape()
-        #     tmp = tf.nn.dropout(tf.reshape(tmp, shape=[-1, 2 * n_hid]), keep_prob=keep_prob, seed=self._seed + 3)
-        #
-        #     v = slim.model_variable('v',
-        #                             shape=[2 * n_hid, 1],
-        #                             regularizer=slim.l2_regularizer(WD),
-        #                             device='/GPU:0')
-        #     # NEED TO MAKE SURE THIS RESHAPING BECOMES CORRECT AS NUMBER OF NEG EXAMPLES is INC
-        #     if q_ids is not None and q_ids_seq is not None:
-        #         print 'NOT NOT HERE!'
-        #         a = tf.exp(tf.reshape(tf.matmul(tmp, v), [150, n_topics]))
-        #         if not unseen:
-        #             mask = tf.where(tf.equal(tf.expand_dims(q_ids, axis=1),
-        #                                      tf.tile(tf.expand_dims(tf.range(0, n_topics, dtype=tf.int32), axis=0),
-        #                                              [100, 1])),
-        #                             tf.zeros(shape=[100, n_topics], dtype=tf.float32),
-        #                             tf.ones(shape=[100, n_topics], dtype=tf.float32))
-        #             mask = tf.concat([mask, tf.ones(shape=[50, n_topics])], axis=0)
-        #     else:
-        #         a = tf.exp(tf.reshape(tf.matmul(tmp, v), [batch_size, n_topics]))
-        #         if not unseen:
-        #             mask = tf.where(tf.equal(tf.expand_dims(q_ids, axis=1),
-        #                                      tf.tile(tf.expand_dims(tf.range(0, n_topics, dtype=tf.int32), axis=0),
-        #                                              [batch_size, 1])),
-        #                             tf.zeros(shape=[batch_size, n_topics], dtype=tf.float32),
-        #                             tf.ones(shape=[batch_size, n_topics], dtype=tf.float32))
-        #             a = a * mask
-        #     attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
-        #     attention_entropy = -tf.reduce_sum((attention * tf.log(attention + 1e-6)), axis=1)
-        #     attended_key = tf.matmul(attention, question_embedding_matrix)
-        #     attention_prompts = attention
-
-
-
-    def _construct_network(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen, batch_size, keep_prob=1.0):
+    def _construct_network(self, a_input, a_seqlens, n_samples, p_input, p_seqlens, maxlen, p_ids, batch_size, is_training=False, run_prompt_encoder=False, keep_prob=1.0):
         """ Construct RNNLM network
         Args:
           ?
@@ -216,51 +87,77 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                             device='/GPU:0')
             a_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, a_input, name='embedded_data'),
                                      keep_prob=keep_prob, seed=self._seed + 1)
-            q_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_input, name='embedded_data'),
+            p_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, p_input, name='embedded_data'),
                                      keep_prob=keep_prob, seed=self._seed + 2)
 
-            q_inputs_fw = tf.transpose(q_inputs, [1, 0, 2])
-            q_inputs_bw = tf.transpose(tf.reverse_sequence(q_inputs, seq_lengths=q_seqlens, seq_axis=1, batch_axis=0),
+            p_inputs_fw = tf.transpose(p_inputs, [1, 0, 2])
+            p_inputs_bw = tf.transpose(tf.reverse_sequence(p_inputs, seq_lengths=p_seqlens, seq_axis=1, batch_axis=0),
                                        [1, 0, 2])
 
             a_inputs_fw = tf.transpose(a_inputs, [1, 0, 2])
             a_inputs_bw = tf.transpose(tf.reverse_sequence(a_inputs, seq_lengths=a_seqlens, seq_axis=1, batch_axis=0),
                                        [1, 0, 2])
 
-        # Prompt Encoder RNN
-        with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
-            rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-            _, state_fw = rnn_fw(q_inputs_fw, sequence_length=q_seqlens, dtype=tf.float32)
 
-        with tf.variable_scope('RNN_Q_BW', initializer=initializer(self._seed)) as scope:
-            rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-            _, state_bw = rnn_bw(q_inputs_bw, sequence_length=q_seqlens, dtype=tf.float32)
+        if run_prompt_encoder == True:
+            # Prompt Encoder RNN
+            with tf.variable_scope('RNN_P_FW', initializer=initializer(self._seed)) as scope:
+                rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+                _, state_fw = rnn_fw(p_inputs_fw, sequence_length=p_seqlens, dtype=tf.float32)
+            with tf.variable_scope('RNN_P_BW', initializer=initializer(self._seed)) as scope:
+                rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+                _, state_bw = rnn_bw(p_inputs_bw, sequence_length=p_seqlens, dtype=tf.float32)
 
-        question_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
-        question_embeddings = tf.nn.dropout(question_embeddings, keep_prob=keep_prob, seed=self._seed)
+            prompt_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
+            prompt_embeddings = tf.nn.dropout(prompt_embeddings, keep_prob=keep_prob, seed=self._seed)
+
+        else:
+            prompt_embeddings = tf.nn.dropout(self.prompt_embeddings, keep_prob=keep_prob, seed=self._seed)
 
         with tf.variable_scope('RNN_KEY_FW', initializer=initializer(self._seed)) as scope:
             rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-            _, state_fw = rnn_fw(q_inputs_fw, sequence_length=q_seqlens, dtype=tf.float32)
-
+            _, state_fw = rnn_fw(p_inputs_fw, sequence_length=p_seqlens, dtype=tf.float32)
         with tf.variable_scope('RNN_KEY_BW', initializer=initializer(self._seed)) as scope:
             rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-            _, state_bw = rnn_bw(q_inputs_bw, sequence_length=q_seqlens, dtype=tf.float32)
-
-        keys = tf.nn.dropout(tf.concat([state_fw[1], state_bw[1]], axis=1), keep_prob=keep_prob,
-                             seed=self._seed + 10)
-
-        if q_ids_seq is not None and q_ids_lens is not None and q_ids is None:
-            # If this is training, we don't want to process the seen questions again many times.
-            key_inputs = q_ids_seq
-            key_lens = q_ids_lens
-        elif q_ids_seq is not None and q_ids_lens is not None and q_ids is not None:
-            print 'KEY RNN HERE!'
-            key_inputs = tf.concat([key_inputs, q_ids_seq], axis=0)
-            key_lens = tf.concat([key_lens, q_ids_lens], axis=0)
+            _, state_bw = rnn_bw(p_inputs_bw, sequence_length=p_seqlens, dtype=tf.float32)
 
 
+        keys = tf.nn.dropout(tf.concat([state_fw[1], state_bw[1]], axis=1), keep_prob=keep_prob, seed=self._seed + 10)
 
+        with tf.variable_scope('PROMPT_ATN', initializer=initializer(self._seed)) as scope:
+            # Compute Attention over known questions
+            mems = slim.fully_connected(prompt_embeddings,
+                                        2 * self.network_architecture['n_phid'],
+                                        activation_fn=None,
+                                        weights_regularizer=slim.l2_regularizer(L2),
+                                        scope="mem")
+            mems = tf.expand_dims(mems, axis=0, name='expanded_mems')
+            tkeys = slim.fully_connected(keys,
+                                         2 * self.network_architecture['n_phid'],
+                                         activation_fn=None,
+                                         weights_regularizer=slim.l2_regularizer(L2),
+                                         scope="tkeys")
+            tkeys = tf.expand_dims(tkeys, axis=1, name='expanded_mems')
+            v = slim.model_variable('v',
+                                    shape=[2 * self.network_architecture['n_phid'], 1],
+                                    regularizer=slim.l2_regularizer(L2),
+                                    device='/GPU:0')
+
+            tmp = tf.nn.tanh(mems + tkeys)
+            print tmp.get_shape()
+            tmp = tf.nn.dropout(tf.reshape(tmp, shape=[-1, 2 *self.network_architecture['n_phid']]), keep_prob=keep_prob, seed=self._seed + 3)
+            a = tf.exp(tf.reshape(tf.matmul(tmp, v), [batch_size, -1]))
+
+            if is_training:
+                mask = tf.where(tf.equal(tf.expand_dims(p_ids, axis=1),
+                                         tf.tile(tf.expand_dims(tf.range(0, self.network_architecture['n_topics'], dtype=tf.int32), axis=0),
+                                                 [batch_size, 1])),
+                                tf.zeros(shape=[batch_size, self.network_architecture['n_topics']], dtype=tf.float32),
+                                tf.ones(shape=[batch_size, self.network_architecture['n_topics']], dtype=tf.float32))
+                a = a * mask
+
+            attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
+            attended_prompt_embedding = tf.matmul(attention, prompt_embeddings)
 
         # Response Encoder RNN
         with tf.variable_scope('RNN_A_FW', initializer=initializer(self._seed)) as scope:
@@ -279,7 +176,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
         outputs = tf.tile(outputs, [1 + n_samples, 1, 1])
 
         hidden, attention = self._bahdanau_attention(memory=outputs, seq_lens=a_seqlens, maxlen=maxlen,
-                                                     query=question_embeddings,
+                                                     query=attended_prompt_embedding,
                                                      size=2 * self.network_architecture['n_rhid'],
                                                      batch_size=batch_size * (n_samples + 1))
 
