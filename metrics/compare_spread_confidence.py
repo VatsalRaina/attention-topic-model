@@ -181,7 +181,8 @@ def calc_metrics(labels, ensemble_predictions):
     correct = mean_target_deviation < 0.5
     incorrect = np.invert(correct)
 
-    metrics = {"std_spread": std_spread,
+    metrics = {"avg_predictions": avg_predictions,
+               "std_spread": std_spread,
                "range_spread": range_spread,
                "iqr_spread": iqr_spread,
                "mutual_information": mutual_information,
