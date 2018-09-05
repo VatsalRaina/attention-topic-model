@@ -95,8 +95,9 @@ def process_prompts_file(scripts_path, fixed_sections, multi_sections_master):
                 line = line[1:-5]  # Ignore the " at the beginning and .lab" at the end
                 line = line.split('-')
                 location_id = line[0]
-                section = line[-2]
-                prompt_id = '-'.join((location_id, section))
+                section_id = line[-2]
+
+                prompt_id = '-'.join((location_id, section_id))
             elif line == ".":
                 # A "." indicates end of prompt -> add the prompt to the mapping dictionaries
                 prompt = " ".join(prompt_words)
@@ -107,9 +108,16 @@ def process_prompts_file(scripts_path, fixed_sections, multi_sections_master):
                 inv_mapping[prompt_id] = prompt
 
                 # Handle the fixed_sections
-                section_id = prompt_id.split('-')[1]  # Extracts the section id, for example 'SA0001'
+                location_id, section_id = prompt_id.split('-')  # Extracts the section id, for example 'SA0001'
                 if section_id[1] in fixed_sections:
                     inv_mapping[section_id] = prompt
+
+                # Consider whether the prompt is a master question
+                if section_id[1] in multi_sections:
+                    idx = multi_sections.index(section_id[1])
+                    # Assume if question number is larger than that of a master question, it is a master question
+                    if int(section_id[2:]) > int(multi_sections_master[idx][2:]):
+                        inv_mapping['-'.join(location_id, multi_sections_master[idx])] = prompt
 
                 # Reset the variables for storing the elements of the prompt
                 prompt_id = None
