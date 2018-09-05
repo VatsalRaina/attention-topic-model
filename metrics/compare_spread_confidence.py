@@ -106,7 +106,8 @@ def calc_mutual_information(ensemble_predictions):
     return mutual_information, entropy_of_expected, expected_entropy
 
 
-def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, predictions_unseen, save_dir):
+def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, predictions_unseen, save_dir,
+                                  resolution=200):
     # Plot the normal, joint PR curve
     plt.figure(1)
     precision, recall, thresholds = precision_recall_curve(np.hstack((labels_seen, labels_unseen)),
@@ -116,23 +117,35 @@ def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, 
     plt.ylabel("Precision")
     plt.xlim(0, 1)
     plt.savefig(os.path.join(save_dir, "total_pr.png"), bbox_inches='tight')
+    print("Made first plot")
+
+    # Optimise the number of thresholds to plot
+    x = np.linspace(np.min(recall), np.max(recall), resolution, endpoint=False)
+    select = np.empty(recall.shape, dtype=np.bool)
+    for i in range(len(x)):
+        # Get only the recall values that approximate a grid with a particular resolution
+        next_select_idx = np.argmax(recall > x[i])
+        select[next_select_idx] = True
+    recall_opt = np.extract(select, recall)
+    thresholds_opt = np.extract(select, thresholds)
+    print("Number thresholds to consider optimised.")
 
     # Plot the recall on dataset vs. overall recall plot.
     plt.figure(2)
-    recall_seen = np.empty_like(recall)
-    recall_unseen = np.empty_like(recall)
-    precision_seen = np.empty_like(recall)
-    precision_unseen = np.empty_like(recall)
+    recall_seen = np.empty_like(recall_opt)
+    recall_unseen = np.empty_like(recall_opt)
+    precision_seen = np.empty_like(recall_opt)
+    precision_unseen = np.empty_like(recall_opt)
 
-    for i in range(len(thresholds)):
-        class_predicted_seen = (predictions_seen > thresholds[i]).astype(np.int16)
-        class_predicted_unseen = (predictions_unseen > thresholds[i]).astype(np.int16)
+    for i in range(len(thresholds_opt)):
+        class_predicted_seen = (predictions_seen > thresholds_opt[i]).astype(np.int16)
+        class_predicted_unseen = (predictions_unseen > thresholds_opt[i]).astype(np.int16)
         recall_seen[i] = recall_score(labels_seen, class_predicted_seen, average='binary')
         recall_unseen[i] = recall_score(labels_unseen, class_predicted_unseen, average='binary')
         precision_seen[i] = precision_score(labels_seen, class_predicted_seen, average='binary')
         precision_unseen[i] = precision_score(labels_unseen, class_predicted_unseen, average='binary')
-    plt.plot(recall, recall_seen, color=dark_orange, label='Seen - Seen')
-    plt.plot(recall, recall_unseen, color=dark_blue, label='Unseen - Unseen')
+    plt.plot(recall_opt, recall_seen, color=dark_orange, label='Seen - Seen')
+    plt.plot(recall_opt, recall_unseen, color=dark_blue, label='Unseen - Unseen')
     plt.xlabel("Total Recall")
     plt.ylabel("Subset Recall")
     plt.xlim(0, 1)
@@ -140,10 +153,11 @@ def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, 
 
     plt.savefig(os.path.join(save_dir, "subset_recall_v_total_recall.png"), bbox_inches='tight')
 
+    print("Made second plot.")
     # Plot the PR curve for each individual dataset
     plt.figure(3)
-    plt.plot(recall, precision_seen, color=dark_orange, label='Seen - Seen Dataset')
-    plt.plot(recall, precision_unseen, color=dark_blue, label='Unseen - Unseen Dataset')
+    plt.plot(recall_opt, precision_seen, color=dark_orange, label='Seen - Seen Dataset')
+    plt.plot(recall_opt, precision_unseen, color=dark_blue, label='Unseen - Unseen Dataset')
     plt.xlabel("Total Recall")
     plt.ylabel("Subset Precision")
     plt.xlim(0, 1)
@@ -167,13 +181,6 @@ def calc_metrics(labels, ensemble_predictions):
     correct = mean_target_deviation < 0.5
     incorrect = np.invert(correct)
 
-    # Calculate the true_positives, true_negatives .. e.t.c.
-    # Define POSITIVE as OFF TOPIC
-    tp = np.logical_and(correct, avg_predictions < 0.5)
-    tn = np.logical_and(correct, avg_predictions >= 0.5)
-    fp = np.logical_and(incorrect, avg_predictions < 0.5)
-    fn = np.logical_and(incorrect, avg_predictions >= 0.5)
-
     metrics = {"std_spread": std_spread,
                "range_spread": range_spread,
                "iqr_spread": iqr_spread,
@@ -182,8 +189,7 @@ def calc_metrics(labels, ensemble_predictions):
                "avg_entropy": avg_entropy,
                "mean_target_deviation": mean_target_deviation,
                "correct": correct,
-               "incorrect": incorrect,
-               "tp": tp, "tn": tn, "fp": fp, "fn": fn}
+               "incorrect": incorrect}
     return metrics
 
 

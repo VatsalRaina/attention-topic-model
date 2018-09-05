@@ -155,7 +155,9 @@ def main(args):
     print("Responses transcription processed.")
 
     # Generate the prompts list (in the same order as responses)
-    prompts = map(lambda prompt_id: inv_mapping[prompt_id], prompt_ids)
+    prompts = map(lambda prompt_id: inv_mapping.setdefault(prompt_id, None), prompt_ids)
+
+    # todo: Filter the responses, prompts, ... e.t.c. where prompts is None
 
 
     # Extract the section data for each response (SA, SB, SC, ...)
