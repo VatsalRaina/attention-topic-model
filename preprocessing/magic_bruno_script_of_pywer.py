@@ -66,6 +66,13 @@ def process_prompts_file(scripts_path):
     return mapping, inv_mapping
 
 
+def prepend_multiquestion_master(prompts, sections, multi_section='SE', master_question='SE006'):
+    for i in range(len(sections)):
+        if sections[i] == multi_section:
+            pass
+    return
+
+
 def process_responses_file(responses_path):
     responses = []
     confidences = []
@@ -109,7 +116,7 @@ def process_responses_file(responses_path):
                 response_words = []
                 confidences_temp = []
             elif len(line.split()) > 1:
-                assert re.match(r'[0-9]* [0-9]* [A-Z]* [0-9.]*$', line)  # todo: remove once confident in the format
+                assert re.match(r"[0-9]* [0-9]* [A-Z%'\\]* [0-9.]*$", line)  # todo: remove once confident in the format
                 line = line.split()
                 word = line[-2]
                 conf = line[-1]
@@ -137,11 +144,11 @@ def main(args):
     # Generate the prompts list (in the same order as responses)
     prompts = map(lambda prompt_id: inv_mapping[prompt_id], prompt_ids)
 
-    # Handle the multi subquestion prompts
-    # todo:
 
     # Extract the section data for each response (SA, SB, SC, ...)
     sections = map(lambda prompt_id: prompt_id.split('-')[1][:2], prompt_ids)
+
+    # Handle the multi subquestion prompts
 
     # Write the data to the save directory:
     suffix = '.txt'
