@@ -44,7 +44,7 @@ parser.add_argument('--fixed_sections', nargs='*', type=str, default=['A', 'B'],
                          'indentifiers, e.g. --fixed_sections A B')
 parser.add_argument('--fixed_questions', nargs='*', type=str, default=['SC0001', 'SD0001'],
                     help='Which individual questions if any are fixed (questions are always the same). Takes space separated '
-                         'indentifiers, e.g. --fixed_questions SC0001') 
+                         'indentifiers, e.g. --fixed_questions SC0001')
 parser.add_argument('--exclude_sections', nargs='*', type=str, default=['A', 'B'],
                     help='Sections to exclude from the output. '
                          'Takes space separated identifiers, e.g. --exclude_sections A B')
@@ -62,7 +62,33 @@ parser.add_argument('--multi_sections_master', nargs='*', type=str, default=['SE
 sub_prompt_separator = " </s> <s> "
 
 
-def process_prompts_file(scripts_path, fixed_sections, fixed_questions, multi_sections, multi_sections_master):
+def extract_uniq_identifier(prompt_id, args):
+    """
+    This dataset is a mess. I hate my life. Just stuff all the manual rules for lookup in this functions
+    so that it's easily accessible..
+    """
+    location_id, section_id = prompt_id.split('-')
+
+    ##### The manual rules: ###
+    if section_id[1] == 'C' or section_id[1] == 'D':
+        section_id = section_id[:2] + '0001'
+    #####
+
+    # If the prompt is from a fixed section or is a fixed question
+    if section_id[1] in args.fixed_sections:
+        return section_id
+
+    # Consider whether the prompt is a master question (must be exclusive from fixed section
+    if section_id[1] in args.multi_sections:
+        idx = args.multi_sections.index(section_id[1])
+        # Assume if question number is larger than that of a master question, it is a master question
+        if int(section_id[2:]) > int(args.multi_sections_master[idx][2:]):
+            section_id = args.multi_sections_master[idx]
+
+    return '-'.join(location_id, section_id)
+
+
+def generate_mappings(prompts, prompt_ids, args):
     """
     Assumes the mapping from prompt_ids to prompts is surjective, but not necessarily injective: many prompt_ids
     can point to the same prompt. Hence in the inverse mapping, each prompt points to a list of prompt_ids that point
@@ -86,145 +112,137 @@ def process_prompts_file(scripts_path, fixed_sections, fixed_questions, multi_se
     mapping = {}  # Mapping from prompts to a list of identifiers
     inv_mapping = {}  # Mapping from identifiers to prompts
 
-    with open(scripts_path, 'r') as file:
-        prompt_words = []
+    for prompt, full_id in zip(prompts, prompt_ids):
+        # Process the prompt_id line
+        assert re.match(r'[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+-[a-z]*$', line)  # The expected format of the line
+
+        full_id = full_id.split('-')
+        location_id, section_id = full_id[0], full_id[-2]
+        prompt_id = '-'.join((location_id, section_id))
+        _add_pair_to_mapping(mapping, inv_mapping, prompt_id, prompt)
+        _add_pair_to_mapping(mapping, inv_mapping, extract_uniq_identifier(prompt_id, args), prompt)
+
+    return mapping, inv_mapping
+
+
+def _add_pair_to_mapping(mapping, inv_mapping, prompt_id, prompt)
+    mapping.setdefault(prompt, [])
+    mapping[prompt].append(prompt_id)
+    inv_mapping[prompt_id] = prompt
+    return
+
+
+def process_mlf_scripts(mlf_path, word_pattern=r"[%A-Za-z'\\_.]+$"):
+    sentences = []
+    ids = []
+    with open(mlf_path, 'r') as file:
+        words = []
         for line in file.readlines():
             line = line.strip()  # Remove the \n at the end of line
             if line == '#!MLF!#':
                 # Ignore the file type prefix line
                 continue
             elif ".lab" in line:
-                assert re.match(r'"[A-Z0-9]*-[A-Z0-9]*-[A-Z0-9]*-[A-Z0-9]*-[a-z]*.lab"$', line)
-                line = line[1:-5]  # Ignore the " at the beginning and .lab" at the end
-                line = line.split('-')
-                location_id = line[0]
-                section_id = line[-2]
-
-                prompt_id = '-'.join((location_id, section_id))
+                assert re.match(r'"[a-zA-Z0-9-]+.lab"$', line)
+                assert len(sentences) == len(ids)
+                # Get rid of the " at the beginning and the .lab" at the end
+                line = line[1:-5]
+                ids.append(line)
             elif line == ".":
-                # A "." indicates end of prompt -> add the prompt to the mapping dictionaries
-                prompt = " ".join(prompt_words)
-                assert prompt_id is not None
-                assert len(prompt) > 0
-                mapping.setdefault(prompt, [])
-                mapping[prompt].append(prompt_id)
-                inv_mapping[prompt_id] = prompt
-
-                # Handle the fixed_sections
-                location_id, section_id = prompt_id.split('-')  # Extracts the section id, for example 'SA0001'
-                if section_id[1] in fixed_sections or section_id in fixed_questions:
-                    if section_id in fixed_questions:
-                        print("fixed section or question id: ", prompt_id)
-                    inv_mapping[section_id] = prompt
-
-                # Consider whether the prompt is a master question
-                if section_id[1] in multi_sections:
-                    idx = multi_sections.index(section_id[1])
-                    # Assume if question number is larger than that of a master question, it is a master question
-                    if int(section_id[2:]) > int(multi_sections_master[idx][2:]):
-                        new_prompt_id = '-'.join((location_id, multi_sections_master[idx]))
-                        inv_mapping[new_prompt_id] = prompt
-
-                # Reset the variables for storing the elements of the prompt
-                prompt_id = None
-                prompt_words = []
-            elif re.match(r"[%A-Za-z'\\_.]+$", line):
-                prompt_words.append(line)
+                # A "." indicates end of utternace -> add the sentence to list
+                sentence = " ".join(words)
+                assert len(sentence) > 0
+                sentences.append(sentence)
+                # Reset the words temporary list
+                sentence = []
+            elif re.match(word_pattern, line):
+                words.append(line)
             else:
                 raise ValueError("Unexpected pattern in file: " + line)
+    return sentences, ids
 
-    return mapping, inv_mapping
 
+def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z'\\_.]+ [0-9.]*$"):
+    sentences = []
+    ids = []
+    confidences = []
 
-def prepend_multiquestion_master(prompts, sections, multi_section='SE', master_question='SE006'):
+    with open(mlf_path, 'r') as file:
+        words_temp = []
+        confs_temp = []
+        for line in file.readlines():
+            line = line.strip()  # Remove the \n at the end of line
+            if line == '#!MLF!#':
+                # Ignore the file type prefix line
+                continue
+            elif ".lab" in line:
+                assert re.match(r'"[a-zA-Z0-9-]+.lab"$', line)
+                assert len(sentences) == len(ids)
+                # Get rid of the " at the beginning and the .lab" at the end
+                line = line[1:-5]
+                ids.append(line)
+            elif line == ".":
+                # A "." indicates end of utternace -> add the sentence to list
+                sentence = " ".join(words_temp)
+                sentence_confs = " ".join()
+                assert len(sentence) > 0
+                sentences.append(sentence)
+                confidences.append(confs_temp)
+                # Reset the temp variables
+                words_temp, confs_temp = [], []
+            elif len(line.split()) > 1:
+                assert re.match(word_line_pattern, line)
+                line_split = line.split()
+                words_temp.append(line_split[-2])
+                confs_temp.append(line_split[-1])
+            else:
+                raise ValueError("Unexpected pattern in file: " + line)
+    return sentences, ids, confidences
+
+# todo: what was this one used for again?
+def _prepend_multiquestion_master(prompts, sections, multi_section='SE', master_question='SE006'):
     for i in range(len(sections)):
         if sections[i] == multi_section:
             pass
     return
 
 
-def process_responses_file(responses_path, exclude_sections):
-    """
-    :param responses_path: path to the file with the transcriptions of responses
-    :param exclude_sections: list of sections to exclude, e.g. ['A', 'B']
-    :return: responses, confidences, speakers, prompt_ids
-    """
-    responses = []
-    confidences = []
+def process_responses_file(responses, full_ids, confidences, inv_mapping, args):
     speakers = []
+    sections = []
     prompt_ids = []
+    prompts = []
 
-    response_words = []  # Temporarily stores words for each response before adding to list
-    confidences_temp = []  # Temporarily stores confidences for each response before adding to list
+    i = 0
+    while i < len(responses):
+        full_id = full_ids[i].split('-')
+        location_id = full_id[0]
+        speaker_number = full_id[1]
+        section_id = full_id[3]
+        section = section_id[1]
 
-    skip_response = False
-    with open(responses_path, 'r') as file:
-        for line in file.readlines():
-            line = line.strip()
-
-            if skip_response:
-                if line == ".":
-                    skip_response = False
+        if section in args.exclude_sections:
+            del responses[i], full_ids[i], confidences[i]
+            continue
+        else:
+            speaker = '-'.join((location_id, speaker_number))  # Should extract the speaker id
+            prompt_id = '-'.join((location_id, section_id))
+            prompt = inv_mapping[extract_uniq_identifier(prompt_id, args)]
+            if prompt is None:
+                print("Didn't find a match for prompt id: ", prompt_id)
+                del responses[i], full_ids[i], confidences[i]
                 continue
 
-            # Ignore the file type prefix line
-            if line == '#!MLF!#':
-                continue
-            elif ".lab" in line:
-                # Speaker and prompt identifier
-                assert re.match(r'"[a-zA-Z0-9_-]*.lab"$', line)
-
-                # Extract relevant information from identifier
-                line = line[1:-5]  # Get rid of " at the beginning and .lab" at the end
-                line = line.split('-')
-                location_id = line[0]
-                speaker_number = line[1]
-                section_id = line[3]
-
-                # Check if this response should be skipped
-                if section_id[1] in exclude_sections:
-                    skip_response = True
-                    continue
-
-                speaker = '-'.join((location_id, speaker_number))  # Should extract the speaker id
-                prompt_id = '-'.join((location_id, section_id))
-
-                # Store the relevant 'metadata'
-                speakers.append(speaker)
-                prompt_ids.append(prompt_id)
-            elif line == ".":
-                # A "." indicates end of response -> add the response to the list
-                response = " ".join(response_words)
-                response_conf = " ".join(confidences_temp)
-                assert len(confidences_temp) == len(response_words)
-                assert len(response) > 0
-
-                responses.append(response)
-                confidences.append(response_conf)
-
-                # Reset the variables for storing the elements of the prompt
-                response_words = []
-                confidences_temp = []
-            elif len(line.split()) > 1:
-                if re.match(r"[0-9]* [0-9]* [\"%A-Za-z'\\_.]+ [0-9.]*$", line):
-                    pass
-                elif re.match(r"[\"%A-Za-z'\\_.]+ [0-9.]*$", line):
-                        # this should match the eval data
-                    pass
-                else:
-                    raise ValueError("Unexpected line: ", line)
-                line = line.split()
-                word = line[-2]
-                conf = line[-1]
-                response_words.append(word)
-                confidences_temp.append(conf)
-            else:
-                raise ValueError("Unexpected pattern in file: " + line)
+            # Store the relevant data
+            speakers.append(speaker)
+            prompt_ids.append(prompt_id)
+            prompts.append(prompt)
+            sections.append(section)
 
     # Assert number of elements of  responses, response confidences, speakers, and prompt_ids is the same
-    assert len({len(responses), len(confidences), len(speakers), len(prompt_ids)}) == 1
+    assert len({len(responses), len(confidences), len(speakers), len(prompt_ids), len(prompts), len(sections)}) == 1
 
-    return responses, confidences, speakers, prompt_ids
+    return responses, full_ids, confidences, prompt_ids, prompts, speakers, sections
 
 
 def fixed_section_filter(prompt_id, fixed_sections, fixed_questions):
@@ -249,32 +267,29 @@ def main(args):
             "The flag arguments provided don't match the expected format. See the manual for expected arguments.")
 
     start_time = time.time()
-    # Process the prompts
-    mapping, inv_mapping = process_prompts_file(args.scripts_path, args.fixed_sections, args.fixed_questions, args.multi_sections, args.multi_sections_master)
+    # Process the prompts (scripts) file
+    prompts_list, prompt_ids_list = process_mlf_scripts(args.scripts_path)
+    print('Prompts script file processed. Time eta: ', time.time() - start_time)
 
-    print("Prompt script file processed. Mappings generated. Time elapsed: ", time.time() - start_time)
+    # Generate mappings
+    mapping, inv_mapping = generate_mappings(prompts_list, prompt_ids_list, args)
 
-    # todo: print mapping to see if correct
-    # todo: possibly store the mapping
+    print("Mappings generated. Time elapsed: ", time.time() - start_time)
 
     # Process the responses
-    responses, confidences, speakers, prompt_ids = process_responses_file(args.responses_path, args.exclude_sections)
+    responses, full_ids, confidences = process_mlf_responses(args.responses_path)
+    print("Responses mlf file processed. Time elapsed: ", time.time() - start_time)
+    responses, full_ids, confidences, prompt_ids, prompts, speakers, sections = process_responses_file(responses,
+                                                                                                       full_ids,
+                                                                                                       confidences,
+                                                                                                       inv_mapping,
+                                                                                                       args)
     print("Responses transcription processed. Time elapsed: ", time.time() - start_time)
 
-    # Extract the section data for each response (A, B, C, ...)
-    sections = list(map(lambda prompt_id: prompt_id.split('-')[1][1], prompt_ids))
 
     # Reduce prompt ids for fixed section to section ids:
     prompt_ids_red = map(lambda prompt_id: fixed_section_filter(prompt_id, args.fixed_sections, args.fixed_questions), prompt_ids)
 
-    # Generate the prompts list (in the same order as responses)
-    prompts = list(map(lambda prompt_id: inv_mapping.setdefault(prompt_id, None), prompt_ids_red))
-    for i in range(len(prompts)):
-        if prompts[i] is None:
-            print(prompt_ids[i])
-
-    print('Any unmapped: ', None in prompts)
-    # todo: Filter the responses, prompts, ... e.t.c. where prompts is None
 
     # Handle the multi subquestion prompts
     for i in range(len(sections)):
@@ -287,12 +302,13 @@ def main(args):
 
             # Prepend the master prompt to the subquestion prompts.
             try:
-                prev_prompt = prompts[i]
+                subquestion_prompt = prompts[i]
                 master_prompt = inv_mapping[master_prompt_id]
-                new_prompt = master_prompt + sub_prompt_separator + prev_prompt
+                new_prompt = master_prompt + sub_prompt_separator + subquestion_prompt
                 prompts[i] = new_prompt
             except KeyError:
                 print("No master question: " + master_prompt_id + " in the scripts file")
+                # todo: Potentially delete something
 
     # Write the data to the save directory:
     suffix = '.txt'
