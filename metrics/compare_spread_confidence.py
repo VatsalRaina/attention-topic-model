@@ -233,8 +233,8 @@ def plot_precision_recall_balance_legacy(labels_seen, predictions_seen, labels_u
 def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, predictions_unseen, save_dir,
                                   num_thresh=500):
 
-    labels_total = np.hstack(labels_seen, labels_unseen)
-    predictions_total = np.hstack(predictions_seen, predictions_unseen)
+    labels_total = np.hstack((labels_seen, labels_unseen))
+    predictions_total = np.hstack((predictions_seen, predictions_unseen))
 
     # Plot the normal, joint PR curve
     plt.figure(1)
@@ -353,9 +353,7 @@ def main():
     plot_precision_recall_balance(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
                                   metrics_unseen['avg_predictions'], save_dir)
     print("Made triple PR plot with subset split. Time taken: ", time.time() - start_time)
-    plot_precision_recall_balance_legacy(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
-                                  metrics_unseen['avg_predictions'], save_dir + '/legacy')
-    print("Made triple PR plot with subset split legacy. Time taken: ", time.time() - start_time)
+    plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels_unseen, predictions_unseen, metrics_seen['mutual_information'], metrics_unseen['mutual_information'], save_dir)
     return
 
 
