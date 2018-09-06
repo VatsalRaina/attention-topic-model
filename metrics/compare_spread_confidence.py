@@ -369,11 +369,8 @@ def calc_precision_recall_metrics(labels_seen, predictions_seen, labels_unseen, 
     return precision_seen, precision_unseen, precision_opt, recall_seen, recall_unseen, recall_opt
 
 
-<<<<<<< HEAD
-=======
 def plot_precision_recall_balance_legacy(labels_seen, predictions_seen, labels_unseen, predictions_unseen, save_dir,
                                          num_thresh=500):
->>>>>>> 776e15ec76420e9f3370666586f03e039a8e8fc8
     labels_total = np.hstack((labels_seen, labels_unseen))
     predictions_total = np.hstack((predictions_seen, predictions_unseen))
 
