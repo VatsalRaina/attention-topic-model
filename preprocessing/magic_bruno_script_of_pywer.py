@@ -42,6 +42,9 @@ parser.add_argument('save_dir', type=str, help='Path to the directory in which t
 parser.add_argument('--fixed_sections', nargs='*', type=str, default=['A', 'B'],
                     help='Which sections if any are fixed (questions are always the same). Takes space separated '
                          'indentifiers, e.g. --fixed_sections A B')
+parser.add_argument('--fixed_questions', nargs='*', type=str, default=['SC0001', 'SD0001'],
+                    help='Which individual questions if any are fixed (questions are always the same). Takes space separated '
+                         'indentifiers, e.g. --fixed_questions SC0001') 
 parser.add_argument('--exclude_sections', nargs='*', type=str, default=['A', 'B'],
                     help='Sections to exclude from the output. '
                          'Takes space separated identifiers, e.g. --exclude_sections A B')
@@ -59,7 +62,7 @@ parser.add_argument('--multi_sections_master', nargs='*', type=str, default=['SE
 sub_prompt_separator = " </s> <s> "
 
 
-def process_prompts_file(scripts_path, fixed_sections, multi_sections_master):
+def process_prompts_file(scripts_path, fixed_sections, fixed_questions, multi_sections, multi_sections_master):
     """
     Assumes the mapping from prompt_ids to prompts is surjective, but not necessarily injective: many prompt_ids
     can point to the same prompt. Hence in the inverse mapping, each prompt points to a list of prompt_ids that point
@@ -109,7 +112,9 @@ def process_prompts_file(scripts_path, fixed_sections, multi_sections_master):
 
                 # Handle the fixed_sections
                 location_id, section_id = prompt_id.split('-')  # Extracts the section id, for example 'SA0001'
-                if section_id[1] in fixed_sections:
+                if section_id[1] in fixed_sections or section_id in fixed_questions:
+                    if section_id in fixed_questions:
+                        print("fixed section or question id: ", prompt_id)
                     inv_mapping[section_id] = prompt
 
                 # Consider whether the prompt is a master question
@@ -117,7 +122,8 @@ def process_prompts_file(scripts_path, fixed_sections, multi_sections_master):
                     idx = multi_sections.index(section_id[1])
                     # Assume if question number is larger than that of a master question, it is a master question
                     if int(section_id[2:]) > int(multi_sections_master[idx][2:]):
-                        inv_mapping['-'.join(location_id, multi_sections_master[idx])] = prompt
+                        new_prompt_id = '-'.join((location_id, multi_sections_master[idx]))
+                        inv_mapping[new_prompt_id] = prompt
 
                 # Reset the variables for storing the elements of the prompt
                 prompt_id = None
@@ -221,9 +227,10 @@ def process_responses_file(responses_path, exclude_sections):
     return responses, confidences, speakers, prompt_ids
 
 
-def fixed_section_filter(prompt_id, fixed_sections):
+def fixed_section_filter(prompt_id, fixed_sections, fixed_questions):
     section_id = prompt_id.split('-')[1]  # Extracts the section id, for example 'SA0001'
-    if section_id[1] in fixed_sections:
+    if section_id[1] in fixed_sections or section_id in fixed_questions:
+        print("Id lookup reduced: , ", prompt_id)
         return section_id
     else:
         return prompt_id
@@ -243,7 +250,7 @@ def main(args):
 
     start_time = time.time()
     # Process the prompts
-    mapping, inv_mapping = process_prompts_file(args.scripts_path, args.fixed_sections, args.multi_sections_master)
+    mapping, inv_mapping = process_prompts_file(args.scripts_path, args.fixed_sections, args.fixed_questions, args.multi_sections, args.multi_sections_master)
 
     print("Prompt script file processed. Mappings generated. Time elapsed: ", time.time() - start_time)
 
@@ -258,10 +265,13 @@ def main(args):
     sections = list(map(lambda prompt_id: prompt_id.split('-')[1][1], prompt_ids))
 
     # Reduce prompt ids for fixed section to section ids:
-    prompt_ids_red = map(lambda prompt_id: fixed_section_filter(prompt_id, args.fixed_sections), prompt_ids)
+    prompt_ids_red = map(lambda prompt_id: fixed_section_filter(prompt_id, args.fixed_sections, args.fixed_questions), prompt_ids)
 
     # Generate the prompts list (in the same order as responses)
     prompts = list(map(lambda prompt_id: inv_mapping.setdefault(prompt_id, None), prompt_ids_red))
+    for i in range(len(prompts)):
+        if prompts[i] is None:
+            print(prompt_ids[i])
 
     print('Any unmapped: ', None in prompts)
     # todo: Filter the responses, prompts, ... e.t.c. where prompts is None
@@ -276,10 +286,13 @@ def main(args):
             master_prompt_id = '-'.join((location_id, master_section_id))
 
             # Prepend the master prompt to the subquestion prompts.
-            prev_prompt = prompts[i]
-            master_prompt = inv_mapping[master_prompt_id]
-            new_prompt = master_prompt + sub_prompt_separator + prev_prompt
-            prompts[i] = new_prompt
+            try:
+                prev_prompt = prompts[i]
+                master_prompt = inv_mapping[master_prompt_id]
+                new_prompt = master_prompt + sub_prompt_separator + prev_prompt
+                prompts[i] = new_prompt
+            except KeyError:
+                print("No master question: " + master_prompt_id + " in the scripts file")
 
     # Write the data to the save directory:
     suffix = '.txt'
@@ -291,6 +304,7 @@ def main(args):
                               ['responses', 'confidences', 'speakers', 'prompts', 'prompt_ids', 'sections']):
         file_path = os.path.join(args.save_dir, filename + suffix)
         with open(file_path, 'w') as file:
+            print(filename, data[:5])
             file.write('\n'.join(data))
     return
 
