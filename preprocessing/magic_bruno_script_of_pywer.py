@@ -85,7 +85,7 @@ def extract_uniq_identifier(prompt_id, args):
         if int(section_id[2:]) > int(args.multi_sections_master[idx][2:]):
             section_id = args.multi_sections_master[idx]
 
-    return '-'.join(location_id, section_id)
+    return '-'.join((location_id, section_id))
 
 
 def generate_mappings(prompts, prompt_ids, args):
@@ -114,7 +114,7 @@ def generate_mappings(prompts, prompt_ids, args):
 
     for prompt, full_id in zip(prompts, prompt_ids):
         # Process the prompt_id line
-        assert re.match(r'[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+-[a-z]*$', line)  # The expected format of the line
+        assert re.match(r'[A-Z0-9]+-[A-Z0-9]+-[a-z]*$', full_id)  # The expected format of the line
 
         full_id = full_id.split('-')
         location_id, section_id = full_id[0], full_id[-2]
@@ -125,7 +125,7 @@ def generate_mappings(prompts, prompt_ids, args):
     return mapping, inv_mapping
 
 
-def _add_pair_to_mapping(mapping, inv_mapping, prompt_id, prompt)
+def _add_pair_to_mapping(mapping, inv_mapping, prompt_id, prompt):
     mapping.setdefault(prompt, [])
     mapping[prompt].append(prompt_id)
     inv_mapping[prompt_id] = prompt
@@ -176,7 +176,7 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
                 # Ignore the file type prefix line
                 continue
             elif ".lab" in line:
-                assert re.match(r'"[a-zA-Z0-9-]+.lab"$', line)
+                assert re.match(r'"[a-zA-Z0-9-_]+.lab"$', line)
                 assert len(sentences) == len(ids)
                 # Get rid of the " at the beginning and the .lab" at the end
                 line = line[1:-5]
@@ -184,14 +184,14 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
             elif line == ".":
                 # A "." indicates end of utternace -> add the sentence to list
                 sentence = " ".join(words_temp)
-                sentence_confs = " ".join()
+                sentence_confs = " ".join(confs_temp)
                 assert len(sentence) > 0
                 sentences.append(sentence)
-                confidences.append(confs_temp)
+                confidences.append(sentence_confs)
                 # Reset the temp variables
                 words_temp, confs_temp = [], []
             elif len(line.split()) > 1:
-                assert re.match(word_line_pattern, line)
+                # assert re.match(word_line_pattern, line)
                 line_split = line.split()
                 words_temp.append(line_split[-2])
                 confs_temp.append(line_split[-1])
@@ -238,6 +238,7 @@ def process_responses_file(responses, full_ids, confidences, inv_mapping, args):
             prompt_ids.append(prompt_id)
             prompts.append(prompt)
             sections.append(section)
+        i += 1
 
     # Assert number of elements of  responses, response confidences, speakers, and prompt_ids is the same
     assert len({len(responses), len(confidences), len(speakers), len(prompt_ids), len(prompts), len(sections)}) == 1
@@ -287,8 +288,8 @@ def main(args):
     print("Responses transcription processed. Time elapsed: ", time.time() - start_time)
 
 
-    # Reduce prompt ids for fixed section to section ids:
-    prompt_ids_red = map(lambda prompt_id: fixed_section_filter(prompt_id, args.fixed_sections, args.fixed_questions), prompt_ids)
+    # todo: remove Reduce prompt ids for fixed section to section ids:
+    #prompt_ids_red = map(lambda prompt_id: fixed_section_filter(prompt_id, args.fixed_sections, args.fixed_questions), prompt_ids)
 
 
     # Handle the multi subquestion prompts
@@ -320,7 +321,7 @@ def main(args):
                               ['responses', 'confidences', 'speakers', 'prompts', 'prompt_ids', 'sections']):
         file_path = os.path.join(args.save_dir, filename + suffix)
         with open(file_path, 'w') as file:
-            print(filename, data[:5])
+            print(filename, data[0])
             file.write('\n'.join(data))
     return
 
