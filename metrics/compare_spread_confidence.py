@@ -338,6 +338,7 @@ def calc_precision_recall_metrics(labels_seen, predictions_seen, labels_unseen, 
     # First sort by recall value
     sort_idx = np.argsort(recall)
     recall = recall[sort_idx]
+    precision = precision[sort_idx]
     thresholds = thresholds[sort_idx]
     x = np.linspace(np.min(recall), np.max(recall), resolution, endpoint=False)
     select = np.empty(recall.shape, dtype=np.bool)
