@@ -41,7 +41,7 @@ green = (0.3, 0.9, 0.3)
 dark_green = (0.1, 0.7, 0.3)
 red = (0.9, 0.3, 0.3)
 dark_orange = (0.9, 0.5, 0.2)
-dark_blue = (0.1, 0.15, 0.27)
+dark_blue = (0.14, 0.29, 0.36)
 
 
 def get_ensemble_predictions(model_dirs, rel_labels_filepath='eval4_naive/labels-probs.txt'):
@@ -136,7 +136,21 @@ def calc_precision(conf_mat):
         return tp / (tp + fp)
 
 
-def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, predictions_unseen, save_dir,
+def plot_datasets_histogram(spread_seen, spread_unseen, save_dir, n_bins=60, spread_name='mutual information'):
+    color_seen, color_unseen = (0.4, 0.6, 0.8), (0.4, 0.8, 0.6)
+    plt.hist((spread_seen, spread_unseen), n_bins, density=False,
+             histtype='bar', stacked=True, color=[color_seen, color_unseen])
+    plt.xlabel("Spread (" + spread_name + " of ensemble predictions)")
+    plt.ylabel("Example Count")
+    seen_patch = mpatches.Patch(color=color_seen, label='Seen - seen')
+    unseen_patch = mpatches.Patch(color=color_unseen, label='Unseen - unseen')
+    plt.legend(handles=[seen_patch, unseen_patch], loc="upper right")
+    plt.savefig(os.path.join(save_dir, "datasets_spread_histogram.png"), bbox_inches='tight')
+    plt.close()
+    return
+
+
+def plot_precision_recall_balance_legacy(labels_seen, predictions_seen, labels_unseen, predictions_unseen, save_dir,
                                   resolution=100):
     # Plot the normal, joint PR curve
     plt.figure(1)
@@ -216,6 +230,74 @@ def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, 
     return
 
 
+def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, predictions_unseen, save_dir,
+                                  num_thresh=500):
+
+    labels_total = np.hstack(labels_seen, labels_unseen)
+    predictions_total = np.hstack(predictions_seen, predictions_unseen)
+
+    # Plot the normal, joint PR curve
+    plt.figure(1)
+    thresholds = np.linspace(0, 1, num=num_thresh)
+
+    recall_seen = np.empty_like(thresholds)
+    recall_unseen = np.empty_like(thresholds)
+    recall_total = np.empty_like(thresholds)
+    precision_seen = np.empty_like(thresholds)
+    precision_unseen = np.empty_like(thresholds)
+    precision_total = np.empty_like(thresholds)
+    for i in range(len(thresholds)):
+        conf_mat_seen = calc_confusion_matrix(labels_seen, predictions_seen, thresholds[i])
+        conf_mat_unseen = calc_confusion_matrix(labels_unseen, predictions_unseen, thresholds[i])
+        conf_mat_total = calc_confusion_matrix(labels_total, predictions_total, thresholds[i])
+        recall_seen[i] = calc_recall(conf_mat_seen)
+        recall_unseen[i] = calc_recall(conf_mat_unseen)
+        recall_total[i] = calc_recall(conf_mat_total)
+        precision_seen[i] = calc_precision(conf_mat_seen)
+        precision_unseen[i] = calc_precision(conf_mat_unseen)
+        precision_total[i] = calc_precision(conf_mat_total)
+
+    plt.plot(recall_total, precision_total, color=dark_blue)
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.xlim(0, 1)
+    plt.savefig(os.path.join(save_dir, "total_pr.png"), bbox_inches='tight')
+    print("Made first plot")
+
+    # Plot the recall on dataset vs. overall recall plot.
+    plt.figure(2)
+
+    marker_size = 1.1
+    plt.plot([0, 1], [0, 1], linewidth=0.8, alpha=0.5, color='black')
+    plt.plot(recall_total, recall_seen, color=dark_orange, label='Seen - Seen')
+    plt.plot(recall_total, recall_unseen, color=dark_blue, label='Unseen - Unseen')
+    plt.scatter(recall_total, recall_seen, color=red, marker='o', s=marker_size, alpha=0.7)
+    plt.scatter(recall_total, recall_unseen, color='black', marker='o', s=marker_size, alpha=0.7)
+    plt.xlabel("Total Recall")
+    plt.ylabel("Subset Recall")
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.legend(title="Dataset:", loc='lower right')
+
+    plt.savefig(os.path.join(save_dir, "subset_recall_v_total_recall.png"), bbox_inches='tight')
+
+    print("Made second plot.")
+    # Plot the PR curve for each individual dataset
+    plt.figure(3)
+    # plt.plot(recall_total, precision_seen, color=dark_orange, label='Seen - Seen')
+    # plt.plot(recall_total, precision_unseen, color=dark_blue, label='Unseen - Unseen')
+    plt.scatter(recall_total, precision_seen, color=red, marker='o', s=marker_size, alpha=0.7)
+    plt.scatter(recall_total, precision_unseen, color='black', marker='o', s=marker_size, alpha=0.7)
+    plt.xlabel("Total Recall")
+    plt.ylabel("Subset Precision")
+    plt.xlim(0, 1)
+    plt.legend(title="Dataset:", loc='lower left')
+
+    plt.savefig(os.path.join(save_dir, "subset_pr.png"), bbox_inches='tight')
+    plt.close()
+    return
+
+
 def calc_metrics(labels, ensemble_predictions):
     avg_predictions = calc_avg_predictions(ensemble_predictions)
 
@@ -271,6 +353,9 @@ def main():
     plot_precision_recall_balance(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
                                   metrics_unseen['avg_predictions'], save_dir)
     print("Made triple PR plot with subset split. Time taken: ", time.time() - start_time)
+    plot_precision_recall_balance_legacy(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
+                                  metrics_unseen['avg_predictions'], save_dir + '/legacy')
+    print("Made triple PR plot with subset split legacy. Time taken: ", time.time() - start_time)
     return
 
 
