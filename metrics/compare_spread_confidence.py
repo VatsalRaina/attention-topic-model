@@ -209,7 +209,7 @@ def plot_precision_recall_balance_single(labels_seen, predictions_seen, labels_u
 
     # Plot the normal, joint PR curve
     plt.figure(1)
-    plt.plot(recall_total, precision_total, color=color_unseen)  # Doesn't matter which colour actually used
+    plt.plot(recall_total[1:], precision_total[1:], color=color_unseen, linewidth=0.8)  # Ignore first value which messes up the plot
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.xlim(0, 1)
@@ -218,10 +218,10 @@ def plot_precision_recall_balance_single(labels_seen, predictions_seen, labels_u
     plt.figure(2)
     marker_size = 0.5
     plt.plot([0, 1], [0, 1], linewidth=0.8, alpha=0.5, color='black')
-    # plt.plot(recall_opt, recall_seen, color=dark_orange, label='Seen - Seen')
-    # plt.plot(recall_opt, recall_unseen, color=dark_blue, label='Unseen - Unseen')
-    plt.scatter(recall_total, recall_seen, color=color_seen, marker='o', s=marker_size, alpha=0.6)
-    plt.scatter(recall_total, recall_unseen, color=color_unseen, marker='o', s=marker_size, alpha=0.6)
+    plt.plot(recall_total, recall_seen, color=color_seen, linewidth=0.6, alpha=0.6)
+    plt.plot(recall_total, recall_unseen, color=color_unseen, linewidth=0.6, alpha=0.6)
+    # plt.scatter(recall_total, recall_seen, color=color_seen, marker='o', s=marker_size, alpha=0.6)
+    # plt.scatter(recall_total, recall_unseen, color=color_unseen, marker='o', s=marker_size, alpha=0.6)
     plt.xlabel("Total Recall")
     plt.ylabel("Subset Recall")
     plt.xlim(0, 1)
@@ -230,10 +230,10 @@ def plot_precision_recall_balance_single(labels_seen, predictions_seen, labels_u
     print("Made second plot.")
     # Plot the PR curve for each individual dataset
     plt.figure(3)
-    # plt.plot(recall_opt, precision_seen, color=dark_orange, label='Seen - Seen')
-    # plt.plot(recall_opt, precision_unseen, color=dark_blue, label='Unseen - Unseen')
-    plt.scatter(recall_total, precision_seen, color=color_seen, marker='o', s=marker_size, alpha=0.7)
-    plt.scatter(recall_total, precision_unseen, color=color_unseen, marker='o', s=marker_size, alpha=0.7)
+    plt.plot(recall_total, precision_seen, color=color_seen, linewidth=0.6, alpha=0.7)
+    plt.plot(recall_total, precision_unseen, color=color_unseen, linewidth=0.6, s=marker_size, alpha=0.7)
+    # plt.scatter(recall_total, precision_seen, color=color_seen, marker='o', s=marker_size, alpha=0.7)
+    # plt.scatter(recall_total, precision_unseen, color=color_unseen, marker='o', s=marker_size, alpha=0.7)
     plt.xlabel("Total Recall")
     plt.ylabel("Subset Precision")
     plt.xlim(0, 1)
@@ -301,6 +301,7 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
     # Create the legend
     seen_patches, unseen_patches, general_patches = [], [], []
     for i in range(len(proportions_included)):
+        proportion = proportions_included[i]
         seen_patch = mpatches.Patch(color=scalar_map_seen.to_rgba(i), label='{0:.2f} seen-seen'.format(proportion))
         unseen_patch = mpatches.Patch(color=scalar_map_unseen.to_rgba(i), label='{0:.2f} unseen-unseen'.format(proportion))
         general_patch = mpatches.Patch(color=scalar_map_unseen.to_rgba(i), label='{0:.2f}'.format(proportion))
