@@ -301,9 +301,9 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
     # Create the legend
     seen_patches, unseen_patches, general_patches = [], [], []
     for i in range(len(proportions_included)):
-        seen_patch = mpatches.Patch(color=scalar_map_seen[i], label='{0:.2f} seen-seen'.format(proportion))
-        unseen_patch = mpatches.Patch(color=scalar_map_unseen[i], label='{0:.2f} unseen-unseen'.format(proportion))
-        general_patch = mpatches.Patch(color=scalar_map_unseen[i], label='{0:.2f}'.format(proportion))
+        seen_patch = mpatches.Patch(color=scalar_map_seen.to_rgba(i), label='{0:.2f} seen-seen'.format(proportion))
+        unseen_patch = mpatches.Patch(color=scalar_map_unseen.to_rgba(i), label='{0:.2f} unseen-unseen'.format(proportion))
+        general_patch = mpatches.Patch(color=scalar_map_unseen.to_rgba(i), label='{0:.2f}'.format(proportion))
         seen_patches.append(seen_patch)
         unseen_patches.append(unseen_patch)
         general_patches.append(general_patch)
@@ -491,7 +491,7 @@ def main(args):
     plot_precision_recall_balance(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
                                   metrics_unseen['avg_predictions'], save_dir)
     print("Made triple PR plot with subset split. Time taken: ", time.time() - start_time)
-    plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels_unseen, predictions_unseen, metrics_seen['mutual_information'], metrics_unseen['mutual_information'], save_dir)
+    plot_precision_recall_balance_v_spread(labels_seen, metrics_seen['avg_predictions'], labels_unseen, metrics_unseen['avg_predictions'], metrics_seen['mutual_information'], metrics_unseen['mutual_information'], save_dir)
     return
 
 
