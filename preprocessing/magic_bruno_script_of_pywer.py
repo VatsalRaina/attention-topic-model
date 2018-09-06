@@ -42,7 +42,8 @@ parser.add_argument('save_dir', type=str, help='Path to the directory in which t
 parser.add_argument('--fixed_sections', nargs='*', type=str, default=['A', 'B'],
                     help='Which sections if any are fixed (questions are always the same). Takes space separated '
                          'indentifiers, e.g. --fixed_sections A B')
-parser.add_argument('--fixed_questions', nargs='*', type=str, default=['SC0001', 'SD0001'],
+# todo: fixed_questions might not be needed
+parser.add_argument('--fixed_questions', nargs='*', type=str, default=[],
                     help='Which individual questions if any are fixed (questions are always the same). Takes space separated '
                          'indentifiers, e.g. --fixed_questions SC0001')
 parser.add_argument('--exclude_sections', nargs='*', type=str, default=['A', 'B'],
@@ -69,6 +70,7 @@ def extract_uniq_identifier(prompt_id, args):
     """
     location_id, section_id = prompt_id.split('-')
 
+    # todo: See if this one is still needed now that everything fixed
     ##### The manual rules: ###
     if section_id[1] == 'C' or section_id[1] == 'D':
         section_id = section_id[:2] + '0001'
@@ -199,13 +201,6 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
                 raise ValueError("Unexpected pattern in file: " + line)
     return sentences, ids, confidences
 
-# todo: what was this one used for again?
-def _prepend_multiquestion_master(prompts, sections, multi_section='SE', master_question='SE006'):
-    for i in range(len(sections)):
-        if sections[i] == multi_section:
-            pass
-    return
-
 
 def process_responses_file(responses, full_ids, confidences, inv_mapping, args):
     speakers = []
@@ -288,10 +283,6 @@ def main(args):
     print("Responses transcription processed. Time elapsed: ", time.time() - start_time)
 
 
-    # todo: remove Reduce prompt ids for fixed section to section ids:
-    #prompt_ids_red = map(lambda prompt_id: fixed_section_filter(prompt_id, args.fixed_sections, args.fixed_questions), prompt_ids)
-
-
     # Handle the multi subquestion prompts
     for i in range(len(sections)):
         if sections[i] in args.multi_sections:
@@ -321,7 +312,6 @@ def main(args):
                               ['responses', 'confidences', 'speakers', 'prompts', 'prompt_ids', 'sections']):
         file_path = os.path.join(args.save_dir, filename + suffix)
         with open(file_path, 'w') as file:
-            print(filename, data[0])
             file.write('\n'.join(data))
     return
 
