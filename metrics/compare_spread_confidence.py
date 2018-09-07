@@ -209,7 +209,7 @@ def plot_precision_recall_balance_single(labels_seen, predictions_seen, labels_u
 
     # Plot the normal, joint PR curve
     plt.figure(1)
-    plt.plot(recall_total[1:], precision_total[1:], color=color_unseen, linewidth=0.8)  # Ignore first value which messes up the plot
+    plt.plot(recall_total, precision_total, color=color_unseen, linewidth=0.8)  # Ignore first value which messes up the plot
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.xlim(0, 1)
@@ -231,7 +231,7 @@ def plot_precision_recall_balance_single(labels_seen, predictions_seen, labels_u
     # Plot the PR curve for each individual dataset
     plt.figure(3)
     plt.plot(recall_total, precision_seen, color=color_seen, linewidth=0.6, alpha=0.7)
-    plt.plot(recall_total, precision_unseen, color=color_unseen, linewidth=0.6, s=marker_size, alpha=0.7)
+    plt.plot(recall_total, precision_unseen, color=color_unseen, linewidth=0.6, alpha=0.7)
     # plt.scatter(recall_total, precision_seen, color=color_seen, marker='o', s=marker_size, alpha=0.7)
     # plt.scatter(recall_total, precision_unseen, color=color_unseen, marker='o', s=marker_size, alpha=0.7)
     plt.xlabel("Total Recall")
@@ -368,7 +368,7 @@ def calc_precision_recall_metrics(labels_seen, predictions_seen, labels_unseen, 
         recall_unseen[i] = calc_recall(conf_mat_unseen)
         precision_seen[i] = calc_precision(conf_mat_seen)
         precision_unseen[i] = calc_precision(conf_mat_unseen)
-    return precision_seen, precision_unseen, precision_opt, recall_seen, recall_unseen, recall_opt
+    return precision_seen[:-1], precision_unseen[:-1], precision_opt[:-1], recall_seen[:-1], recall_unseen[:-1], recall_opt[:-1]
 
 
 def plot_precision_recall_balance_legacy(labels_seen, predictions_seen, labels_unseen, predictions_unseen, save_dir,
