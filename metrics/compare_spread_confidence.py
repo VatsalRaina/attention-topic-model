@@ -138,7 +138,7 @@ def calc_precision(conf_mat):
 
 def plot_datasets_histogram(spread_seen, spread_unseen, save_dir, n_bins=60, spread_name='mutual information'):
     color_seen, color_unseen = (0.4, 0.6, 0.8), (0.4, 0.8, 0.6)
-    plt.hist((spread_seen, spread_unseen), n_bins, density=False,
+    plt.hist((spread_seen, spread_unseen), n_bins, density=True,
              histtype='bar', stacked=True, color=[color_seen, color_unseen])
     plt.xlabel("Spread (" + spread_name + " of ensemble predictions)")
     plt.ylabel("Example Count")
@@ -232,7 +232,6 @@ def plot_precision_recall_balance_single(labels_seen, predictions_seen, labels_u
     plt.xlim(0, 1)
     plt.ylim(0, 1)
 
-    print("Made second plot.")
     # Plot the PR curve for each individual dataset
     plt.figure(3)
     plt.plot(recall_total, precision_seen, color=color_seen, linewidth=0.6, alpha=0.7)
@@ -289,8 +288,10 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
         # Threshold the predictions based on sorted order:
         pred_seen_thresh = predictions_seen.copy()
         pred_unseen_thresh = predictions_unseen.copy()
-        pred_seen_thresh[last_idx_seen:] = 0.
-        pred_unseen_thresh[last_idx_unseen:] = 0.
+        if last_idx_seen <= num_seen - 1:
+            pred_seen_thresh[last_idx_seen:] = 0.
+        if last_idx_unseen <= num_unseen - 1:
+            pred_unseen_thresh[last_idx_unseen:] = 0.
 
         # Get the appriopriate colors
         color_val_seen = scalar_map_seen.to_rgba(i)
@@ -317,16 +318,19 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
     plt.figure(1)
     plt.legend(handles=general_patches, loc='lower left', title='Proportion Thresholded', prop={'size': 7})
     plt.savefig(os.path.join(save_dir, spread_name + '_total_pr_family.png'), bbox_inches='tight')
+    plt.clf()
 
     # Figure 2
     plt.figure(2)
     plt.legend(handles=seen_patches + unseen_patches, ncol=2, loc='lower right', title='Proportion Thresholded', prop={'size': 6})
     plt.savefig(os.path.join(save_dir, spread_name + '_recall_v_total_recall_family.png'), bbox_inches='tight')
+    plt.clf()
 
     # Figure 3
     plt.figure(3)
     plt.legend(handles=seen_patches + unseen_patches, ncol=2, loc='lower left', title='Proportion Thresholded', prop={'size': 6})
     plt.savefig(os.path.join(save_dir, spread_name + 'subset_pr_family.png'), bbox_inches='tight')
+    plt.clf()
 
     plt.close()
     return
@@ -357,6 +361,7 @@ def plot_pr_balance_v_spread_thresh(labels_seen, predictions_seen, labels_unseen
         thresh = spread_thresh[i]
 
         # Extract the idxs of examples where spread larger than thresh
+        print(thresh)
         idx_seen = spread_seen >= thresh
         idx_unseen = spread_unseen >= thresh
 
@@ -622,11 +627,11 @@ def main(args):
                                            metrics_unseen['mutual_information'], save_dir, spread_name='mutual_info')
     print("Made triple PR plot family with subset split by mutual information. Time taken: ", time.time() - start_time)
     plot_precision_recall_balance_v_spread(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
-                                           metrics_unseen['avg_predictions'], metrics_seen['range'],
-                                           metrics_unseen['range'], save_dir, spread_name='range')
+                                           metrics_unseen['avg_predictions'], metrics_seen['range_spread'],
+                                           metrics_unseen['range_spread'], save_dir, spread_name='range')
     print("Made triple PR plot family with subset split by range. Time taken: ", time.time() - start_time)
 
-    plot_datasets_histogram(metrics_seen['mutual_infromation'], metrics_unseen['mutual_information'], save_dir)
+    # plot_datasets_histogram(metrics_seen['mutual_information'], metrics_unseen['mutual_information'], save_dir)
     # Same plot as above, but use spread threshold instead of proportion included to disctiminate between curves
     plot_pr_balance_v_spread_thresh(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
                                     metrics_unseen['avg_predictions'], metrics_seen['mutual_information'],
