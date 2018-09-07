@@ -370,11 +370,8 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
                                                                np.hstack((spread_seen, spread_unseen)))
 
     # Set a color map
-    viridis = plt.get_cmap('viridis')
-    jet = plt.get_cmap('jet')
-    c_norm = matplotlib.colors.Normalize(vmin=0, vmax=len(proportions_included))
-    scalar_map_seen = matplotlib.cm.ScalarMappable(norm=c_norm, cmap=viridis)
-    scalar_map_unseen = matplotlib.cm.ScalarMappable(norm=c_norm, cmap=jet)
+    colours_seen = get_colour_list(len(proportions_included), cmap_name='cool')
+    colours_unseen = get_colour_list(len(proportions_included), cmap_name='summer')
 
     for i in range(len(proportions_included)):
         proportion = proportions_included[i]
@@ -385,6 +382,10 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
         last_idx_seen = np.argmax(spread_seen >= max_spread)
         last_idx_unseen = np.argmax(spread_unseen >= max_spread)
 
+        #todo: remove after debugged:
+        print("last_idx_seen,     num_seen: {}      proportion: {}".format(last_idx_seen, num_seen, proportion))
+        print("last_idx_unseen, num_unseen: {}      proportion: {}".format(last_idx_unseen, num_unseen, proportion))
+
         # Threshold the predictions based on sorted order:
         pred_seen_thresh = predictions_seen.copy()
         pred_unseen_thresh = predictions_unseen.copy()
@@ -393,13 +394,9 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
         if last_idx_unseen <= num_unseen - 1:
             pred_unseen_thresh[last_idx_unseen:] = 0.
 
-        # Get the appriopriate colors
-        color_val_seen = scalar_map_seen.to_rgba(i)
-        color_val_unseen = scalar_map_unseen.to_rgba(i)
-
         # Add lines to plot
         plot_precision_recall_balance_single(labels_seen, pred_seen_thresh, labels_unseen, pred_unseen_thresh, save_dir,
-                                             color_seen=color_val_seen, color_unseen=color_val_unseen)
+                                             color_seen=colours_seen[i], color_unseen=colours_unseen[i])
         del pred_seen_thresh, pred_unseen_thresh
 
     # Plot the graphs
@@ -727,6 +724,11 @@ def main(args):
                                            metrics_unseen['avg_predictions'], metrics_seen['range_spread'],
                                            metrics_unseen['range_spread'], save_dir, spread_name='range')
     print("Made triple PR plot family with subset split by range. Time taken: ", time.time() - start_time)
+
+    plot_precision_recall_balance_v_spread(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
+                                           metrics_unseen['avg_predictions'], metrics_seen['entropy_of_avg'],
+                                           metrics_unseen['entropy_of_avg'], save_dir, spread_name='range')
+    print("Made triple PR plot family with subset split by entropy. Time taken: ", time.time() - start_time)
 
     # plot_datasets_histogram(metrics_seen['mutual_information'], metrics_unseen['mutual_information'], save_dir)
     # Same plot as above, but use spread threshold instead of proportion included to disctiminate between curves
