@@ -9,11 +9,8 @@ of which:
 ABC111 - is being referred to as location_id
 SA0001 - is being referred to as section_id where A is the actual section
 
-For the responses the expected format is:
-# todo
-
 If a section is composed of an overall question with multiple subquestion, the section is being referred to as
-multi-section. The overall section question is referred to as master question.
+multi-section. The overall section question that should prepend all the subquestion is referred to as master question.
 
 
 
@@ -70,10 +67,11 @@ def extract_uniq_identifier(prompt_id, args):
     """
     location_id, section_id = prompt_id.split('-')
 
-    # todo: See if this one is still needed now that everything fixed
+    # todo: See if this one is still needed now that dataset has been fixed
     ##### The manual rules: ###
     if section_id[1] == 'C' or section_id[1] == 'D':
         section_id = section_id[:2] + '0001'
+        print("Prompt id: {} is being mapped to {} with manual rules.".format(prompt_id, '-'.join(location_id, section_id)))
     #####
 
     # If the prompt is from a fixed section or is a fixed question
@@ -156,7 +154,7 @@ def process_mlf_scripts(mlf_path, word_pattern=r"[%A-Za-z'\\_.]+$"):
                 assert len(sentence) > 0
                 sentences.append(sentence)
                 # Reset the words temporary list
-                sentence = []
+                words = []
             elif re.match(word_pattern, line):
                 words.append(line)
             else:
