@@ -145,7 +145,9 @@ def plot_datasets_histogram(spread_seen, spread_unseen, save_dir, n_bins=60, spr
     seen_patch = mpatches.Patch(color=color_seen, label='Seen - seen')
     unseen_patch = mpatches.Patch(color=color_unseen, label='Unseen - unseen')
     plt.legend(handles=[seen_patch, unseen_patch], loc="upper right")
-    plt.savefig(os.path.join(save_dir, "datasets_spread_histogram.png"), bbox_inches='tight')
+    spread_save_name = '_'.join(spread_name.split())
+    plt.savefig(os.path.join(save_dir, spread_save_name + "_datasets_hist.png"), bbox_inches='tight')
+    plt.clf()
     plt.close()
     return
 
@@ -164,6 +166,7 @@ def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, 
     plt.xlim(0, 1)
     if not keep_plots:
         plt.savefig(os.path.join(save_dir, "total_pr.png"), bbox_inches='tight')
+        plt.clf()
 
     # Plot the recall on dataset vs. overall recall plot.
     plt.figure(2)
@@ -181,6 +184,7 @@ def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, 
 
     if not keep_plots:
         plt.savefig(os.path.join(save_dir, "subset_recall_v_total_recall.png"), bbox_inches='tight')
+        plt.clf()
 
     print("Made second plot.")
     # Plot the PR curve for each individual dataset
@@ -197,6 +201,7 @@ def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, 
 
     if not keep_plots:
         plt.savefig(os.path.join(save_dir, "subset_pr.png"), bbox_inches='tight')
+        plt.clf()
         plt.close()
     return
 
@@ -253,9 +258,8 @@ def _sort_predictions_labels(labels, predictions, sort_by_array):
 
 def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels_unseen, predictions_unseen,
                                            spread_seen, spread_unseen, save_dir,
-                                           proportions_included=[0.1, 0.161, 0.4, 0.6, 0.7],
-                                           resolution=200):
-    # spread_total = np.hstack((spread_seen, spread_unseen)) todo:
+                                           proportions_included=(0.161, 0.4, 0.6, 0.7, 1.0),
+                                           resolution=200, spread_name='mutual_info'):
 
     num_seen = len(labels_seen)
     num_unseen = len(labels_unseen)
@@ -294,7 +298,7 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
 
         # Add lines to plot
         plot_precision_recall_balance_single(labels_seen, pred_seen_thresh, labels_unseen, pred_unseen_thresh, save_dir,
-                                      color_seen=color_val_seen, color_unseen=color_val_unseen)
+                                             color_seen=color_val_seen, color_unseen=color_val_unseen)
         del pred_seen_thresh, pred_unseen_thresh
 
     # Plot the graphs
@@ -312,20 +316,140 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
     # Figure 1
     plt.figure(1)
     plt.legend(handles=general_patches, loc='lower left', title='Proportion Thresholded', prop={'size': 7})
-    plt.savefig(os.path.join(save_dir, 'total_pr_family.png'), bbox_inches='tight')
+    plt.savefig(os.path.join(save_dir, spread_name + '_total_pr_family.png'), bbox_inches='tight')
 
     # Figure 2
     plt.figure(2)
     plt.legend(handles=seen_patches + unseen_patches, ncol=2, loc='lower right', title='Proportion Thresholded', prop={'size': 6})
-    plt.savefig(os.path.join(save_dir, 'recall_v_total_recall_family.png'), bbox_inches='tight')
+    plt.savefig(os.path.join(save_dir, spread_name + '_recall_v_total_recall_family.png'), bbox_inches='tight')
 
     # Figure 3
     plt.figure(3)
     plt.legend(handles=seen_patches + unseen_patches, ncol=2, loc='lower left', title='Proportion Thresholded', prop={'size': 6})
-    plt.savefig(os.path.join(save_dir, 'subset_pr_family.png'), bbox_inches='tight')
+    plt.savefig(os.path.join(save_dir, spread_name + 'subset_pr_family.png'), bbox_inches='tight')
 
     plt.close()
     return
+
+
+def plot_pr_balance_v_spread_thresh(labels_seen, predictions_seen, labels_unseen, predictions_unseen,
+                                           spread_seen, spread_unseen, save_dir,
+                                           spread_thresh=(0.03, 0.05, 0.1),
+                                           resolution=200, spread_name='mutual_info'):
+
+    num_seen = len(labels_seen)
+    num_unseen = len(labels_unseen)
+    num_total = num_seen + num_unseen
+
+    # Set a color map
+    viridis = plt.get_cmap('viridis')
+    jet = plt.get_cmap('jet')
+    c_norm = matplotlib.colors.Normalize(vmin=0, vmax=len(spread_thresh) + 1)
+    scalar_map_seen = matplotlib.cm.ScalarMappable(norm=c_norm, cmap=viridis)
+    scalar_map_unseen = matplotlib.cm.ScalarMappable(norm=c_norm, cmap=jet)
+
+    # Add the full plot for comparison
+    plot_precision_recall_balance_single(labels_seen, predictions_seen, labels_unseen, predictions_unseen, save_dir,
+                                         color_seen='gray', color_unseen='gray')
+
+    # Plot the graphs
+    for i in range(len(spread_thresh)):
+        thresh = spread_thresh[i]
+
+        # Extract the idxs of examples where spread larger than thresh
+        idx_seen = spread_seen >= thresh
+        idx_unseen = spread_unseen >= thresh
+
+        # Threshold the predictions
+        pred_seen_thresh = predictions_seen.copy()
+        pred_unseen_thresh = predictions_unseen.copy()
+        pred_seen_thresh[idx_seen] = 0.
+        pred_unseen_thresh[idx_unseen] = 0.
+
+        # Get the appriopriate colors
+        color_val_seen = scalar_map_seen.to_rgba(i)
+        color_val_unseen = scalar_map_unseen.to_rgba(i)
+
+        # Add lines to plot
+        plot_precision_recall_balance_single(labels_seen, pred_seen_thresh, labels_unseen, pred_unseen_thresh, save_dir,
+                                             color_seen=color_val_seen, color_unseen=color_val_unseen)
+        del pred_seen_thresh, pred_unseen_thresh
+
+    # Create the legend
+    seen_patches, unseen_patches, general_patches = [], [], []
+    for i in range(len(spread_thresh)):
+        thresh = spread_thresh[i]
+        seen_patch = mpatches.Patch(color=scalar_map_seen.to_rgba(i), label='{0:.2f} seen-seen'.format(thresh))
+        unseen_patch = mpatches.Patch(color=scalar_map_unseen.to_rgba(i), label='{0:.2f} unseen-unseen'.format(thresh))
+        general_patch = mpatches.Patch(color=scalar_map_unseen.to_rgba(i), label='{0:.2f}'.format(thresh))
+        seen_patches.append(seen_patch)
+        unseen_patches.append(unseen_patch)
+        general_patches.append(general_patch)
+
+    # Figure 1
+    plt.figure(1)
+    plt.legend(handles=general_patches, loc='lower left', title='Spread Threshold', prop={'size': 7})
+    plt.savefig(os.path.join(save_dir, spread_name + '_total_pr_family_thresh.png'), bbox_inches='tight')
+
+    # Figure 2
+    plt.figure(2)
+    plt.legend(handles=seen_patches + unseen_patches, ncol=2, loc='lower right', title='Spread Threshold', prop={'size': 6})
+    plt.savefig(os.path.join(save_dir, spread_name + '_recall_v_tot_recall_family_thresh.png'), bbox_inches='tight')
+
+    # Figure 3
+    plt.figure(3)
+    plt.legend(handles=seen_patches + unseen_patches, ncol=2, loc='lower left', title='Spread Threshold', prop={'size': 6})
+    plt.savefig(os.path.join(save_dir, spread_name + 'subset_pr_family_thresh.png'), bbox_inches='tight')
+
+    plt.close()
+    return
+
+
+def plot_threshold_v_pr_family(labels_seen, predictions_seen, labels_unseen, predictions_unseen,
+                               spread_seen, spread_unseen, save_dir,
+                               proportions_included=(0.161, 0.4, 0.6, 0.7, 1.0),
+                               resolution=200, spread_name='mutual_info'):
+
+    # todo: finish this off
+    num_seen = len(labels_seen)
+    num_unseen = len(labels_unseen)
+    num_total = num_seen + num_unseen
+    labels_seen, predictions_seen, spread_seen = _sort_predictions_labels(labels_seen, predictions_seen, spread_seen)
+    labels_unseen, predictions_unseen, spread_unseen = _sort_predictions_labels(labels_unseen, predictions_unseen, spread_unseen)
+    labels_total, predictions_total, spread_total = _sort_predictions_labels(np.hstack((labels_seen, labels_unseen)),
+                                                                             np.hstack((predictions_seen, predictions_unseen)),
+                                                                             np.hstack((spread_seen, spread_unseen)))
+
+    # Set a color map
+    viridis = plt.get_cmap('viridis')
+    jet = plt.get_cmap('jet')
+    c_norm = matplotlib.colors.Normalize(vmin=0, vmax=len(proportions_included))
+    scalar_map_seen = matplotlib.cm.ScalarMappable(norm=c_norm, cmap=viridis)
+    scalar_map_unseen = matplotlib.cm.ScalarMappable(norm=c_norm, cmap=jet)
+
+    for i in range(len(proportions_included)):
+        proportion = proportions_included[i]
+
+        # Extract the last index for each subset
+        max_val_idx = int(math.floor(num_total * proportion))
+        max_spread = spread_total[min(max_val_idx, num_total - 1)]
+        last_idx_seen = np.argmax(spread_seen >= max_spread)
+        last_idx_unseen = np.argmax(spread_unseen >= max_spread)
+
+        # Threshold the predictions based on sorted order:
+        pred_seen_thresh = predictions_seen.copy()
+        pred_unseen_thresh = predictions_unseen.copy()
+        pred_seen_thresh[last_idx_seen:] = 0.
+        pred_unseen_thresh[last_idx_unseen:] = 0.
+
+        # Get the appriopriate colors
+        color_val_seen = scalar_map_seen.to_rgba(i)
+        color_val_unseen = scalar_map_unseen.to_rgba(i)
+
+        # Add lines to plot
+        plot_precision_recall_balance_single(labels_seen, pred_seen_thresh, labels_unseen, pred_unseen_thresh, save_dir,
+                                             color_seen=color_val_seen, color_unseen=color_val_unseen)
+        del pred_seen_thresh, pred_unseen_thresh
 
 
 def calc_precision_recall_metrics(labels_seen, predictions_seen, labels_unseen, predictions_unseen, resolution=200):
@@ -493,7 +617,25 @@ def main(args):
     plot_precision_recall_balance(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
                                   metrics_unseen['avg_predictions'], save_dir)
     print("Made triple PR plot with subset split. Time taken: ", time.time() - start_time)
-    plot_precision_recall_balance_v_spread(labels_seen, metrics_seen['avg_predictions'], labels_unseen, metrics_unseen['avg_predictions'], metrics_seen['mutual_information'], metrics_unseen['mutual_information'], save_dir)
+    plot_precision_recall_balance_v_spread(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
+                                           metrics_unseen['avg_predictions'], metrics_seen['mutual_information'],
+                                           metrics_unseen['mutual_information'], save_dir, spread_name='mutual_info')
+    print("Made triple PR plot family with subset split by mutual information. Time taken: ", time.time() - start_time)
+    plot_precision_recall_balance_v_spread(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
+                                           metrics_unseen['avg_predictions'], metrics_seen['range'],
+                                           metrics_unseen['range'], save_dir, spread_name='range')
+    print("Made triple PR plot family with subset split by range. Time taken: ", time.time() - start_time)
+
+    plot_datasets_histogram(metrics_seen['mutual_infromation'], metrics_unseen['mutual_information'], save_dir)
+    # Same plot as above, but use spread threshold instead of proportion included to disctiminate between curves
+    plot_pr_balance_v_spread_thresh(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
+                                    metrics_unseen['avg_predictions'], metrics_seen['mutual_information'],
+                                    metrics_unseen['mutual_information'], save_dir, spread_name='mutual_info')
+
+    # Threshold plots:
+
+
+
     return
 
 
