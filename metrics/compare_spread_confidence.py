@@ -171,6 +171,8 @@ def calc_avg_predictions(ensemble_predictions):
 
 def calc_entropy(predictions):
     entropy = -(predictions * np.log(predictions) + (1 - predictions) * np.log(1 - predictions))
+    # Convert the values of entropy where np.log gives nan
+    entropy[np.logical_and(predictions == 1, predictions == 0)] = 0.
     return entropy
 
 

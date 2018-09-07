@@ -6,6 +6,7 @@ from __future__ import print_function, division
 import sys
 import os
 import numpy as np
+from numpy import ma
 import scipy.stats
 import math
 import matplotlib
