@@ -58,6 +58,7 @@ def calc_cum_density(predictions, resolution=200):
 
 def plot_cum_density_family(predictions, labels, spread, spread_thresholds):
 
+    set_dense_gridlines()
     # Set the color maps
     cool = plt.get_cmap('cool')
     jet = plt.get_cmap('summer')
@@ -79,6 +80,7 @@ def plot_cum_density_family(predictions, labels, spread, spread_thresholds):
 
     for i in range(len(spread_thresholds)):
         threshold = spread_thresholds[i]
+        print("spread dtype : {}, spread length: {}, threshold: {}".format(spread.dtype, spread.shape, threshold))  # todo: remove
         thresholded_idx = spread <= threshold
         # Extract the predictions and labels by spread threshold
         pred_thresholded, labels_thresholded = predictions[thresholded_idx], labels[thresholded_idx]
@@ -100,13 +102,12 @@ def plot_cum_density_family(predictions, labels, spread, spread_thresholds):
     plt.xlabel("Expected probability of off-topic as predicted by ensemble.")
     plt.ylabel("Cumulative Density")
     plt.legend(bbox_to_anchor=(1.04, 0), loc="lower left", borderaxespad=0)
-    set_dense_gridlines()
     return
 
 
 def set_dense_gridlines():
     # Don't allow the axis to be on top of your data
-    plt.set_axisbelow(True)
+    # plt.set_axisbelow(True)
 
     # Turn on the minor TICKS, which are required for the minor GRID
     plt.minorticks_on()
@@ -724,21 +725,25 @@ def main(args):
     # Threshold plots:
     # todo:
 
+    plt.clf()
     # Cumulative density functions:
     # For the seen examples:
     plot_cum_density_family(metrics_seen['avg_predictions'], labels_seen, metrics_seen['mutual_information'], spread_thresholds=[0.01, 0.02, 0.05, 0.1])
-    plt.savefig('mutual_info_cum_density_family_seen.png', bbox_inches='tight')
+    plt.savefig(os.path.join('mutual_info_cum_density_family_seen.png'), bbox_inches='tight')
+    plt.clf()
 
     # For the unseen examples:
     plot_cum_density_family(metrics_unseen['avg_predictions'], labels_unseen, metrics_unseen['mutual_information'], spread_thresholds=[0.01, 0.05, 0.1, 0.2, 0.3])
-    plt.savefig('mutual_info_cum_density_family_unseen.png', bbox_inches='tight')
+    plt.savefig(os.path.join('mutual_info_cum_density_family_unseen.png'), bbox_inches='tight')
+    plt.clf()
 
     # For all examples:
     plot_cum_density_family(np.hstack((metrics_seen['avg_predictions'], metrics_unseen['avg_predictions'])),
                             np.hstack((labels_seen, labels_unseen)),
                             np.hstack((metrics_seen['mutual_information'], metrics_unseen['mutual_information'])),
                             spread_thresholds=[0.01, 0.02, 0.05, 0.1, 0.2, 0.3])
-    plt.savefig('mutual_info_cum_density_family_all.png', bbox_inches='tight')
+    plt.savefig(os.path.join(save_dir, 'mutual_info_cum_density_family_all.png'), bbox_inches='tight')
+    plt.clf()
 
 
     return
