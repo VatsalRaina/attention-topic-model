@@ -379,20 +379,24 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
         # Extract the last index for each subset
         max_val_idx = int(math.floor(num_total * proportion))
         max_spread = spread_total[min(max_val_idx, num_total - 1)]
-        last_idx_seen = np.argmax(spread_seen >= max_spread)
-        last_idx_unseen = np.argmax(spread_unseen >= max_spread)
+        if max_spread < spread_seen[-1]:
+            last_idx_seen = np.argmax(spread_seen >= max_spread)
+        else:
+            last_idx_seen = num_seen
+        if max_spread < spread_seen[-1]:
+            last_idx_unseen = np.argmax(spread_unseen >= max_spread)
+        else:
+            last_idx_unseen = num_unseen
 
         #todo: remove after debugged:
-        print("last_idx_seen,     num_seen: {}      proportion: {}".format(last_idx_seen, num_seen, proportion))
-        print("last_idx_unseen, num_unseen: {}      proportion: {}".format(last_idx_unseen, num_unseen, proportion))
+        print("last_idx_seen,     num_seen: {} | {}     proportion: {}".format(last_idx_seen, num_seen, proportion))
+        print("last_idx_unseen, num_unseen: {} | {}     proportion: {}".format(last_idx_unseen, num_unseen, proportion))
 
         # Threshold the predictions based on sorted order:
         pred_seen_thresh = predictions_seen.copy()
         pred_unseen_thresh = predictions_unseen.copy()
-        if last_idx_seen <= num_seen - 1:
-            pred_seen_thresh[last_idx_seen:] = 0.
-        if last_idx_unseen <= num_unseen - 1:
-            pred_unseen_thresh[last_idx_unseen:] = 0.
+        pred_seen_thresh[last_idx_seen:] = 0.
+        pred_unseen_thresh[last_idx_unseen:] = 0.
 
         # Add lines to plot
         plot_precision_recall_balance_single(labels_seen, pred_seen_thresh, labels_unseen, pred_unseen_thresh, save_dir,
@@ -404,9 +408,9 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
     seen_patches, unseen_patches, general_patches = [], [], []
     for i in range(len(proportions_included)):
         proportion = proportions_included[i]
-        seen_patch = mpatches.Patch(color=scalar_map_seen.to_rgba(i), label='{0:.2f} seen-seen'.format(proportion))
-        unseen_patch = mpatches.Patch(color=scalar_map_unseen.to_rgba(i), label='{0:.2f} unseen-unseen'.format(proportion))
-        general_patch = mpatches.Patch(color=scalar_map_unseen.to_rgba(i), label='{0:.2f}'.format(proportion))
+        seen_patch = mpatches.Patch(color=colours_seen[i], label='{0:.2f} seen-seen'.format(proportion))
+        unseen_patch = mpatches.Patch(color=colours_unseen[i], label='{0:.2f} unseen-unseen'.format(proportion))
+        general_patch = mpatches.Patch(color=colours_unseen[i], label='{0:.2f}'.format(proportion))
         seen_patches.append(seen_patch)
         unseen_patches.append(unseen_patch)
         general_patches.append(general_patch)
@@ -727,7 +731,7 @@ def main(args):
 
     plot_precision_recall_balance_v_spread(labels_seen, metrics_seen['avg_predictions'], labels_unseen,
                                            metrics_unseen['avg_predictions'], metrics_seen['entropy_of_avg'],
-                                           metrics_unseen['entropy_of_avg'], save_dir, spread_name='range')
+                                           metrics_unseen['entropy_of_avg'], save_dir, spread_name='entropy')
     print("Made triple PR plot family with subset split by entropy. Time taken: ", time.time() - start_time)
 
     # plot_datasets_histogram(metrics_seen['mutual_information'], metrics_unseen['mutual_information'], save_dir)
