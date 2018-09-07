@@ -54,9 +54,6 @@ def calc_cum_density(predictions, resolution=200):
     return cum_density, bin_edges
 
 
-# def plot_cum_density_signle(predictions, color=resolution=200)
-
-
 def plot_cum_density_family(predictions, labels, spread, spread_thresholds):
 
     set_dense_gridlines()
@@ -88,6 +85,64 @@ def plot_cum_density_family(predictions, labels, spread, spread_thresholds):
         # Extract the ontopic and off-topic predictions
         pred_on_topic = np.extract(labels_thresholded == 0, pred_thresholded)
         pred_off_topic = np.extract(labels_thresholded == 1, pred_thresholded)
+
+        cum_dens_on_topic, x = calc_cum_density(pred_on_topic)
+        cum_dens_off_topic, _ = calc_cum_density(pred_off_topic)
+
+        plt.plot(x, cum_dens_on_topic, color=colours_on_topic[i], linewidth=0.6, alpha=0.5,
+                 label='{0:.2f} on-topic'.format(threshold))
+        plt.plot(x, cum_dens_off_topic, color=colours_off_topic[i], linewidth=0.6, alpha=0.5,
+                 label='{0:.2f} off-topic'.format(threshold))
+
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
+    plt.xlabel("Expected probability of off-topic as predicted by ensemble.")
+    plt.ylabel("Cumulative Density")
+    # Sort the legend first by on vs. off topic, than by threshold
+    handles, labels = plt.gca().get_legend_handles_labels()
+    # labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: _label_order_key(t[0])))
+    handles_seen = [handles[i*2] for i in range(int(len(handles) / 2))]
+    handles_unseen = [handles[i*2 + 1] for i in range(int(len(handles) / 2))]
+    labels_seen = [labels[i*2] for i in range(int(len(handles) / 2))]
+    labels_unseen = [labels[i*2 + 1] for i in range(int(len(handles) / 2))]
+    handles = handles_seen + handles_unseen
+    labels = labels_seen + labels_unseen
+    plt.legend(handles, labels, bbox_to_anchor=(1.04, 0), loc="lower left", borderaxespad=0)
+    return
+
+
+def plot_cum_density_family_true(predictions, labels, spread, spread_thresholds):
+
+    set_dense_gridlines()
+    # Set the color maps
+    cool = plt.get_cmap('cool')
+    jet = plt.get_cmap('summer')
+    c_norm = matplotlib.colors.Normalize(vmin=0, vmax=len(spread_thresholds) + 1)
+    colours_on_topic = get_colour_list(len(spread_thresholds) + 1, 'summer')
+    colours_off_topic = get_colour_list(len(spread_thresholds) + 1, 'cool')
+
+    # Plot unthresholded data:
+    pred_on_topic = np.extract(labels == 0, predictions)
+    pred_off_topic = np.extract(labels == 1, predictions)
+
+    cum_dens_on_topic, x = calc_cum_density(pred_on_topic)
+    cum_dens_off_topic, _ = calc_cum_density(pred_off_topic)
+
+    plt.plot(x, cum_dens_on_topic, color=colours_on_topic[-1], linewidth=0.6, alpha=0.5,
+             label='No-thresh on-topic')
+    plt.plot(x, cum_dens_off_topic, color=colours_off_topic[-1], linewidth=0.6, alpha=0.5,
+             label='No-thresh off-topic')
+
+    for i in range(len(spread_thresholds)):
+        threshold = spread_thresholds[i]
+        thresholded_idx = spread >= threshold
+        # Set the values beyond threshold to zero
+        pred_thresholded = predictions.copy()
+        pred_thresholded[thresholded_idx] = 0.0
+
+        # Extract the ontopic and off-topic predictions
+        pred_on_topic = np.extract(labels == 0, pred_thresholded)
+        pred_off_topic = np.extract(labels == 1, pred_thresholded)
 
         cum_dens_on_topic, x = calc_cum_density(pred_on_topic)
         cum_dens_off_topic, _ = calc_cum_density(pred_off_topic)
@@ -763,6 +818,15 @@ def main(args):
     plt.savefig(os.path.join(save_dir, 'mutual_info_cum_density_family_all.png'), bbox_inches='tight')
     plt.clf()
 
+
+    # Make the "cumulative" density functions as predicted. Should be more interpretable
+    # For all examples:
+    plot_cum_density_family(np.hstack((metrics_seen['avg_predictions'], metrics_unseen['avg_predictions'])),
+                            np.hstack((labels_seen, labels_unseen)),
+                            np.hstack((metrics_seen['mutual_information'], metrics_unseen['mutual_information'])),
+                            spread_thresholds=[0.01, 0.02, 0.05, 0.1, 0.2, 0.3])
+    plt.savefig(os.path.join(save_dir, 'mutual_info_cum_density_family_true_all.png'), bbox_inches='tight')
+    plt.clf()
 
     return
 
