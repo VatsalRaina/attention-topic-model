@@ -6,6 +6,7 @@ from __future__ import print_function, division
 import sys
 import os
 import numpy as np
+from numpy import ma
 import scipy.stats
 import math
 import time
@@ -101,8 +102,17 @@ def plot_cum_density_family(predictions, labels, spread, spread_thresholds):
     plt.ylim(0, 1)
     plt.xlabel("Expected probability of off-topic as predicted by ensemble.")
     plt.ylabel("Cumulative Density")
-    plt.legend(bbox_to_anchor=(1.04, 0), loc="lower left", borderaxespad=0)
+    # Sort the legend first by on vs. off topic, than by threshold
+    handles, labels = plt.get_legend_handles_labels()
+    labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: _label_order_key(t[0])))
+    plt.legend(handles, labels, bbox_to_anchor=(1.04, 0), loc="lower left", borderaxespad=0)
     return
+
+
+def _label_order_key(label):
+    label = label.split(label)
+    key = (label[1], label[0])
+    return ' '.join(key)
 
 
 def set_dense_gridlines():
@@ -171,9 +181,10 @@ def calc_avg_predictions(ensemble_predictions):
 
 
 def calc_entropy(predictions):
-    entropy = -(predictions * np.log(predictions) + (1 - predictions) * np.log(1 - predictions))
+    predictions = ma.masked_array(predictions, mask=np.logical_and(predictions == 1., predictions == 0.))
+    entropy_masked = -(predictions * np.log(predictions) + (1 - predictions) * np.log(1 - predictions))
     # Convert the values of entropy where np.log gives nan
-    entropy[np.logical_and(predictions == 1, predictions == 0)] = 0.
+    entropy = entropy_masked.filled(0.)
     return entropy
 
 
@@ -729,12 +740,12 @@ def main(args):
     # Cumulative density functions:
     # For the seen examples:
     plot_cum_density_family(metrics_seen['avg_predictions'], labels_seen, metrics_seen['mutual_information'], spread_thresholds=[0.01, 0.02, 0.05, 0.1])
-    plt.savefig(os.path.join('mutual_info_cum_density_family_seen.png'), bbox_inches='tight')
+    plt.savefig(os.path.join(save_dir, 'mutual_info_cum_density_family_seen.png'), bbox_inches='tight')
     plt.clf()
 
     # For the unseen examples:
     plot_cum_density_family(metrics_unseen['avg_predictions'], labels_unseen, metrics_unseen['mutual_information'], spread_thresholds=[0.01, 0.05, 0.1, 0.2, 0.3])
-    plt.savefig(os.path.join('mutual_info_cum_density_family_unseen.png'), bbox_inches='tight')
+    plt.savefig(os.path.join(save_dir, 'mutual_info_cum_density_family_unseen.png'), bbox_inches='tight')
     plt.clf()
 
     # For all examples:
