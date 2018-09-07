@@ -81,7 +81,6 @@ def plot_cum_density_family(predictions, labels, spread, spread_thresholds):
 
     for i in range(len(spread_thresholds)):
         threshold = spread_thresholds[i]
-        print("spread dtype : {}, spread length: {}, threshold: {}".format(spread.dtype, spread.shape, threshold))  # todo: remove
         thresholded_idx = spread <= threshold
         # Extract the predictions and labels by spread threshold
         pred_thresholded, labels_thresholded = predictions[thresholded_idx], labels[thresholded_idx]
@@ -103,8 +102,14 @@ def plot_cum_density_family(predictions, labels, spread, spread_thresholds):
     plt.xlabel("Expected probability of off-topic as predicted by ensemble.")
     plt.ylabel("Cumulative Density")
     # Sort the legend first by on vs. off topic, than by threshold
-    handles, labels = plt.get_legend_handles_labels()
-    labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: _label_order_key(t[0])))
+    handles, labels = plt.gca().get_legend_handles_labels()
+    # labels, handles = zip(*sorted(zip(labels, handles), key=lambda t: _label_order_key(t[0])))
+    handles_seen = [handles[i*2] for i in range(int(len(handles) / 2))]
+    handles_unseen = [handles[i*2 + 1] for i in range(int(len(handles) / 2))]
+    labels_seen = [labels[i*2] for i in range(int(len(handles) / 2))]
+    labels_unseen = [labels[i*2 + 1] for i in range(int(len(handles) / 2))]
+    handles = handles_seen + handles_unseen
+    labels = labels_seen + labels_unseen
     plt.legend(handles, labels, bbox_to_anchor=(1.04, 0), loc="lower left", borderaxespad=0)
     return
 
@@ -282,7 +287,6 @@ def plot_precision_recall_balance(labels_seen, predictions_seen, labels_unseen, 
         plt.savefig(os.path.join(save_dir, "subset_recall_v_total_recall.png"), bbox_inches='tight')
         plt.clf()
 
-    print("Made second plot.")
     # Plot the PR curve for each individual dataset
     plt.figure(3)
     # plt.plot(recall_opt, precision_seen, color=dark_orange, label='Seen - Seen')
@@ -457,7 +461,6 @@ def plot_pr_balance_v_spread_thresh(labels_seen, predictions_seen, labels_unseen
         thresh = spread_thresh[i]
 
         # Extract the idxs of examples where spread larger than thresh
-        print(thresh)
         idx_seen = spread_seen >= thresh
         idx_unseen = spread_unseen >= thresh
 
@@ -627,7 +630,6 @@ def plot_precision_recall_balance_legacy(labels_seen, predictions_seen, labels_u
     plt.ylabel("Precision")
     plt.xlim(0, 1)
     plt.savefig(os.path.join(save_dir, "total_pr.png"), bbox_inches='tight')
-    print("Made first plot")
 
     # Plot the recall on dataset vs. overall recall plot.
     plt.figure(2)
@@ -646,7 +648,6 @@ def plot_precision_recall_balance_legacy(labels_seen, predictions_seen, labels_u
 
     plt.savefig(os.path.join(save_dir, "subset_recall_v_total_recall.png"), bbox_inches='tight')
 
-    print("Made second plot.")
     # Plot the PR curve for each individual dataset
     plt.figure(3)
     # plt.plot(recall_total, precision_seen, color=dark_orange, label='Seen - Seen')

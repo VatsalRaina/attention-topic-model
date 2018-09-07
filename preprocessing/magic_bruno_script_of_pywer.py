@@ -69,9 +69,9 @@ def extract_uniq_identifier(prompt_id, args):
 
     # todo: See if this one is still needed now that dataset has been fixed
     ##### The manual rules: ###
-    if section_id[1] == 'C' or section_id[1] == 'D':
+    if (section_id[1] == 'C' or section_id[1] == 'D') and int(section_id[2:]) > 1:
         section_id = section_id[:2] + '0001'
-        print("Prompt id: {} is being mapped to {} with manual rules.".format(prompt_id, '-'.join(location_id, section_id)))
+        print("Prompt id: {} is being mapped to {} with manual rules.".format(prompt_id, '-'.join((location_id, section_id))))
     #####
 
     # If the prompt is from a fixed section or is a fixed question
