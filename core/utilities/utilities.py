@@ -144,7 +144,7 @@ def load_data(path, use_aux=False, expert=False, shuffle=False, integer=False, s
         return targets[:, -1:], features
 
 
-def create_dict(index):
+def create_word_id_dict(index):
     dict = {}
     path = os.path.join(index)
     with open(path, 'r') as f:
@@ -155,11 +155,18 @@ def create_dict(index):
 
 
 def word_to_id(data, index):
-    vocab = create_dict(index)
+    vocab = create_word_id_dict(index)
     return [[vocab[word] if vocab.has_key(word) else 0 for word in line] for line in data]
 
 
 def load_text(data_path, input_index, strip_start_end=True):
+    """
+    Converts words in each line into a sequence of word ids. Maintains length of each line
+    :param data_path: path to text data
+    :param input_index: path to index-wordlist file
+    :param strip_start_end: whether to strip first and last word of the response (usually to get rid of <s> </s> tags)
+    :return: data with words replaced by word ids, sentence lengths
+    """
     with open(data_path, 'r') as f:
         data = []
         slens = []

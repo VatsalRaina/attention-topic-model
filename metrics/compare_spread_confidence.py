@@ -369,7 +369,7 @@ def plot_precision_recall_balance_single(labels_seen, predictions_seen, labels_u
 
     # Plot the normal, joint PR curve
     plt.figure(1)
-    plt.plot(recall_total, precision_total, color=color_unseen, linewidth=0.8)  # Ignore first value which messes up the plot
+    plt.plot(recall_total, precision_total, color=color_unseen, linewidth=0.8, alpha=0.6)
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.xlim(0, 1)
@@ -442,10 +442,6 @@ def plot_precision_recall_balance_v_spread(labels_seen, predictions_seen, labels
             last_idx_unseen = np.argmax(spread_unseen >= max_spread)
         else:
             last_idx_unseen = num_unseen
-
-        #todo: remove after debugged:
-        print("last_idx_seen,     num_seen: {} | {}     proportion: {}".format(last_idx_seen, num_seen, proportion))
-        print("last_idx_unseen, num_unseen: {} | {}     proportion: {}".format(last_idx_unseen, num_unseen, proportion))
 
         # Threshold the predictions based on sorted order:
         pred_seen_thresh = predictions_seen.copy()

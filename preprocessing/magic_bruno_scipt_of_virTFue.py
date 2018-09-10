@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
-
+from __future__ import print_function, division
+import context
 import argparse
 import os
 import sys
@@ -27,12 +28,15 @@ commandLineParser.add_argument('destination_dir', type=str,
 commandLineParser.add_argument('--valid_fraction', type=float, default=0.1,
                                help='fraction of full data to reserve for validation')
 
+# todo: random_seed
+random_seed = 1000
+
 def main(argv=None):
     """Converts a dataset to tfrecords."""
     args = commandLineParser.parse_args()
 
     if os.path.isdir(args.destination_dir):
-        print 'destination directory exists. Exiting...'
+        print('destination directory exists. Exiting...')
     else:
         os.makedirs(args.destination_dir)
 
@@ -43,31 +47,32 @@ def main(argv=None):
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
-        # Load responses and prompts as sequences of word ids
-    responses, _ = load_text(args.input_data_path, args.input_wlist_path)
-    prompts, _ = load_text(args.input_prompt_path, args.input_wlist_path)
+    # Load responses and prompts as sequences of word ids
+    responses, _ = load_text(args.input_data_path, args.input_wlist_path, strip_start_end=False)
+    prompts, _ = load_text(args.input_prompt_path, args.input_wlist_path, strip_start_end=False)
 
     # Load up the prompts as sequences of words
     with open(args.input_prompt_path, 'r') as file:
         topics = [line.replace('\n', '') for line in file.readlines()]
 
-    # Get unique set of topics and topic counts (and sort them)
+    # Get unique set of topics and topic counts
     unique_topics, topic_counts = np.unique(topics, return_counts=True)
+    # Sort them in decreasing order
     topics = unique_topics[np.flip(np.argsort(topic_counts), 0)]
     topic_counts = np.flip(np.sort(topic_counts), 0)
 
     # Create dictionary for topics mapping sentence to topic id
-    # Also create file of sorted topics and unigrams file
+    # Also create file of sorted topics and a unigrams file
     # Unigram file later used for training
     topic_dict = {}
-    with open(os.path.join(args.destination_dir,'unigrams.txt'), 'w') as ufile:
-        with open(os.path.join(args.destination_dir,'sorted_topics.txt'), 'w') as tfile:
-            for i, topic, count in zip(xrange(topics.shape[0]), topics, topic_counts):
-                topic_dict[topic] = i
-                ufile.write(str(i) + ',' + str(int(count)) + '\n')
-                tfile.write(topic + '\n')
+    with open(os.path.join(args.destination_dir, 'unigrams.txt'), 'w') as ufile, open(
+            os.path.join(args.destination_dir, 'sorted_topics.txt'), 'w') as tfile:
+        for i, topic, count in zip(xrange(topics.shape[0]), topics, topic_counts):
+            topic_dict[topic] = i
+            ufile.write(str(i) + ',' + str(int(count)) + '\n')
+            tfile.write(topic + '\n')
 
-    # Load up the speakers and speakers
+    # Load up the speakers and grades
     grades = np.loadtxt(args.input_grade_path)
     with open(args.input_spkr_path, 'r') as file:
         speakers = np.asarray([line.replace('\n', '') for line in file.readlines()])
@@ -76,19 +81,18 @@ def main(argv=None):
     with open(args.input_prompt_path, 'r') as file:
         q_ids = np.asarray([topic_dict[line.replace('\n', '')] for line in file.readlines()])
 
-    ### Split data into train and validation  data sets
+    ### Split data into train and validation data sets
     n = len(responses)
-    train_size = int(n * (1.0-args.valid_fraction))
+    train_size = int(n * (1.0 - args.valid_fraction))
     valid_size = n - train_size
 
-    print 'Total dataset size', n, 'Train dataset size', train_size, 'Valid dataset size', valid_size
+    print('Total dataset size', n, 'Train dataset size', train_size, 'Valid dataset size', valid_size)
 
-    np.random.seed(1000)
+    np.random.seed(random_seed)
 
-    permutation=np.random.choice(np.arange(n), n, replace=False)
-    index_train=permutation[:train_size]
-    inded_valid=permutation[train_size:]
-
+    permutation = np.random.choice(np.arange(n), n, replace=False)
+    index_train = permutation[:train_size]
+    index_valid = permutation[train_size:]
 
     trn_responses = responses[index_train]
     trn_prompts = prompts[index_train]
@@ -96,16 +100,16 @@ def main(argv=None):
     trn_speakers = speakers[index_train]
     trn_grades = grades[index_train]
 
-    valid_responses = responses[inded_valid]
-    valid_prompts = prompts[inded_valid]
-    valid_q_ids = q_ids[inded_valid]
-    valid_speakers = speakers[inded_valid]
-    valid_grades = grades[inded_valid]
+    valid_responses = responses[index_valid]
+    valid_prompts = prompts[index_valid]
+    valid_q_ids = q_ids[index_valid]
+    valid_speakers = speakers[index_valid]
+    valid_grades = grades[index_valid]
 
     # Create the training TF Record file
     filename = 'relevance.train.tfrecords'
-    print 'Writing', filename
-    writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir,filename))
+    print('Writing ', filename)
+    writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir, filename))
     for response, prompt, q_id, grd, spkr in zip(trn_responses, trn_prompts, trn_q_ids, trn_grades, trn_speakers):
         example = tf.train.SequenceExample(
             context=tf.train.Features(feature={
@@ -122,8 +126,8 @@ def main(argv=None):
 
     # Create the validation TF Record file
     filename = 'relevance.valid.tfrecords'
-    print 'Writing', filename
-    writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir,filename))
+    print('Writing', filename)
+    writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir, filename))
     for response, prompt, q_id, grd, spkr in zip(valid_responses, valid_prompts, valid_q_ids, valid_grades,
                                                  valid_speakers):
         example = tf.train.SequenceExample(
@@ -138,7 +142,6 @@ def main(argv=None):
                 'prompt': tfrecord_utils.int64_feature_list(prompt)}))
         writer.write(example.SerializeToString())
     writer.close()
-
 
 
 if __name__ == '__main__':
