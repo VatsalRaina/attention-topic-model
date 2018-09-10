@@ -260,6 +260,13 @@ def main(args):
         raise ValueError(
             "The flag arguments provided don't match the expected format. See the manual for expected arguments.")
 
+    # Cache the command:
+    if not os.path.isdir(os.path.join(args.save_dir, 'CMDs')):
+        os.makedirs(os.path.join(args.save_dir, 'CMDs'))
+    with open(os.path.join(args.save_dir, 'CMDs/preprocessing.cmd'), 'a') as f:  # todo: replace with real name once known
+        f.write(' '.join(sys.argv) + '\n')
+        f.write('--------------------------------\n')
+
     start_time = time.time()
     # Process the prompts (scripts) file
     prompts_list, prompt_ids_list = process_mlf_scripts(args.scripts_path)

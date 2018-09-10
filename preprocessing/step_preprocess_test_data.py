@@ -27,9 +27,9 @@ commandLineParser.add_argument('input_wlist_path', type=str,
 commandLineParser.add_argument('sorted_topics_path', type=str,
                                help='absolute path to response data')
 commandLineParser.add_argument('destination_dir', type=str,
-                               help='absolute path location wheree to setup ')
+                               help='absolute path location where to setup ')
 commandLineParser.add_argument('name', type=str,
-                               help='absolute path location wheree to setup ')
+                               help='absolute path location where to setup ')
 
 
 def main(argv=None):
@@ -62,7 +62,7 @@ def main(argv=None):
     with open(os.path.join(args.sorted_topics_path), 'r') as tfile:
         for topic in tfile.readlines():
             topic_dict[topic.replace('\n', '')] = i
-            i+=1
+            i += 1
 
     # Load up the prompts as sequences of words and convert to q_id
     try:
