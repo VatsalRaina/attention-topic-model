@@ -821,7 +821,7 @@ def main(args):
 
     # Make the "cumulative" density functions as predicted. Should be more interpretable
     # For all examples:
-    plot_cum_density_family(np.hstack((metrics_seen['avg_predictions'], metrics_unseen['avg_predictions'])),
+    plot_cum_density_family_true(np.hstack((metrics_seen['avg_predictions'], metrics_unseen['avg_predictions'])),
                             np.hstack((labels_seen, labels_unseen)),
                             np.hstack((metrics_seen['mutual_information'], metrics_unseen['mutual_information'])),
                             spread_thresholds=[0.01, 0.02, 0.05, 0.1, 0.2, 0.3])
