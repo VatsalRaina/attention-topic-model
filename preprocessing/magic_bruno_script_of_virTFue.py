@@ -48,7 +48,7 @@ def write_to_tfrecords(filename, destination_dir, responses, prompts, q_ids, gra
     # Create the training TF Record file
     print('Writing: ', filename)
 
-    writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir, filename))
+    writer = tf.python_io.TFRecordWriter(os.path.join(destination_dir, filename))
     for response, prompt, q_id, grd, spkr, tgt in zip(responses, prompts, q_ids, grades, speakers, targets):
         example = tf.train.SequenceExample(
             context=tf.train.Features(feature={
@@ -156,7 +156,7 @@ def main(args):
 
     # If creating test data, load targets
     if args.preprocessing_type == 'test':
-        targets = np.loadtxt(args.input_tgt_path, dtype=np.float32)
+        targets = list(np.loadtxt(targets_path, dtype=np.float32))
     
     # Create or load the topic ID dictionary:
     if args.sorted_topics_path == '':
