@@ -42,8 +42,6 @@ def write_to_tfrecords(filename, destination_dir, responses, prompts, q_ids, gra
 
     writer = tf.python_io.TFRecordWriter(os.path.join(args.destination_dir, filename))
     for response, prompt, q_id, grd, spkr, tgt in zip(responses, prompts, q_ids, grades, speakers, targets):
-        if grd == '' or grd == '.':
-            grd = -1
         example = tf.train.SequenceExample(
             context=tf.train.Features(feature={
                 'targets': tfrecord_utils.float_feature([tgt]),

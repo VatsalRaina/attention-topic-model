@@ -39,10 +39,10 @@ parser.add_argument('save_dir', type=str, help='Path to the directory in which t
 parser.add_argument('--fixed_sections', nargs='*', type=str, default=['A', 'B'],
                     help='Which sections if any are fixed (questions are always the same). Takes space separated '
                          'indentifiers, e.g. --fixed_sections A B')
-# todo: fixed_questions might not be needed
-parser.add_argument('--fixed_questions', nargs='*', type=str, default=[],
-                    help='Which individual questions if any are fixed (questions are always the same). Takes space separated '
-                         'indentifiers, e.g. --fixed_questions SC0001')
+# # todo: fixed_questions might not be needed
+# parser.add_argument('--fixed_questions', nargs='*', type=str, default=[],
+#                     help='Which individual questions if any are fixed (questions are always the same). Takes space separated '
+#                          'indentifiers, e.g. --fixed_questions SC0001')
 parser.add_argument('--exclude_sections', nargs='*', type=str, default=['A', 'B'],
                     help='Sections to exclude from the output. '
                          'Takes space separated identifiers, e.g. --exclude_sections A B')
@@ -173,6 +173,7 @@ def process_mlf_scripts(mlf_path, word_pattern=r"[%A-Za-z'\\_.]+$"):
                 # Reset the words temporary list
                 words = []
             elif re.match(word_pattern, line):
+                word = line.replace("\\'", "'")
                 words.append(line)
             else:
                 raise ValueError("Unexpected pattern in file: " + line)
@@ -180,6 +181,8 @@ def process_mlf_scripts(mlf_path, word_pattern=r"[%A-Za-z'\\_.]+$"):
 
 
 def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z'\\_.]+ [0-9.]*$"):
+    """Processes the .mlf file with the transcription of responses and returns lists with corresponding:
+    responses, ids, response confidences"""
     sentences = []
     ids = []
     confidences = []
@@ -199,7 +202,7 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
                 line = line[1:-5]
                 ids.append(line)
             elif line == ".":
-                # A "." indicates end of utternace -> add the sentence to list
+                # A "." indicates end of utterance -> add the sentence to list
                 sentence = " ".join(words_temp)
                 sentence_confs = " ".join(confs_temp)
                 assert len(sentence) > 0
@@ -218,6 +221,26 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
 
 
 def process_responses_file(responses, full_ids, confidences, inv_mapping, args, grade_dict=None):
+    # def get_data_from_full_id(full_id):
+    #     full_id = full_id.split('-')
+    #     location_id = full_id[0]
+    #     speaker_number = full_id[1]
+    #     section_id = full_id[3]
+    #     section = section_id[1]
+
+    # section_ids = map(lambda full_id: full_id.split('-')[3], full_ids)
+    # location_ids = map(lambda full_id: full_id.split('-')[0], full_ids)
+    # speaker_numbers = map(lambda full_id: full_id.split('-')[1], full_ids)
+    # speaker_ids = map(lambda loc_id, spkr_num: '-'.join((loc_id, spkr_num)), location_ids, speaker_numbers)
+    # prompt_ids = map(lambda loc_id, sec_id: '-'.join((loc_id, sec_id)), location_ids, section_ids)
+    #
+    # sections = map(lambda sec_id: sec_id[1], section_ids)
+
+    # Filter responses that are in sections to exclude
+
+
+
+
     speakers = []
     sections = []
     prompt_ids = []
@@ -232,34 +255,37 @@ def process_responses_file(responses, full_ids, confidences, inv_mapping, args, 
         section_id = full_id[3]
         section = section_id[1]
 
+        # Filter responses that are in sections to exclude
         if section in args.exclude_sections:
             del responses[i], full_ids[i], confidences[i]
             continue
-        else:
-            speaker = '-'.join((location_id, speaker_number))  # Should extract the speaker id
-            prompt_id = '-'.join((location_id, section_id))
-            prompt = inv_mapping.get(extract_uniq_identifier(prompt_id, args), None)
-            if prompt is None:
-                print("Didn't find a match for prompt id: ", prompt_id)
-                del responses[i], full_ids[i], confidences[i]
-                continue
-            # If processing the grades as well:
-            if grade_dict is not None:
-                try:
-                    grade = grade_dict[speaker][section]
-                except KeyError:
-                    print("No grade for speaker {}".format(speaker))
-                    # Set the prompt grade to empty
-                    grade = ''
-                if args.exclude_grades_below > 0.:
-                    if (grade == '' or grade =='.'):
-                        del responses[i], full_ids[i], confidences[i]
-                        continue
-                    elif float(grade) < args.exclude_grades_below:
-                        del responses[i], full_ids[i], confidences[i]
-                        continue
-                else:
-                    grades.append(grade)
+
+        # Get the matching prompt for the response
+        speaker = '-'.join((location_id, speaker_number))  # Should extract the speaker id
+        prompt_id = '-'.join((location_id, section_id))
+        prompt = inv_mapping.get(extract_uniq_identifier(prompt_id, args), None)
+        if prompt is None:
+            print("Didn't find a match for prompt id: ", prompt_id)
+            del responses[i], full_ids[i], confidences[i]
+            continue
+
+        # If processing the grades as well:
+        if grade_dict is not None:
+            # Set the grade to -1 if no grade found for this response
+            try:
+                grade = grade_dict[speaker][section]
+            except KeyError:
+                print("No grade for speaker {}".format(speaker))
+                grade = '-1'
+            if (grade == '' or grade =='.'):
+                # Set to -1 if no grade provided
+                grade = '-1'
+            if args.exclude_grades_below > 0.:
+                if float(grade) < args.exclude_grades_below:
+                    del responses[i], full_ids[i], confidences[i]
+                    continue
+            else:
+                grades.append(grade)
 
             # Store the relevant data
             speakers.append(speaker)
@@ -283,6 +309,19 @@ def fixed_section_filter(prompt_id, fixed_sections, fixed_questions):
         return prompt_id
 
 
+def filter_hesitations_and_partial(responses, confidences):
+    filtered_responses, filtered_confidences = [], []
+    # Filter out the %HESITATION% and partial words
+    for response, conf_line in zip(responses, confidences):
+        filtered = zip(*((word, conf) for word, conf in zip(response.split(), conf_line.split()) if
+                                            not re.match('(%HESITATION%)|(\S*_%partial%)', word)))
+        if len(filtered) != 0:
+            new_response, new_conf_line = filtered
+            filtered_responses.append(' '.join(new_response))
+            filtered_confidences.append(' '.join(new_conf_line))
+    return filtered_responses, filtered_confidences
+
+
 def main(args):
     # Check the input flag arguments are correct:
     try:
@@ -293,7 +332,7 @@ def main(args):
         assert len(args.multi_sections) == len(args.multi_sections_master)
     except AssertionError:
         raise ValueError(
-            "The flag arguments provided don't match the expected format. See the manual for expected arguments.")
+            "The flag arguments provided don't match the expected format. Use --help to see expected arguments.")
 
     # Cache the command:
     if not os.path.isdir(os.path.join(args.save_dir, 'CMDs')):
@@ -302,15 +341,15 @@ def main(args):
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
-    start_time = time.time()
+    start_time = time.time()  # todo: Optimise runtime
     # Process the prompts (scripts) file
     prompts_list, prompt_ids_list = process_mlf_scripts(args.scripts_path)
-    print('Prompts script file processed. Time eta: ', time.time() - start_time)
+    print('Prompts script file processed. Time eta: ', time.time() - start_time)  # todo: this is quick
 
     # Generate mappings
-    mapping, inv_mapping = generate_mappings(prompts_list, prompt_ids_list, args)
+    mapping, inv_mapping = generate_mappings(prompts_list, prompt_ids_list, args)  # todo: this is quick
 
-    print("Mappings generated. Time elapsed: ", time.time() - start_time)
+    print("Mappings generated. Time elapsed: ", time.time() - start_time)  # todo: this is quick
     
     # Generate the grades dictionary
     if args.speaker_grades_path:
@@ -319,7 +358,12 @@ def main(args):
 
     # Process the responses
     responses, full_ids, confidences = process_mlf_responses(args.responses_path)
-    print("Responses mlf file processed. Time elapsed: ", time.time() - start_time)
+    print("Responses mlf file processed. Time elapsed: ", time.time() - start_time)  # todo: moderately slow (40s for CDE) but afraid it's the only way
+
+    # Filter out the hesitations and partial words from responses:
+    responses, confidences = filter_hesitations_and_partial(responses, confidences)
+    print("Hesitations and partial words filtered. Time elapsed: ", time.time() - start_time)  # todo: moderately slow (40s) could be integrated somewhere?
+
     if args.speaker_grades_path:
         responses, full_ids, confidences, prompt_ids, prompts, speakers, sections, grades = process_responses_file(responses,
                                                                                                        full_ids,
@@ -333,7 +377,7 @@ def main(args):
                                                                                                        inv_mapping,
                                                                                                        args)
 
-    print("Responses transcription processed. Time elapsed: ", time.time() - start_time)
+    print("Responses transcription processed. Time elapsed: ", time.time() - start_time) # todo: This is painfully slow (30 min +), reconsider how it's being run
 
 
     # Handle the multi subquestion prompts
@@ -354,6 +398,7 @@ def main(args):
             except KeyError:
                 print("No master question: " + master_prompt_id + " in the scripts file")
                 # todo: Potentially delete something
+    print("Multiquestions processed (master questions prepended before subquestions). Time elapsed: ", time.time() - start_time)
 
     # Write the data to the save directory:
     suffix = '.txt'
@@ -371,6 +416,7 @@ def main(args):
         with open(file_path, 'w') as file:
             file.write('\n'.join(grades))
 
+    print("Data saved succesfully. Time elapsed: ", time.time() - start_time)
     return
 
 
