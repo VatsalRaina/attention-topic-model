@@ -177,7 +177,7 @@ def process_mlf_scripts(mlf_path, word_pattern=r"[%A-Za-z'\\_.]+$"):
                 words = []
             elif re.match(word_pattern, line):
                 word = line.replace("\\'", "'")
-                words.append(line)
+                words.append(word)
             else:
                 raise ValueError("Unexpected pattern in file: " + line)
     return sentences, ids
@@ -208,9 +208,12 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
                 # A "." indicates end of utterance -> add the sentence to list
                 sentence = " ".join(words_temp)
                 sentence_confs = " ".join(confs_temp)
-                assert len(sentence) > 0
-                sentences.append(sentence)
-                confidences.append(sentence_confs)
+                if len(sentence) == 0:
+                    # If the response is empty, skip
+                    del ids[-1]
+                else:
+                    sentences.append(sentence)
+                    confidences.append(sentence_confs)
                 # Reset the temp variables
                 words_temp, confs_temp = [], []
             elif len(line.split()) > 1:
@@ -374,15 +377,11 @@ def main(args):
     # Make sure the directory exists:
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
-    for data, filename in zip([responses, confidences, speaker_ids, prompts, prompt_ids, sections],
-                              ['responses', 'confidences', 'speakers', 'prompts', 'prompt_ids', 'sections']):
+    for data, filename in zip([responses, confidences, speaker_ids, prompts, prompt_ids, sections, grades],
+                              ['responses', 'confidences', 'speakers', 'prompts', 'prompt_ids', 'sections', 'grades']):
         file_path = os.path.join(args.save_dir, filename + suffix)
         with open(file_path, 'w') as file:
             file.write('\n'.join(data))
-    if args.speaker_grades_path:
-        file_path = os.path.join(args.save_dir, 'grades' + suffix)
-        with open(file_path, 'w') as file:
-            file.write('\n'.join(grades))
 
     print("Data saved succesfully. Time elapsed: ", time.time() - start_time)
     return

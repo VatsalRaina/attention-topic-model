@@ -7,7 +7,8 @@ import argparse
 parser = argparse.ArgumentParser(description='Expand the data-set by creating negative samples as well')
 parser.add_argument('data_dir', type=str,
                     help='absolute path to the directory with the processed responses, prompts, speakers, grades etc. .txt data')
-
+parser.add_argument('destination_dir', type=str,
+                    help='absolute path to directory where to save the generated examples.')
 # parser.add_argument('datafile', type=str,
 #                                help='Absolute path to data file')
 # parser.add_argument('conffile', type=str,
@@ -26,10 +27,6 @@ parser.add_argument('data_dir', type=str,
 #                                help='Absolute path to feature file')
 parser.add_argument('--samples', type=int, default=10,
                     help='Number of negative samples to create with each response')
-
-parser.add_argument('destination_dir', type=str,
-                    help='absolute path to directory where to save the generated examples.')
-parser.add_argument('name', type=str, help='Name of dataset to create')
 parser.add_argument('--responses_file', type=str, default='responses.txt')
 parser.add_argument('--prompts_file', type=str, default='prompts.txt')
 parser.add_argument('--grades_file', type=str, default='grades.txt')
@@ -73,15 +70,15 @@ def main(args):
 
     # Open All the files
     with open(responses_path, 'r') as d:
-        responses = [line for line in d.readlines()]
+        responses = [line.replace('\n', '') for line in d.readlines()]
     with open(confidences_path, 'r') as d:
-        confs = [line for line in d.readlines()]
+        confs = [line.replace('\n', '') for line in d.readlines()]
     with open(prompts_path, 'r') as q:
-        prompts = [line for line in q.readlines()]
+        prompts = [line.replace('\n', '') for line in q.readlines()]
     with open(grades_path, 'r') as t:
-        grades = [float(line.replace('\n', '')) for line in t.readlines()]
+        grades = [line.replace('\n', '') for line in t.readlines()]
     with open(speakers_path, 'r') as s:
-        speakers = [line for line in s.readlines()]
+        speakers = [line.replace('\n', '') for line in s.readlines()]
 
     # Copy questions
     np.random.seed(args.seed)
@@ -103,11 +100,11 @@ def main(args):
             else:
                 target = 0
 
-            eval_data.append([response, conf, prompt, 1, spkr, grade])
-            eval_data.append([response, conf, shuf_prompt, target, spkr, grade])
+            eval_data.append([response, conf, prompt, str(float(1.0)), spkr, grade])
+            eval_data.append([response, conf, shuf_prompt, str(float(target)), spkr, grade])
 
     print('percent relevant:', float(num_on_topic) / float(num_total))
-    eval_data = list(np.random.shuffle(eval_data))
+    eval_data = list(np.random.permutation(eval_data))
 
     eval_responses, eval_confs, eval_prompts, eval_targets, eval_speakers, eval_grades = zip(*eval_data)
     eval_responses, eval_confs, eval_prompts, eval_targets, eval_speakers, eval_grades = map(lambda x: '\n'.join(x),
