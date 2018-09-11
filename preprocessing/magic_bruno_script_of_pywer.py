@@ -55,15 +55,32 @@ parser.add_argument('--multi_sections_master', nargs='*', type=str, default=['SE
                          'E and F are multi-sections with section ids SE0006 and SF0008 for the master or "parent"'
                          'questions to be prepended before subquestion, use:'
                          '--multi_sections_master SE0006 SF0008')
+parser.add_argument('--speaker_grades_path', type=str, help='Path to a .lst file with speaker ids and their grades for each section', default='')
+parser.add_argument('--num_sections', type=int, help='Number of sections in the test (e.g. in BULATS: A, B, C, D, E -> 5 sections).')
+parser.add_argument('--exclude_grades_below', type=float, help='Exclude all the responses from sections with grades below a certain value', default=0.0)
 
 
-sub_prompt_separator = " </s> <s> "
+sub_prompt_separator = "</s> <s>"
+
+
+def generate_grade_dict(speaker_grade_path):
+    """Crate a dict from speaker id to a dict that maps section to grade that the speaker got on this section."""
+    grade_dict = dict()
+    with open(speaker_grade_path, 'r') as file:
+         for line in file.readlines():
+             line = line.replace('\n', '').split('\t')
+             speaker_id = line[0]
+             section_dict = {}
+             for i, section in zip(range(1, 7), ['A', 'B', 'C', 'D', 'E']):
+                 # todo: replace with a non-manual labeling of sections
+                 section_dict[section] = line[i]
+             grade_dict[speaker_id] = section_dict
+    return grade_dict
 
 
 def extract_uniq_identifier(prompt_id, args):
     """
-    This dataset is a mess. I hate my life. Just stuff all the manual rules for lookup in this functions
-    so that it's easily accessible..
+    Extract a unique identifier for each prompt.
     """
     location_id, section_id = prompt_id.split('-')
 
@@ -200,11 +217,12 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
     return sentences, ids, confidences
 
 
-def process_responses_file(responses, full_ids, confidences, inv_mapping, args):
+def process_responses_file(responses, full_ids, confidences, inv_mapping, args, grade_dict=None):
     speakers = []
     sections = []
     prompt_ids = []
     prompts = []
+    grades = []
 
     i = 0
     while i < len(responses):
@@ -220,11 +238,28 @@ def process_responses_file(responses, full_ids, confidences, inv_mapping, args):
         else:
             speaker = '-'.join((location_id, speaker_number))  # Should extract the speaker id
             prompt_id = '-'.join((location_id, section_id))
-            prompt = inv_mapping[extract_uniq_identifier(prompt_id, args)]
+            prompt = inv_mapping.get(extract_uniq_identifier(prompt_id, args), None)
             if prompt is None:
                 print("Didn't find a match for prompt id: ", prompt_id)
                 del responses[i], full_ids[i], confidences[i]
                 continue
+            # If processing the grades as well:
+            if grade_dict is not None:
+                try:
+                    grade = grade_dict[speaker][section]
+                except KeyError:
+                    print("No grade for speaker {}".format(speaker))
+                    # Set the prompt grade to empty
+                    grade = ''
+                if args.exclude_grades_below > 0.:
+                    if (grade == '' or grade =='.'):
+                        del responses[i], full_ids[i], confidences[i]
+                        continue
+                    elif float(grade) < args.exclude_grades_below:
+                        del responses[i], full_ids[i], confidences[i]
+                        continue
+                else:
+                    grades.append(grade)
 
             # Store the relevant data
             speakers.append(speaker)
@@ -236,7 +271,7 @@ def process_responses_file(responses, full_ids, confidences, inv_mapping, args):
     # Assert number of elements of  responses, response confidences, speakers, and prompt_ids is the same
     assert len({len(responses), len(confidences), len(speakers), len(prompt_ids), len(prompts), len(sections)}) == 1
 
-    return responses, full_ids, confidences, prompt_ids, prompts, speakers, sections
+    return responses, full_ids, confidences, prompt_ids, prompts, speakers, sections, grades
 
 
 def fixed_section_filter(prompt_id, fixed_sections, fixed_questions):
@@ -263,7 +298,7 @@ def main(args):
     # Cache the command:
     if not os.path.isdir(os.path.join(args.save_dir, 'CMDs')):
         os.makedirs(os.path.join(args.save_dir, 'CMDs'))
-    with open(os.path.join(args.save_dir, 'CMDs/preprocessing.cmd'), 'a') as f:  # todo: replace with real name once known
+    with open(os.path.join(args.save_dir, 'CMDs/preprocessing.cmd'), 'a') as f:  
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
@@ -276,15 +311,28 @@ def main(args):
     mapping, inv_mapping = generate_mappings(prompts_list, prompt_ids_list, args)
 
     print("Mappings generated. Time elapsed: ", time.time() - start_time)
+    
+    # Generate the grades dictionary
+    if args.speaker_grades_path:
+        grades_dict = generate_grade_dict(args.speaker_grades_path)
+        print('Generated the speaker grades dictionary.')
 
     # Process the responses
     responses, full_ids, confidences = process_mlf_responses(args.responses_path)
     print("Responses mlf file processed. Time elapsed: ", time.time() - start_time)
-    responses, full_ids, confidences, prompt_ids, prompts, speakers, sections = process_responses_file(responses,
+    if args.speaker_grades_path:
+        responses, full_ids, confidences, prompt_ids, prompts, speakers, sections, grades = process_responses_file(responses,
+                                                                                                       full_ids,
+                                                                                                       confidences,
+                                                                                                       inv_mapping,
+                                                                                                       args, grades_dict)
+    else:
+        responses, full_ids, confidences, prompt_ids, prompts, speakers, sections, _ = process_responses_file(responses,
                                                                                                        full_ids,
                                                                                                        confidences,
                                                                                                        inv_mapping,
                                                                                                        args)
+
     print("Responses transcription processed. Time elapsed: ", time.time() - start_time)
 
 
@@ -301,7 +349,7 @@ def main(args):
             try:
                 subquestion_prompt = prompts[i]
                 master_prompt = inv_mapping[master_prompt_id]
-                new_prompt = master_prompt + sub_prompt_separator + subquestion_prompt
+                new_prompt = ' '.join([master_prompt, sub_prompt_separator, subquestion_prompt])
                 prompts[i] = new_prompt
             except KeyError:
                 print("No master question: " + master_prompt_id + " in the scripts file")
@@ -318,6 +366,11 @@ def main(args):
         file_path = os.path.join(args.save_dir, filename + suffix)
         with open(file_path, 'w') as file:
             file.write('\n'.join(data))
+    if args.speaker_grades_path:
+        file_path = os.path.join(args.save_dir, 'grades' + suffix)
+        with open(file_path, 'w') as file:
+            file.write('\n'.join(grades))
+
     return
 
 

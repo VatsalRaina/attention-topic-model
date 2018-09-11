@@ -87,7 +87,7 @@ def main(argv=None):
     if os.path.isdir(args.destination_dir):
         print 'destination directory exists. Exiting...'
     else:
-        os.mkdir(args.destination_dir)
+        os.makedirs(args.destination_dir)
 
     # Link and and create directories
     os.chdir(args.destination_dir)
