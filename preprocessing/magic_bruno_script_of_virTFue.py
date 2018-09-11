@@ -26,10 +26,18 @@ parser.add_argument('--rand_seed', type=float, default=1000,
                                help='random seed to use when shuffling the data into validation and training sets')
 parser.add_argument('--preprocessing_type', type=str, choices=['train', 'test'], default='train')
 parser.add_argument('--sorted_topics_path', type=str, default='',
-                               help='Absolute path to file with sorted topics as used for model training. Leave unspecified if new mapping is to be generated.')
+                    help='Absolute path to file with sorted topics as used for model training. Leave unspecified if new mapping is to be generated.')
+parser.add_argument('--responses_file', type=str, default='responses.txt')
+parser.add_argument('--prompts_file', type=str, default='prompts.txt')
+parser.add_argument('--grades_file', type=str, default='grades.txt')
+parser.add_argument('--speakers_file', type=str, default='speakers.txt')
+parser.add_argument('--targets_file', type=str, default='targets.txt')
 
 
 def write_to_tfrecords(filename, destination_dir, responses, prompts, q_ids, grades, speakers, targets=1.0):
+    # Check that all the input lists are of equal lengths
+    assert len({len(responses), len(prompts), len(q_ids), len(grades), len(speakers)}) == 1
+
     if type(targets) is float or type(targets) is int:
         # If targets is an integer make each target this value
         targets = [float(targets)] * len(responses)
@@ -110,15 +118,15 @@ def main(args):
     shutil.copyfile(args.input_wlist_path, os.path.join(args.destination_dir, 'input.wlist.index'))
 
     # Get the paths to the relevant files
-    responses_path = os.path.join(args.data_dir, 'responses.txt')
-    prompts_path = os.path.join(args.data_dir, 'prompts.txt')
-    grades_path = os.path.join(args.data_dir, 'grades.txt')
-    speakers_path = os.path.join(args.data_dir, 'speakers.txt')
+    responses_path = os.path.join(args.data_dir, args.responses_file)
+    prompts_path = os.path.join(args.data_dir, args.prompts_file)
+    grades_path = os.path.join(args.data_dir, args.grades_file)
+    speakers_path = os.path.join(args.data_dir, args.speakers_file)
     required_files = [responses_path, prompts_path, grades_path, speakers_path]
     
     # If generating a test dataset, load the targets
     if args.preprocessing_type == 'test':
-        targets_path = os.path.join(args.data_dir, 'targets.txt')
+        targets_path = os.path.join(args.data_dir, args.targets_file)
         required_files.append(targets_path)
 
     # Assert the required files exist
@@ -184,11 +192,15 @@ def main(args):
         trn_speakers = speakers[index_train]
         trn_grades = grades[index_train]
 
+        print("Number training examples: {}".format(len(trn_responses)))
+
         valid_responses = responses[index_valid]
         valid_prompts = prompts[index_valid]
         valid_q_ids = q_ids[index_valid]
         valid_speakers = speakers[index_valid]
         valid_grades = grades[index_valid]
+
+        print("Number validation examples: {}".format(len(valid_responses)))
 
         # Create the training TF Record file
         write_to_tfrecords('relevance.train.tfrecords', args.destination_dir, trn_responses, trn_prompts, trn_q_ids, trn_grades, trn_speakers, targets=1.0)
