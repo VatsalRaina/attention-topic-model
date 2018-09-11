@@ -122,6 +122,7 @@ def main(args):
     prompts_path = os.path.join(args.data_dir, args.prompts_file)
     grades_path = os.path.join(args.data_dir, args.grades_file)
     speakers_path = os.path.join(args.data_dir, args.speakers_file)
+
     required_files = [responses_path, prompts_path, grades_path, speakers_path]
     
     # If generating a test dataset, load the targets

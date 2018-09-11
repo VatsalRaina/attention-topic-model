@@ -175,7 +175,7 @@ def load_text(data_path, input_index, strip_start_end=True):
             if strip_start_end:
                 line = line[1:-1]  # strip off sentence start and sentence end
             if len(line) == 0:
-                pass
+                pass  # todo: why? this does nothing?
             else:
                 data.append(line)
                 slens.append(len(line))
