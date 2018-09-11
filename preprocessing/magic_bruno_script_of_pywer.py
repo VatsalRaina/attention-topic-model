@@ -61,6 +61,7 @@ parser.add_argument('--exclude_grades_below', type=float, help='Exclude all the 
 
 
 sub_prompt_separator = "</s> <s>"
+no_grade_filler = '-1'
 
 
 def generate_grade_dict(speaker_grade_path):
@@ -68,12 +69,15 @@ def generate_grade_dict(speaker_grade_path):
     grade_dict = dict()
     with open(speaker_grade_path, 'r') as file:
          for line in file.readlines():
-             line = line.replace('\n', '').split('\t')
+             line = line.replace('\n', '').split()
              speaker_id = line[0]
              section_dict = {}
              for i, section in zip(range(1, 7), ['A', 'B', 'C', 'D', 'E']):
                  # todo: replace with a non-manual labeling of sections
-                 section_dict[section] = line[i]
+                 grade = line[i]
+                 if grade == '' or grade =='.':
+                     grade = no_grade_filler
+                 section_dict[section] = grade
              grade_dict[speaker_id] = section_dict
     return grade_dict
 
@@ -84,7 +88,6 @@ def extract_uniq_identifier(prompt_id, args):
     """
     location_id, section_id = prompt_id.split('-')
 
-    # todo: See if this one is still needed now that dataset has been fixed
     ##### The manual rules: ###
     if (section_id[1] == 'C' or section_id[1] == 'D') and int(section_id[2:]) > 1:
         section_id = section_id[:2] + '0001'
@@ -220,86 +223,6 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
     return sentences, ids, confidences
 
 
-def process_responses_file(responses, full_ids, confidences, inv_mapping, args, grade_dict=None):
-    # def get_data_from_full_id(full_id):
-    #     full_id = full_id.split('-')
-    #     location_id = full_id[0]
-    #     speaker_number = full_id[1]
-    #     section_id = full_id[3]
-    #     section = section_id[1]
-
-    # section_ids = map(lambda full_id: full_id.split('-')[3], full_ids)
-    # location_ids = map(lambda full_id: full_id.split('-')[0], full_ids)
-    # speaker_numbers = map(lambda full_id: full_id.split('-')[1], full_ids)
-    # speaker_ids = map(lambda loc_id, spkr_num: '-'.join((loc_id, spkr_num)), location_ids, speaker_numbers)
-    # prompt_ids = map(lambda loc_id, sec_id: '-'.join((loc_id, sec_id)), location_ids, section_ids)
-    #
-    # sections = map(lambda sec_id: sec_id[1], section_ids)
-
-    # Filter responses that are in sections to exclude
-
-
-
-
-    speakers = []
-    sections = []
-    prompt_ids = []
-    prompts = []
-    grades = []
-
-    i = 0
-    while i < len(responses):
-        full_id = full_ids[i].split('-')
-        location_id = full_id[0]
-        speaker_number = full_id[1]
-        section_id = full_id[3]
-        section = section_id[1]
-
-        # Filter responses that are in sections to exclude
-        if section in args.exclude_sections:
-            del responses[i], full_ids[i], confidences[i]
-            continue
-
-        # Get the matching prompt for the response
-        speaker = '-'.join((location_id, speaker_number))  # Should extract the speaker id
-        prompt_id = '-'.join((location_id, section_id))
-        prompt = inv_mapping.get(extract_uniq_identifier(prompt_id, args), None)
-        if prompt is None:
-            print("Didn't find a match for prompt id: ", prompt_id)
-            del responses[i], full_ids[i], confidences[i]
-            continue
-
-        # If processing the grades as well:
-        if grade_dict is not None:
-            # Set the grade to -1 if no grade found for this response
-            try:
-                grade = grade_dict[speaker][section]
-            except KeyError:
-                print("No grade for speaker {}".format(speaker))
-                grade = '-1'
-            if (grade == '' or grade =='.'):
-                # Set to -1 if no grade provided
-                grade = '-1'
-            if args.exclude_grades_below > 0.:
-                if float(grade) < args.exclude_grades_below:
-                    del responses[i], full_ids[i], confidences[i]
-                    continue
-            else:
-                grades.append(grade)
-
-            # Store the relevant data
-            speakers.append(speaker)
-            prompt_ids.append(prompt_id)
-            prompts.append(prompt)
-            sections.append(section)
-        i += 1
-
-    # Assert number of elements of  responses, response confidences, speakers, and prompt_ids is the same
-    assert len({len(responses), len(confidences), len(speakers), len(prompt_ids), len(prompts), len(sections)}) == 1
-
-    return responses, full_ids, confidences, prompt_ids, prompts, speakers, sections, grades
-
-
 def fixed_section_filter(prompt_id, fixed_sections, fixed_questions):
     section_id = prompt_id.split('-')[1]  # Extracts the section id, for example 'SA0001'
     if section_id[1] in fixed_sections or section_id in fixed_questions:
@@ -319,6 +242,9 @@ def filter_hesitations_and_partial(responses, confidences):
             new_response, new_conf_line = filtered
             filtered_responses.append(' '.join(new_response))
             filtered_confidences.append(' '.join(new_conf_line))
+        else:
+            filtered_responses.append(None)
+            filtered_confidences.append(None)
     return filtered_responses, filtered_confidences
 
 
@@ -354,7 +280,10 @@ def main(args):
     # Generate the grades dictionary
     if args.speaker_grades_path:
         grades_dict = generate_grade_dict(args.speaker_grades_path)
+        processing_grades = True
         print('Generated the speaker grades dictionary.')
+    else:
+        processing_grades = False
 
     # Process the responses
     responses, full_ids, confidences = process_mlf_responses(args.responses_path)
@@ -362,23 +291,62 @@ def main(args):
 
     # Filter out the hesitations and partial words from responses:
     responses, confidences = filter_hesitations_and_partial(responses, confidences)
+    responses, confidences, full_ids = zip(*filter(lambda x: x[0] is not None, zip(responses, confidences, full_ids)))
+
     print("Hesitations and partial words filtered. Time elapsed: ", time.time() - start_time)  # todo: moderately slow (40s) could be integrated somewhere?
 
-    if args.speaker_grades_path:
-        responses, full_ids, confidences, prompt_ids, prompts, speakers, sections, grades = process_responses_file(responses,
-                                                                                                       full_ids,
-                                                                                                       confidences,
-                                                                                                       inv_mapping,
-                                                                                                       args, grades_dict)
+
+
+
+    ## todo: rewrite the below (split)
+    # Extract the relevant data from full ids
+    section_ids = map(lambda full_id: full_id.split('-')[3], full_ids)
+    location_ids_temp = map(lambda full_id: full_id.split('-')[0], full_ids)
+    speaker_numbers_temp = map(lambda full_id: full_id.split('-')[1], full_ids)
+    speaker_ids = map(lambda loc_id, spkr_num: '-'.join((loc_id, spkr_num)), location_ids_temp, speaker_numbers_temp)
+    prompt_ids = map(lambda loc_id, sec_id: '-'.join((loc_id, sec_id)), location_ids_temp, section_ids)
+    sections = map(lambda sec_id: sec_id[1], section_ids)
+    print("Relevant data extracted from full ids. Time elapsed: ", time.time() - start_time)
+
+    # Filter responses that are in sections to exclude
+    sections, responses, full_ids, confidences, section_ids, speaker_ids, prompt_ids = zip(
+        *filter(lambda x: x[0] not in args.exclude_sections,
+                zip(sections, responses, full_ids, confidences, section_ids, speaker_ids, prompt_ids)))
+    print("Examples filtered by section (sections excluded: {}). Time elapsed: ".format(args.exclude_sections), time.time() - start_time)
+
+    # Get the matching prompt for each response
+    prompts = map(lambda prompt_id: inv_mapping.get(extract_uniq_identifier(prompt_id, args), None), prompt_ids)
+
+    # Filter based on whether a corresponding prompts was found
+    prompts, responses, full_ids, confidences, sections, section_ids, speaker_ids, prompt_ids = zip(
+        *filter(lambda x: x[0] is not None,
+                zip(prompts, responses, full_ids, confidences, sections, section_ids, speaker_ids, prompt_ids)))
+    print("Prompts acquired for each response:  Time elapsed: ", time.time() - start_time)
+
+    # Process the grades
+    if processing_grades:
+        # Set the grade to -1 if no grade found for this response
+        grades = map(lambda speaker, section: grades_dict.get(speaker, {}).get(section, no_grade_filler), speaker_ids, sections)
     else:
-        responses, full_ids, confidences, prompt_ids, prompts, speakers, sections, _ = process_responses_file(responses,
-                                                                                                       full_ids,
-                                                                                                       confidences,
-                                                                                                       inv_mapping,
-                                                                                                       args)
+        grades = [no_grade_filler] * len(sections)
+    print("Grades acquired for each response:  Time elapsed: ", time.time() - start_time)
 
-    print("Responses transcription processed. Time elapsed: ", time.time() - start_time) # todo: This is painfully slow (30 min +), reconsider how it's being run
+    # Filter based on grade
+    if args.exclude_grades_below > 0.:
+        grades, prompts, responses, full_ids, confidences, sections, section_ids, speaker_ids, prompt_ids = zip(
+            *filter(lambda x: x[0] >= args.exclude_grades_below,
+                    zip(grades, prompts, responses, full_ids, confidences, sections, section_ids, speaker_ids, prompt_ids)))
+    print("Responses filtered by grade:  Time elapsed: ", time.time() - start_time)
 
+    assert len({len(grades), len(responses), len(confidences), len(speaker_ids), len(prompt_ids), len(prompts), len(sections)}) == 1
+
+    print("Responses transcription processed. Time elapsed: ", time.time() - start_time)
+
+
+    # Convert to lists
+    grades, prompts, responses, full_ids, confidences, sections, section_ids, speaker_ids, prompt_ids = map(
+        lambda x: list(x),
+        [grades, prompts, responses, full_ids, confidences, sections, section_ids, speaker_ids, prompt_ids])
 
     # Handle the multi subquestion prompts
     for i in range(len(sections)):
@@ -406,7 +374,7 @@ def main(args):
     # Make sure the directory exists:
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
-    for data, filename in zip([responses, confidences, speakers, prompts, prompt_ids, sections],
+    for data, filename in zip([responses, confidences, speaker_ids, prompts, prompt_ids, sections],
                               ['responses', 'confidences', 'speakers', 'prompts', 'prompt_ids', 'sections']):
         file_path = os.path.join(args.save_dir, filename + suffix)
         with open(file_path, 'w') as file:
