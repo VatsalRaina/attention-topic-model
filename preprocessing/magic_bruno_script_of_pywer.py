@@ -177,7 +177,7 @@ def process_mlf_scripts(mlf_path, word_pattern=r"[%A-Za-z'\\_.]+$"):
                 words = []
             elif re.match(word_pattern, line):
                 word = line.replace("\\'", "'")
-                words.append(line)
+                words.append(word)
             else:
                 raise ValueError("Unexpected pattern in file: " + line)
     return sentences, ids
