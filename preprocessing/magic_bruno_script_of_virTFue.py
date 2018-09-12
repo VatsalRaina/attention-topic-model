@@ -209,8 +209,19 @@ def main(args):
         # Create the validation TF Record file
         write_to_tfrecords('relevance.valid.tfrecords', args.destination_dir, valid_responses, valid_prompts, valid_q_ids, valid_grades, valid_speakers, targets=1.0)
 
+        # Write a metadata file for convenience:
+        with open(os.path.join(args.destination_dir, 'dataset_meta.txt'), 'w') as meta_file:
+            meta_string = 'num_examples_train:\t{}\nnum_examples_valid:\t{}\nnum_unique_topics:\t{}'.format(
+                len(trn_responses), len(valid_responses), len(topic_dict))
+            meta_file.write(meta_string)
+
     elif args.preprocessing_type == 'test':
         write_to_tfrecords('relevance.test.tfrecords', args.destination_dir, responses, prompts, q_ids, grades, speakers, targets=targets)
+
+        # Write a metadata file for convenience:
+        with open(os.path.join(args.destination_dir, 'dataset_meta.txt'), 'w') as meta_file:
+            meta_string = 'num_examples:\t{}\nnum_unique_topics:\t{}'.format(len(responses), len(topic_dict))
+            meta_file.write(meta_string)
 
     print('Finished')
 
