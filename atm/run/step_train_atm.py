@@ -51,18 +51,19 @@ commandLineParser.add_argument('topic_count_path', type=str,
                                help='which should be loaded')
 commandLineParser.add_argument('wlist_path', type=str,
                                help='which should be loaded')
+commandLineParser.add_argument('--strip_start_end', action='store_true', help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt file (used for legacy sorted_topics.txt formatting')
 
 
 
-def main(argv=None):
-    args = commandLineParser.parse_args()
+def main(args):
     if not os.path.isdir('CMDs'):
         os.mkdir('CMDs')
     with open('CMDs/step_train_attention_grader.cmd', 'a') as f:
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
-    topics, topic_lens = text_to_array(args.topic_path, input_index=args.wlist_path)
+    topics, topic_lens = text_to_array(args.topic_path, input_index=args.wlist_path, strip_start_end=args.strip_start_end)
+    if args.strip_start_end: print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
 
     atm = AttentionTopicModel(network_architecture=None,
                              seed=args.seed,
@@ -94,4 +95,5 @@ def main(argv=None):
 
 
 if __name__ == '__main__':
-    main()
+    args = commandLineParser.parse_args()
+    main(args)

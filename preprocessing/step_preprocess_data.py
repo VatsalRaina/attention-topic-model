@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+import context
 
 import argparse
 import os
@@ -26,6 +27,7 @@ commandLineParser.add_argument('destination_dir', type=str,
                                help='absolute path location where to setup ')
 commandLineParser.add_argument('--valid_fraction', type=float, default=0.1,
                                help='fraction of full data to reserve for validation')
+commandLineParser.add_argument('--strip_start_end', action='store_true')
 
 def main(argv=None):
     """Converts a dataset to tfrecords."""
@@ -44,8 +46,8 @@ def main(argv=None):
         f.write('--------------------------------\n')
 
         # Load responses and prompts as sequences of word ids
-    responses, _ = load_text(args.input_data_path, args.input_wlist_path)
-    prompts, _ = load_text(args.input_prompt_path, args.input_wlist_path)
+    responses, _ = load_text(args.input_data_path, args.input_wlist_path, strip_start_end=args.strip_start_end)
+    prompts, _ = load_text(args.input_prompt_path, args.input_wlist_path, strip_start_end=args.strip_start_end)
 
     # Load up the prompts as sequences of words
     with open(args.input_prompt_path, 'r') as file:
