@@ -159,11 +159,11 @@ def word_to_id(data, index):
     return [[vocab[word] if vocab.has_key(word) else 0 for word in line] for line in data]
 
 
-def load_text(data_path, input_index, strip_start_end=True):
+def load_text(data_path, words_index_path, strip_start_end=True):
     """
     Converts words in each line into a sequence of word ids. Maintains length of each line
     :param data_path: path to text data
-    :param input_index: path to index-wordlist file
+    :param word_index_path: path to index-wordlist file
     :param strip_start_end: whether to strip first and last word of the response (usually to get rid of <s> </s> tags)
     :return: data with words replaced by word ids, sentence lengths
     """
@@ -175,16 +175,16 @@ def load_text(data_path, input_index, strip_start_end=True):
             if strip_start_end:
                 line = line[1:-1]  # strip off sentence start and sentence end
             if len(line) == 0:
-                pass
+                pass  # todo: why? this does nothing?
             else:
                 data.append(line)
                 slens.append(len(line))
-    data = np.asarray(word_to_id(data, input_index))
+    data = np.asarray(word_to_id(data, words_index_path))
     return data, slens
 
 
-def text_to_array(data_path, input_index, strip_start_end=True):
-    data, slens = load_text(data_path, input_index, strip_start_end=strip_start_end)
+def text_to_array(data_path, words_index_path, strip_start_end=True):
+    data, slens = load_text(data_path, words_index_path, strip_start_end=strip_start_end)
 
     slens = np.asarray(slens, dtype=np.int32)
     processed_data = np.zeros((len(slens), np.max(slens)), dtype=np.int32)
