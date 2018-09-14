@@ -134,7 +134,7 @@ def generate_mappings(prompts, prompt_ids, args):
 
     for prompt, full_id in zip(prompts, prompt_ids):
         # Process the prompt_id line
-        assert re.match(r'[A-Z0-9]+-[A-Z0-9]+-[a-z]*$', full_id)  # The expected format of the line
+        assert re.match(r'[A-Z0-9]+-[X-]*[A-Z0-9]+-[a-z]*$', full_id)  # The expected format of the line
 
         full_id = full_id.split('-')
         location_id, section_id = full_id[0], full_id[-2]
@@ -162,8 +162,8 @@ def process_mlf_scripts(mlf_path, word_pattern=r"[%A-Za-z'\\_.]+$"):
             if line == '#!MLF!#':
                 # Ignore the file type prefix line
                 continue
-            elif ".lab" in line:
-                assert re.match(r'"[a-zA-Z0-9-]+.lab"$', line)
+            elif ".lab" in line or ".rec" in line:
+                assert re.match(r'"[a-zA-Z0-9-]+.lab"$', line) or re.match(r'"[a-zA-Z0-9-]+.rec"$', line)
                 assert len(sentences) == len(ids)
                 # Get rid of the " at the beginning and the .lab" at the end
                 line = line[1:-5]
@@ -198,8 +198,8 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
             if line == '#!MLF!#':
                 # Ignore the file type prefix line
                 continue
-            elif ".lab" in line:
-                assert re.match(r'"[a-zA-Z0-9-_]+.lab"$', line)
+            elif ".lab" in line or ".rec" in line:
+                assert re.match(r'"[a-zA-Z0-9-_]+.lab"$', line) or re.match(r'"[a-zA-Z0-9-_]+.rec"$', line)
                 assert len(sentences) == len(ids)
                 # Get rid of the " at the beginning and the .lab" at the end
                 line = line[1:-5]
@@ -336,8 +336,9 @@ def main(args):
 
     # Filter based on grade
     if args.exclude_grades_below > 0.:
+        print("Excluding grades below: {}".format(args.exclude_grades_below))
         grades, prompts, responses, full_ids, confidences, sections, section_ids, speaker_ids, prompt_ids = zip(
-            *filter(lambda x: x[0] >= args.exclude_grades_below,
+            *filter(lambda x: float(x[0]) >= args.exclude_grades_below,
                     zip(grades, prompts, responses, full_ids, confidences, sections, section_ids, speaker_ids, prompt_ids)))
     print("Responses filtered by grade:  Time elapsed: ", time.time() - start_time)
 

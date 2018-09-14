@@ -62,7 +62,7 @@ def main(args):
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
-    topics, topic_lens = text_to_array(args.topic_path, input_index=args.wlist_path, strip_start_end=args.strip_start_end)
+    topics, topic_lens = text_to_array(args.topic_path, args.wlist_path, strip_start_end=args.strip_start_end)
     if args.strip_start_end: print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
 
     atm = AttentionTopicModel(network_architecture=None,
