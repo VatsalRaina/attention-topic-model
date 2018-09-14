@@ -498,6 +498,10 @@ class AttentionTopicModel(BaseModel):
             total_size = 0
             self.sess.run(test_iterator.initializer)
             count = 0
+
+            # Variables for storing the batch_ordered data
+            test_responses_list = []
+            test_prompts_list = []
             while True:
                 try:
                     batch_eval_loss, \
@@ -514,40 +518,44 @@ class AttentionTopicModel(BaseModel):
                                                        test_prompts,
                                                        test_prompt_lens])
                     # todo: Remove once shape known
-                    print("batch_eval_loss shape", batch_eval_loss.shape)
-                    print("batch_test_probs shape", batch_test_probs.shape)
-                    print("batch_test_targets shape", batch_test_targets.shape)
-                    print("batch_responses shape", batch_responses.shape)
-                    print("batch_response_lengths shape", batch_response_lengths.shape)
-                    print("batch_prompts shape", batch_prompts.shape)
-                    print("batch_prompt_lens shape", batch_prompt_lens.shape)
+                    # print("batch_eval_loss shape", batch_eval_loss.shape)
+                    # print("batch_test_probs shape", batch_test_probs.shape)
+                    # print("batch_test_targets shape", batch_test_targets.shape)
+                    # print("batch_responses shape", batch_responses.shape)
+                    # print("batch_response_lengths shape", batch_response_lengths.shape)
+                    # print("batch_prompts shape", batch_prompts.shape)
+                    # print("batch_prompt_lens shape", batch_prompt_lens.shape)
                     size = batch_test_probs.shape[0]
                     test_loss += float(size) * batch_eval_loss
                     if count == 0:
-                        test_probs_arr = batch_test_probs
-                        test_labels_arr = batch_test_targets[:,np.newaxis]
-                        test_responses_arr = batch_responses
-                        test_response_lens_arr = batch_response_lengths
-                        test_prompts_arr = batch_prompts
-                        test_prompt_lens_arr = batch_prompt_lens
+                        test_probs_arr = batch_test_probs # shape: (num_batches, 1)
+                        test_labels_arr = batch_test_targets[:, np.newaxis] # becomes shape: (num_batches, 1)
+                        test_response_lens_arr = batch_response_lengths[:, np.newaxis] # becomes shape: (num_batches, 1)
+                        test_prompt_lens_arr = batch_prompt_lens[:, np.newaxis] # becomes shape: (num_batches, 1)
                     else:
                         test_probs = np.concatenate((test_probs_arr, batch_test_probs), axis=0)
                         test_labels = np.concatenate((test_labels_arr, batch_test_targets[:, np.newaxis]), axis=0)
-                        test_responses_arr = np.concatenate((test_responses_arr, batch_responses[:, np.newaxis]),
-                                                            axis=0)
                         test_response_lens_arr = np.concatenate(
                             (test_response_lens_arr, batch_response_lengths[:, np.newaxis]), axis=0)
-                        test_prompts_arr = np.concatenate((test_prompts_arr, batch_prompts[:, np.newaxis]), axis=0)
                         test_prompt_lens_arr = np.concatenate((test_prompt_lens_arr, batch_prompt_lens[:, np.newaxis]),
                                                               axis=0)
+                    test_responses_list.extend(list(batch_responses))  # List of numpy arrays!
+                    test_prompts_list.extend(list(batch_prompts))  # List of numpy arrays!
+
                     total_size += size
-                    count+=1
-                except tf.error.OutOfRangeError:  #todo: tf.errors.OutOfRangeError:
+                    count += 1
+                except:  #todo: tf.errors.OutOfRangeError:
                     break
 
             test_loss = test_loss / float(total_size)
 
-        return test_labels, test_probs, test_loss
+        return (test_loss,
+                test_probs_arr,
+                test_labels_arr,
+                test_response_lens_arr,
+                test_prompt_lens_arr,
+                test_responses_list,
+                test_prompts_list)
 
         # def rank(self, X, topics, name=None):
         #     with self._graph.as_default():

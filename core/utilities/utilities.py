@@ -144,9 +144,9 @@ def load_data(path, use_aux=False, expert=False, shuffle=False, integer=False, s
         return targets[:, -1:], features
 
 
-def create_word_id_dict(index):
+def create_word_id_dict(words_index_path):
     dict = {}
-    path = os.path.join(index)
+    path = os.path.join(words_index_path)
     with open(path, 'r') as f:
         for line in f.readlines():
             line = line.replace('\n', '').split()
@@ -154,8 +154,28 @@ def create_word_id_dict(index):
     return dict
 
 
-def word_to_id(data, index):
-    vocab = create_word_id_dict(index)
+class IdToWordConverter:
+    def __init__(self, words_index_path):
+        self.words_index_path = words_index_path
+        self.vocab_dict = self.create_word_id_inv_dict()
+
+    def create_word_id_inv_dict(self, words_index_path):
+        dict = {}
+        path = os.path.join(words_index_path)
+        with open(path, 'r') as f:
+            for line in f.readlines():
+                line = line.replace('\n', '').split()
+                dict[int(line[0]) + 1] = line[1]
+        return dict
+
+    def id_list_to_word(self, id_list):
+        """Assumes input is a list of word ids and converts them to a list of actual words"""
+        return [self.vocab_dict[word_id] if word_id != 0 else '%UNKNOWN%' for word_id in id_list]
+
+
+
+def word_to_id(data, words_index_path):
+    vocab = create_word_id_dict(words_index_path)
     return [[vocab[word] if vocab.has_key(word) else 0 for word in line] for line in data]
 
 
