@@ -16,14 +16,20 @@ python magic_bruno_script_of_virTFue.py /home/miproj/urop.2018/bkm28/test_datase
 ###### BULATS
 `/home/alta/BLTSpeaking/convert-v2/4/lib/script.v7/scripts.mlf`
 ###### LINSK
---
+`/home/alta/Linguaskills/convert/lib/script/scripts.mlf`
 
 #### Responses:
 ###### BLXXXgrp24
 `/home/alta/BLTSpeaking/exp-ar527/grammar/detection/data/word/mlf/BLXXXgrd00_grd01_grd02_uns00_uns10_uns11.mlf`
 
 ###### BLXXXeval{1,3}
-` /home/alta/BLTSpeaking/exp-ar527/grammar/detection/data/word/mlf/BLXXX{dataset}.mlf`
+`/home/alta/BLTSpeaking/exp-ar527/grammar/detection/data/word/mlf/BLXXX{dataset}.mlf`
+
+###### LINSKuns03
+`/home/alta/Linguaskills/exp-graphemic-kmk/D3/align-LINSKuns03.mlp.mpe/lib/wlabs/train.mlf`
+
+###### LINSKevl03
+`/home/alta/Linguaskills/exp-graphemic-kmk/D3/align-LINSKevl03.mlp.mpe/lib/wlabs/train.mlf`
 
 #### Grades:
 ###### BLXXXeval{1,3} and BLXXXgrp24
