@@ -141,7 +141,7 @@ class BaseModel(object):
                 iterator = dataset.make_one_shot_iterator()
                 return iterator.get_next(name='input_data')
             else:
-                iterator = dataset.make_initializable_iterator()
+                iterator = dataset.make_initializable_iterator(shuffle=False)
                 return iterator
 
     def _parse_func(self, example_proto):

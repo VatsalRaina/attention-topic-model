@@ -144,9 +144,9 @@ def main(args):
     # Cache the command:
     if not os.path.isdir(os.path.join(args.destination_dir, 'CMDs')):
         os.makedirs(os.path.join(args.destination_dir, 'CMDs'))
-    with open(os.path.join(args.destination_dir, 'CMDs/preprocessing.cmd'), 'a') as f:
-        f.write(' '.join(sys.argv) + '\n')
-        f.write('--------------------------------\n')
+    with open(os.path.join(args.destination_dir, 'CMDs/preprocessing.cmd'), 'a') as cmd_cache:
+        cmd_cache.write(' '.join(sys.argv) + '\n')
+        cmd_cache.write('--------------------------------\n')
 
 
     # Load responses and prompts as sequences of word ids
