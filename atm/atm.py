@@ -502,20 +502,47 @@ class AttentionTopicModel(BaseModel):
                 try:
                     batch_eval_loss, \
                     batch_test_probs, \
-                    batch_test_targets = self.sess.run([loss,
-                                                        test_probabilities,
-                                                        test_targets])
+                    batch_test_targets, \
+                    batch_responses, \
+                    batch_response_lengths, \
+                    batch_prompts, \
+                    batch_prompt_lens = self.sess.run([loss,
+                                                       test_probabilities,
+                                                       test_targets,
+                                                       test_responses,
+                                                       test_response_lengths,
+                                                       test_prompts,
+                                                       test_prompt_lens])
+                    # todo: Remove once shape known
+                    print("batch_eval_loss shape", batch_eval_loss.shape)
+                    print("batch_test_probs shape", batch_test_probs.shape)
+                    print("batch_test_targets shape", batch_test_targets.shape)
+                    print("batch_responses shape", batch_responses.shape)
+                    print("batch_response_lengths shape", batch_response_lengths.shape)
+                    print("batch_prompts shape", batch_prompts.shape)
+                    print("batch_prompt_lens shape", batch_prompt_lens.shape)
                     size = batch_test_probs.shape[0]
                     test_loss += float(size) * batch_eval_loss
                     if count == 0:
-                        test_probs = batch_test_probs
-                        test_labels = batch_test_targets[:,np.newaxis]
+                        test_probs_arr = batch_test_probs
+                        test_labels_arr = batch_test_targets[:,np.newaxis]
+                        test_responses_arr = batch_responses
+                        test_response_lens_arr = batch_response_lengths
+                        test_prompts_arr = batch_prompts
+                        test_prompt_lens_arr = batch_prompt_lens
                     else:
-                        test_probs = np.concatenate((test_probs, batch_test_probs), axis=0)
-                        test_labels = np.concatenate((test_labels, batch_test_targets[:,np.newaxis]), axis=0)
+                        test_probs = np.concatenate((test_probs_arr, batch_test_probs), axis=0)
+                        test_labels = np.concatenate((test_labels_arr, batch_test_targets[:, np.newaxis]), axis=0)
+                        test_responses_arr = np.concatenate((test_responses_arr, batch_responses[:, np.newaxis]),
+                                                            axis=0)
+                        test_response_lens_arr = np.concatenate(
+                            (test_response_lens_arr, batch_response_lengths[:, np.newaxis]), axis=0)
+                        test_prompts_arr = np.concatenate((test_prompts_arr, batch_prompts[:, np.newaxis]), axis=0)
+                        test_prompt_lens_arr = np.concatenate((test_prompt_lens_arr, batch_prompt_lens[:, np.newaxis]),
+                                                              axis=0)
                     total_size += size
                     count+=1
-                except:  # tf.errors.OutOfRangeError:
+                except tf.error.OutOfRangeError:  #todo: tf.errors.OutOfRangeError:
                     break
 
             test_loss = test_loss / float(total_size)

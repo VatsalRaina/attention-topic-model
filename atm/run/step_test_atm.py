@@ -55,7 +55,7 @@ def main(argv=None):
 
     test_labels, test_probs, test_loss = atm.predict(args.data_pattern)
 
-    data=np.concatenate((test_labels, test_probs), axis=1)
+    data = np.concatenate((test_labels, test_probs), axis=1)
     np.savetxt(os.path.join(args.output_dir, 'labels-probs.txt'), data)
     # Do evaluations, calculate metrics, etc...
     roc_score = roc(np.squeeze(test_labels), np.squeeze(test_probs))
