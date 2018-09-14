@@ -32,9 +32,11 @@ parser.add_argument('--prompts_file', type=str, default='prompts.txt')
 parser.add_argument('--grades_file', type=str, default='grades.txt')
 parser.add_argument('--speakers_file', type=str, default='speakers.txt')
 parser.add_argument('--targets_file', type=str, default='targets.txt')
+parser.add_argument('--remove_sentence_tags', action='store_true', help='whether to remove the <s> </s> tags at the beginning and end of each response/prompt')
+parser.add_argument('--debug', action='store_true')
 
 
-def write_to_tfrecords(filename, destination_dir, responses, prompts, q_ids, grades, speakers, targets=1.0):
+def write_to_tfrecords(filename, destination_dir, responses, prompts, q_ids, grades, speakers, targets=1.0, debug=False):
     # Check that all the input lists are of equal lengths
     assert len({len(responses), len(prompts), len(q_ids), len(grades), len(speakers)}) == 1
 
@@ -50,6 +52,9 @@ def write_to_tfrecords(filename, destination_dir, responses, prompts, q_ids, gra
 
     writer = tf.python_io.TFRecordWriter(os.path.join(destination_dir, filename))
     for response, prompt, q_id, grd, spkr, tgt in zip(responses, prompts, q_ids, grades, speakers, targets):
+        if debug:
+            # Print out the data that is going to be saved:
+            print("-----------------\n", "EXAMPLE: \n", "Response: {}\nPrompt: {}\nQ_id: {}\n\ntarget: {}\ngrade: {}\n\n".format(response, prompt, q_id, tgt, grd))
         example = tf.train.SequenceExample(
             context=tf.train.Features(feature={
                 'targets': tfrecord_utils.float_feature([tgt]),
@@ -145,9 +150,8 @@ def main(args):
 
 
     # Load responses and prompts as sequences of word ids
-    responses, _ = load_text(responses_path, args.input_wlist_path, strip_start_end=False)
-    prompts, _ = load_text(prompts_path, args.input_wlist_path, strip_start_end=False)
-
+    responses, _ = load_text(responses_path, args.input_wlist_path, strip_start_end=args.remove_sentence_tags)
+    prompts, _ = load_text(prompts_path, args.input_wlist_path, strip_start_end=args.remove_sentence_tags)
 
     # Load up the speakers and grades
     with open(grades_path, 'r') as file:
@@ -204,10 +208,10 @@ def main(args):
         print("Number validation examples: {}".format(len(valid_responses)))
 
         # Create the training TF Record file
-        write_to_tfrecords('relevance.train.tfrecords', args.destination_dir, trn_responses, trn_prompts, trn_q_ids, trn_grades, trn_speakers, targets=1.0)
+        write_to_tfrecords('relevance.train.tfrecords', args.destination_dir, trn_responses, trn_prompts, trn_q_ids, trn_grades, trn_speakers, targets=1.0, debug=args.debug)
 
         # Create the validation TF Record file
-        write_to_tfrecords('relevance.valid.tfrecords', args.destination_dir, valid_responses, valid_prompts, valid_q_ids, valid_grades, valid_speakers, targets=1.0)
+        write_to_tfrecords('relevance.valid.tfrecords', args.destination_dir, valid_responses, valid_prompts, valid_q_ids, valid_grades, valid_speakers, targets=1.0, debug=args.debug)
 
         # Write a metadata file for convenience:
         with open(os.path.join(args.destination_dir, 'dataset_meta.txt'), 'w') as meta_file:
@@ -216,7 +220,7 @@ def main(args):
             meta_file.write(meta_string)
 
     elif args.preprocessing_type == 'test':
-        write_to_tfrecords('relevance.test.tfrecords', args.destination_dir, responses, prompts, q_ids, grades, speakers, targets=targets)
+        write_to_tfrecords('relevance.test.tfrecords', args.destination_dir, responses, prompts, q_ids, grades, speakers, targets=targets, debug=args.debug)
 
         # Write a metadata file for convenience:
         with open(os.path.join(args.destination_dir, 'dataset_meta.txt'), 'w') as meta_file:
