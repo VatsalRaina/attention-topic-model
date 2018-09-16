@@ -64,23 +64,30 @@ def main(args):
     #todo: remove line below once working
     # test_labels, test_probs, test_loss = atm.predict(args.data_pattern)
 
-    test_loss, \
-    test_probs_arr, \
-    test_labels_arr, \
-    test_response_lens_arr, \
-    test_prompt_lens_arr, \
-    test_responses_list, \
-    test_prompts_list = atm.predict(args.data_pattern)
+    if args.save_reordered_input:
+        test_loss, \
+        test_probs_arr, \
+        test_labels_arr, \
+        test_response_lens_arr, \
+        test_prompt_lens_arr, \
+        test_responses_list, \
+        test_prompts_list = atm.predict(args.data_pattern, cache_inputs=True)
+    else:
+        test_loss, \
+        test_probs_arr, \
+        test_labels_arr = atm.predict(args.data_pattern, cache_inputs=True)
+
 
     # Save the numerical output data
     data = np.concatenate((test_labels_arr, test_probs_arr), axis=1)
     np.savetxt(os.path.join(args.output_dir, 'labels-probs.txt'), data)
     np.savetxt(os.path.join(args.output_dir, 'labels.txt'), test_labels_arr)
     np.savetxt(os.path.join(args.output_dir, 'predictions.txt'), test_probs_arr)
-    np.savetxt(os.path.join(args.output_dir, 'response_lengths.txt'), test_response_lens_arr)
-    np.savetxt(os.path.join(args.output_dir, 'prompt_lengths.txt'), test_prompt_lens_arr)
 
     if args.save_reordered_input:
+        np.savetxt(os.path.join(args.output_dir, 'response_lengths.txt'), test_response_lens_arr)
+        np.savetxt(os.path.join(args.output_dir, 'prompt_lengths.txt'), test_prompt_lens_arr)
+
         # Retrieve prompts and responses and convert to a list of lists
         responses_word_ids = map(lambda i: list(test_responses_list[i][:test_response_lens_arr[i, 0]]),
                                  range(len(test_responses_list)))
