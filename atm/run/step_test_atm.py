@@ -110,6 +110,12 @@ def main(args):
     test_labels_arr = np.squeeze(test_labels_arr)
     test_probs_arr = np.squeeze(test_probs_arr)
 
+    precision_rel, recall_rel, thresholds = precision_recall_curve(test_labels_arr, test_probs_arr)
+    aupr_rel = auc(recall_rel, precision_rel)
+
+    precision_nonrel, recall_nonrel, thresholds = precision_recall_curve(1 - test_labels_arr, 1. - test_probs_arr)
+    aupr_nonrel = auc(recall_nonrel, precision_nonrel)
+
     if args.make_plots:
         fpr, tpr, thresholds = roc_curve(np.asarray(test_labels_arr, dtype=np.int32), test_probs_arr)
         plt.plot(fpr, tpr, c='r')
@@ -121,9 +127,7 @@ def main(args):
         plt.savefig(os.path.join(args.output_dir, 'test_roc_curve.png'))
         plt.close()
 
-        precision, recall, thresholds = precision_recall_curve(test_labels_arr, test_probs_arr)
-        aupr_rel = auc(recall, precision)
-        plt.plot(recall, precision)
+        plt.plot(recall_rel, precision_rel)
         plt.xlabel('Recall')
         plt.ylabel('Precision')
         plt.ylim(0.0, 1.0)
@@ -131,9 +135,7 @@ def main(args):
         plt.savefig(os.path.join(args.output_dir, 'test_pr_curve_relevant.png'))
         plt.close()
 
-        precision, recall, thresholds = precision_recall_curve(1 - test_labels_arr, 1.0 - test_probs_arr)
-        aupr_nonrel = auc(recall, precision)
-        plt.plot(recall, precision)
+        plt.plot(recall_nonrel, precision_nonrel)
         plt.xlabel('Recall')
         plt.ylabel('Precision')
         plt.ylim(0.0, 1.0)
