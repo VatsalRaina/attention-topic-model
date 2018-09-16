@@ -533,8 +533,8 @@ class AttentionTopicModel(BaseModel):
                         test_response_lens_arr = batch_response_lengths[:, np.newaxis] # becomes shape: (num_batches, 1)
                         test_prompt_lens_arr = batch_prompt_lens[:, np.newaxis] # becomes shape: (num_batches, 1)
                     else:
-                        test_probs = np.concatenate((test_probs_arr, batch_test_probs), axis=0)
-                        test_labels = np.concatenate((test_labels_arr, batch_test_targets[:, np.newaxis]), axis=0)
+                        test_probs_arr = np.concatenate((test_probs_arr, batch_test_probs), axis=0)
+                        test_labels_arr = np.concatenate((test_labels_arr, batch_test_targets[:, np.newaxis]), axis=0)
                         test_response_lens_arr = np.concatenate(
                             (test_response_lens_arr, batch_response_lengths[:, np.newaxis]), axis=0)
                         test_prompt_lens_arr = np.concatenate((test_prompt_lens_arr, batch_prompt_lens[:, np.newaxis]),

@@ -88,10 +88,10 @@ def main(args):
                                range(len(test_prompts_list)))
         # Save the prompts and responses
         with open(os.path.join(args.output_dir, 'responses_word_ids.txt'), 'w') as response_file:
-            responses_str_lines = map(lambda x: ' '.join(x), responses_word_ids)
+            responses_str_lines = map(lambda x: ' '.join(map(lambda w_id: str(w_id), x)), responses_word_ids)
             response_file.write('\n'.join(responses_str_lines))
         with open(os.path.join(args.output_dir, 'prompts_word_ids.txt'), 'w') as prompt_file:
-            prompts_str_lines = map(lambda x: ' '.join(x), prompts_word_ids)
+            prompts_str_lines = map(lambda x: ' '.join(map(lambda w_id: str(w_id), x)), prompts_word_ids)
             prompt_file.write('\n'.join(prompts_str_lines))
 
         # Process responses and prompts to get actual words
