@@ -159,9 +159,9 @@ class IdToWordConverter:
         self.words_index_path = words_index_path
         self.vocab_dict = self.create_word_id_inv_dict()
 
-    def create_word_id_inv_dict(self, words_index_path):
+    def create_word_id_inv_dict(self):
         dict = {}
-        path = os.path.join(words_index_path)
+        path = os.path.join(self.words_index_path)
         with open(path, 'r') as f:
             for line in f.readlines():
                 line = line.replace('\n', '').split()

@@ -550,7 +550,7 @@ class AttentionTopicModel(BaseModel):
             test_loss = test_loss / float(total_size)
 
         return (test_loss,
-                test_probs_arr,
+                test_probs_arr.astype(np.int32),
                 test_labels_arr,
                 test_response_lens_arr,
                 test_prompt_lens_arr,
