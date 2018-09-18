@@ -79,7 +79,7 @@ def main(args):
 
     ensemble_models = []
     for i in range(1, args.ensemble_size + 1):
-        base_model_path = os.path.join(args.ensemble_dir, 'atm_seed_' + i)
+        base_model_path = os.path.join(args.ensemble_dir, 'atm_seed_' + str(i))
         base_model = AttentionTopicModel(network_architecture=None,
                                          load_path=base_model_path,
                                          epoch=args.epoch)

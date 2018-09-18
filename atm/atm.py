@@ -147,7 +147,7 @@ class AttentionTopicModel(BaseModel):
     #         outputs = tf.concat([outputs[0], outputs[1]], axis=2)
     #         outputs = tf.tile(outputs, [1 + n_samples, 1, 1])
     #
-    #     print outputs.get_shape(), a_seqlens.get_shape()
+    #     print(outputs.get_shape(), a_seqlens.get_shape())
     #
     #     hidden, attention = self._bahdanau_attention(memory=outputs, seq_lens=a_seqlens, maxlen=maxlen,
     #                                                  query=question_embeddings,
@@ -415,7 +415,7 @@ class AttentionTopicModel(BaseModel):
 
             format_str = (
                 'Epoch %d, Train Loss = %.2f, Valid Loss = %.2f, Valid ROC = %.2f, (%.1f examples/sec; %.3f ' 'sec/batch)')
-            print "Starting Training!\n-----------------------------"
+            print("Starting Training!\n-----------------------------")
             start_time = time.time()
             for epoch in xrange(epoch + 1, epoch + n_epochs + 1):
                 # Run Training Loop
@@ -466,7 +466,7 @@ class AttentionTopicModel(BaseModel):
                 # Summarize Epoch
                 with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
                     f.write(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch) + '\n')
-                print (format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
+                print((format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch)))
                 self.save(step=epoch)
 
             # Finish Training
@@ -475,7 +475,7 @@ class AttentionTopicModel(BaseModel):
                 format_str = ('Training took %.3f sec')
                 f.write('\n' + format_str % (duration) + '\n')
                 f.write('----------------------------------------------------------\n')
-            print (format_str % (duration))
+            print((format_str % (duration)))
             self.save()
 
     def predict(self, test_pattern, batch_size=20, cache_inputs=False):
