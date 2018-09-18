@@ -1,2 +1,2 @@
-from .magic_bruno_script_of_pywer import *
+from .magic_preprocess_raw import *
 

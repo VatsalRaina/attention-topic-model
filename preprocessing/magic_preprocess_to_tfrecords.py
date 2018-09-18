@@ -1,5 +1,16 @@
 #! /usr/bin/env python
 
+"""
+Converts the processed data into a tfrecords dataset format.
+
+----
+
+Generates files:
+relevance.train.tfrecords relevance.valid.tfrecords     (if --preprocessing_type = train)
+relevance.test.tfrecords                                (if --preprocessing_type = test)
+sorted-topics.txt unigrams.txt                          (if --sorted_topics_path left unspecified)
+"""
+
 from __future__ import print_function, division
 import context
 import argparse
@@ -15,7 +26,8 @@ from core.utilities.utilities import load_text
 
 parser = argparse.ArgumentParser(description='Convert the processed data into a tfrecords dataset format')
 parser.add_argument('data_dir', type=str,
-                               help='absolute path to the directory with the processed responses, prompts, speakers, grades etc. .txt data')
+                               help='absolute path to the directory with the processed responses, prompts, '
+                                    'speakers, grades etc. .txt data')
 parser.add_argument('input_wlist_path', type=str,
                                help='absolute path to input word list')
 parser.add_argument('destination_dir', type=str,
@@ -26,13 +38,15 @@ parser.add_argument('--rand_seed', type=float, default=1000,
                                help='random seed to use when shuffling the data into validation and training sets')
 parser.add_argument('--preprocessing_type', type=str, choices=['train', 'test'], default='train')
 parser.add_argument('--sorted_topics_path', type=str, default='',
-                    help='Absolute path to file with sorted topics as used for model training. Leave unspecified if new mapping is to be generated.')
+                    help='Absolute path to file with sorted topics as used for model training. Leave unspecified'
+                         'if new mapping is to be generated.')
 parser.add_argument('--responses_file', type=str, default='responses.txt')
 parser.add_argument('--prompts_file', type=str, default='prompts.txt')
 parser.add_argument('--grades_file', type=str, default='grades.txt')
 parser.add_argument('--speakers_file', type=str, default='speakers.txt')
 parser.add_argument('--targets_file', type=str, default='targets.txt')
-parser.add_argument('--remove_sentence_tags', action='store_true', help='whether to remove the <s> </s> tags at the beginning and end of each response/prompt')
+parser.add_argument('--remove_sentence_tags', action='store_true', help='whether to remove the <s> </s> tags at the '
+                                                                        'beginning and end of each response/prompt')
 parser.add_argument('--debug', action='store_true')
 
 

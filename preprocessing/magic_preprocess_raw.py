@@ -1,5 +1,15 @@
-"""
+#! /usr/bin/env python
 
+"""
+Preprocess 'raw' mlf transcription and scripts files into prompt-response pairs and save them
+alongside with grades, speaker-ids and other meta-data into human-readable .txt in the destination directory.
+
+-----
+
+Generates files:
+responses.txt prompts.txt speakers.txt conf.txt sections.txt prompt_ids.txt
+
+-----
 
 The jargon used in the documentation of this code that might be non-trivial to infer:
 
@@ -18,10 +28,6 @@ Some other quirks:
 If the prompt section id number is above that of a master section id given in the flag, it will be set to be that of
 the flag.
 
------
-
-Generates files:
-responses.txt prompts.txt speakers.txt conf.txt sections.txt prompt_ids.txt
 
 """
 from __future__ import print_function
@@ -31,7 +37,10 @@ import re
 import time
 import argparse
 
-parser = argparse.ArgumentParser(description="We'll see what this actually does")  # todo
+parser = argparse.ArgumentParser(
+    description="Preprocess 'raw' mlf transcription and scripts files into prompt-response pairs and save them "
+                "alongside with grades, speaker-ids and other meta-data into human-readable .txt in the "
+                "destination directory.")
 
 parser.add_argument('scripts_path', type=str, help='Path to a scripts (prompts) .mlf file')
 parser.add_argument('responses_path', type=str, help='Path to a transcript of responses .mlf file')
@@ -39,10 +48,6 @@ parser.add_argument('save_dir', type=str, help='Path to the directory in which t
 parser.add_argument('--fixed_sections', nargs='*', type=str, default=['A', 'B'],
                     help='Which sections if any are fixed (questions are always the same). Takes space separated '
                          'indentifiers, e.g. --fixed_sections A B')
-# # todo: fixed_questions might not be needed
-# parser.add_argument('--fixed_questions', nargs='*', type=str, default=[],
-#                     help='Which individual questions if any are fixed (questions are always the same). Takes space separated '
-#                          'indentifiers, e.g. --fixed_questions SC0001')
 parser.add_argument('--exclude_sections', nargs='*', type=str, default=['A', 'B'],
                     help='Sections to exclude from the output. '
                          'Takes space separated identifiers, e.g. --exclude_sections A B')
@@ -55,11 +60,15 @@ parser.add_argument('--multi_sections_master', nargs='*', type=str, default=['SE
                          'E and F are multi-sections with section ids SE0006 and SF0008 for the master or "parent"'
                          'questions to be prepended before subquestion, use:'
                          '--multi_sections_master SE0006 SF0008')
-parser.add_argument('--speaker_grades_path', type=str, help='Path to a .lst file with speaker ids and their grades for each section', default='')
-parser.add_argument('--num_sections', type=int, help='Number of sections in the test (e.g. in BULATS: A, B, C, D, E -> 5 sections).')
-parser.add_argument('--exclude_grades_below', type=float, help='Exclude all the responses from sections with grades below a certain value', default=0.0)
+parser.add_argument('--speaker_grades_path', type=str, help='Path to a .lst file with speaker ids and '
+                                                            'their grades for each section', default='')
+parser.add_argument('--num_sections', type=int, help='Number of sections in the test '
+                                                     '(e.g. in BULATS: A, B, C, D, E -> 5 sections).')
+parser.add_argument('--exclude_grades_below', type=float, help='Exclude all the responses from sections '
+                                                               'with grades below a certain value', default=0.0)
 
 
+# The separator to use between the master prompt and subprompt for sections specified with --multi_sections flag
 sub_prompt_separator = "</s> <s>"
 no_grade_filler = '-1'
 
@@ -153,6 +162,8 @@ def _add_pair_to_mapping(mapping, inv_mapping, prompt_id, prompt):
 
 
 def process_mlf_scripts(mlf_path, word_pattern=r"[%A-Za-z'\\_.]+$"):
+    """Process the mlf script file pointed to by path mlf_path and return a list of prompts and a list of
+    corresponding ids associated with that prompt."""
     sentences = []
     ids = []
     with open(mlf_path, 'r') as file:
@@ -226,16 +237,18 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
     return sentences, ids, confidences
 
 
-def fixed_section_filter(prompt_id, fixed_sections, fixed_questions):
-    section_id = prompt_id.split('-')[1]  # Extracts the section id, for example 'SA0001'
-    if section_id[1] in fixed_sections or section_id in fixed_questions:
-        print("Id lookup reduced: , ", prompt_id)
-        return section_id
-    else:
-        return prompt_id
+# def fixed_section_filter(prompt_id, fixed_sections, fixed_questions):
+#     section_id = prompt_id.split('-')[1]  # Extracts the section id, for example 'SA0001'
+#     if section_id[1] in fixed_sections or section_id in fixed_questions:
+#         print("Id lookup reduced: , ", prompt_id)
+#         return section_id
+#     else:
+#         return prompt_id
 
 
 def filter_hesitations_and_partial(responses, confidences):
+    """Remove all the hesitations and partial words from responses and the corresponding confidences from the
+    confidences list."""
     filtered_responses, filtered_confidences = [], []
     # Filter out the %HESITATION% and partial words
     for response, conf_line in zip(responses, confidences):
@@ -270,15 +283,15 @@ def main(args):
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
-    start_time = time.time()  # todo: Optimise runtime
+    start_time = time.time()
     # Process the prompts (scripts) file
     prompts_list, prompt_ids_list = process_mlf_scripts(args.scripts_path)
-    print('Prompts script file processed. Time eta: ', time.time() - start_time)  # todo: this is quick
+    print('Prompts script file processed. Time eta: ', time.time() - start_time)
 
     # Generate mappings
-    mapping, inv_mapping = generate_mappings(prompts_list, prompt_ids_list, args)  # todo: this is quick
+    mapping, inv_mapping = generate_mappings(prompts_list, prompt_ids_list, args)
 
-    print("Mappings generated. Time elapsed: ", time.time() - start_time)  # todo: this is quick
+    print("Mappings generated. Time elapsed: ", time.time() - start_time)
     
     # Generate the grades dictionary
     if args.speaker_grades_path:
@@ -290,19 +303,16 @@ def main(args):
 
     # Process the responses
     responses, full_ids, confidences = process_mlf_responses(args.responses_path)
-    print("Responses mlf file processed. Time elapsed: ", time.time() - start_time)  # todo: moderately slow (40s for CDE) but afraid it's the only way
+    print("Responses mlf file processed. Time elapsed: ", time.time() - start_time)
 
     # Filter out the hesitations and partial words from responses:
     responses, confidences = filter_hesitations_and_partial(responses, confidences)
     responses, confidences, full_ids = zip(*filter(lambda x: x[0] is not None, zip(responses, confidences, full_ids)))
 
-    print("Hesitations and partial words filtered. Time elapsed: ", time.time() - start_time)  # todo: moderately slow (40s) could be integrated somewhere?
+    print("Hesitations and partial words filtered. Time elapsed: ", time.time() - start_time)
 
 
-
-
-    ## todo: rewrite the below (split)
-    # Extract the relevant data from full ids
+    # Extract the relevant data from full ids (see on top of the document for full_id format)
     section_ids = map(lambda full_id: full_id.split('-')[3], full_ids)
     location_ids_temp = map(lambda full_id: full_id.split('-')[0], full_ids)
     speaker_numbers_temp = map(lambda full_id: full_id.split('-')[1], full_ids)
@@ -328,7 +338,7 @@ def main(args):
 
     # Process the grades
     if processing_grades:
-        # Set the grade to -1 if no grade found for this response
+        # Set the grade to -1 (no_grade_filler) if no grade found for this response
         grades = map(lambda speaker, section: grades_dict.get(speaker, {}).get(section, no_grade_filler), speaker_ids, sections)
     else:
         grades = [no_grade_filler] * len(sections)
@@ -368,8 +378,8 @@ def main(args):
                 new_prompt = ' '.join([master_prompt, sub_prompt_separator, subquestion_prompt])
                 prompts[i] = new_prompt
             except KeyError:
-                print("No master question: " + master_prompt_id + " in the scripts file")
-                # todo: Potentially delete something
+                print("No master question: " + master_prompt_id + " in the scripts file!!")
+                # todo: Potentially delete or do something
     print("Multiquestions processed (master questions prepended before subquestions). Time elapsed: ", time.time() - start_time)
 
     # Write the data to the save directory:
