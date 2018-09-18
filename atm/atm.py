@@ -544,8 +544,7 @@ class AttentionTopicModel(BaseModel):
 
                 total_size += size
                 count += 1
-            except Exception as e:  # todo: tf.errors.OutOfRangeError:
-                print(e) # todo: remove once error type known
+            except:  # todo: tf.errors.OutOfRangeError:
                 break
 
         test_loss = test_loss / float(total_size)

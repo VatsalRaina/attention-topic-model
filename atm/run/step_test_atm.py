@@ -75,7 +75,7 @@ def main(args):
     else:
         test_loss, \
         test_probs_arr, \
-        test_labels_arr = atm.predict(args.data_pattern, cache_inputs=True)
+        test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False)
 
 
     # Save the numerical output data
