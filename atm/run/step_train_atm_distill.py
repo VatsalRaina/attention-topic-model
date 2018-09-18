@@ -14,6 +14,9 @@ from core.utilities.utilities import text_to_array
 from atm.atm import AttentionTopicModel
 from atm.ensemble import Ensemble
 
+import warnings
+warnings.simplefilter("ignore", DeprecationWarning)
+
 commandLineParser = argparse.ArgumentParser(description='Compute features from labels.')
 commandLineParser.add_argument('--valid_size', type=int, default=14188,
                                help='Specify the validation set size')
@@ -91,7 +94,7 @@ def main(args):
                                              epoch=args.ensemble_epoch)
         ensemble_models.append(base_model)
 
-    ensemble = Ensemble(ensemble_models, tf.reduce_mean)
+    ensemble = Ensemble(ensemble_models, tf.reduce_mean, scope='teacher_ensemble')
 
     atm = AttentionTopicModel(network_architecture=None,
                               seed=args.seed,
