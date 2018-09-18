@@ -25,7 +25,7 @@ commandLineParser.add_argument('--lr_decay', type=float, default=0.85,
                                help='Specify the learning rate decay rate')
 commandLineParser.add_argument('--dropout', type=float, default=1.0,
                                help='Specify the dropout keep probability')
-commandLineParser.add_argument('--n_epochs', type=int, default=1,
+commandLineParser.add_argument('--n_epochs', type=int, default=6,
                                help='Specify the number of epoch to run training for')
 commandLineParser.add_argument('--n_samples', type=int, default=1,
                                help='Specify the number of negative samples to take')
@@ -60,6 +60,9 @@ commandLineParser.add_argument('ensemble_dir', type=str,
                                help='which should be loaded')
 commandLineParser.add_argument('--ensemble_size', type=int, default=10, help='number of base learners in the ensemble '
                                                                              'directory to use')
+commandLineParser.add_argument('--ensemble_epoch', type=int, default=6, help='epoch of the base models in the ensemble '
+                                                                             'to load for the teacher')
+
 
 
 def main(args):
@@ -79,10 +82,11 @@ def main(args):
 
     ensemble_models = []
     for i in range(1, args.ensemble_size + 1):
-        base_model_path = os.path.join(args.ensemble_dir, 'atm_seed_' + i)
+        base_model_path = os.path.join(args.ensemble_dir, 'atm_seed_' + str(i))
+        print("Loading ensemble model at:\n", base_model_path)
         base_model = AttentionTopicModel(network_architecture=None,
                                          load_path=base_model_path,
-                                         epoch=args.epoch)
+                                         epoch=args.ensemble_epoch)
         ensemble_models.append(base_model)
 
     ensemble = Ensemble(ensemble_models, tf.reduce_mean)
