@@ -9,22 +9,6 @@ parser.add_argument('data_dir', type=str,
                     help='absolute path to the directory with the processed responses, prompts, speakers, grades etc. .txt data')
 parser.add_argument('destination_dir', type=str,
                     help='absolute path to directory where to save the generated examples.')
-# parser.add_argument('datafile', type=str,
-#                                help='Absolute path to data file')
-# parser.add_argument('conffile', type=str,
-#                                help='Absolute path to conf score file')
-# parser.add_argument('questionfile', type=str,
-#                                help='Absolute path to question file')
-# parser.add_argument('gradefile', type=str,
-#                                help='Absolute path to target file')
-# parser.add_argument('speakerfile', type=str,
-#                                help='Absolute path to speaker file')
-# parser.add_argument('name', type=str,
-#                                help='Name of dataset to create')
-# parser.add_argument('path', type=str,
-#                                help='location where to save data')
-# parser.add_argument('section', type=str,
-#                                help='Absolute path to feature file')
 parser.add_argument('--samples', type=int, default=10,
                     help='Number of negative samples to create with each response')
 parser.add_argument('--responses_file', type=str, default='responses.txt')
@@ -34,9 +18,6 @@ parser.add_argument('--speakers_file', type=str, default='speakers.txt')
 parser.add_argument('--confidences_file', type=str, default='confidences.txt')
 parser.add_argument('--seed', type=int, default=1000)
 
-
-# commandLineParser.add_argument ('featurefile', type=str,
-#                                help = 'Absolute path to feature file')
 
 def main(args):
     if os.path.isdir(args.destination_dir):
