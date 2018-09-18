@@ -61,9 +61,6 @@ def main(args):
                               debug_mode=args.debug,
                               epoch=args.epoch)
 
-    #todo: remove line below once working
-    # test_labels, test_probs, test_loss = atm.predict(args.data_pattern)
-
     if args.save_reordered_input:
         test_loss, \
         test_probs_arr, \
@@ -76,7 +73,6 @@ def main(args):
         test_loss, \
         test_probs_arr, \
         test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False)
-
 
     # Save the numerical output data
     data = np.concatenate((test_labels_arr, test_probs_arr), axis=1)

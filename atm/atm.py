@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import time
 
@@ -253,6 +254,21 @@ class AttentionTopicModel(BaseModel):
             predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
 
         return predictions, probabilities, logits, attention
+
+    def infere(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen, batch_size, keep_prob=1.0):
+        predictions, \
+        probabilities, \
+        logits, _, = self._construct_network(a_input=a_input,
+                                             a_seqlens=a_seqlens,
+                                             n_samples=n_samples,
+                                             q_input=q_input,
+                                             q_seqlens=q_seqlens,
+                                             maxlen=maxlen,
+                                             batch_size=batch_size,
+                                             keep_prob=keep_prob)
+
+        probabilities = tf.stop_gradient(probabilities)
+        return probabilities
 
     def fit(self,
             train_data,
@@ -591,32 +607,233 @@ class AttentionTopicModel(BaseModel):
                 test_probs_arr,
                 test_labels_arr.astype(np.int32))
 
-        # def rank(self, X, topics, name=None):
-        #     with self._graph.as_default():
-        #         test_probs = None
-        #         batch_size = len(topics[1])
-        #         test_probs = np.zeros(shape=(len(X[0]), batch_size), dtype=np.float32)
-        #         for i in xrange(len(X[1])):
-        #             if i % 10 == 0: print i
-        #             batch_test_probs = self.sess.run(self._probabilities,
-        #                                              feed_dict={self.x_a: np.asarray([X[0][i]] * batch_size),
-        #                                                         self.alens: np.asarray([X[1][i]] * batch_size),
-        #                                                         self.q_ids: np.arange(batch_size),
-        #                                                         self.x_q: topics[0],
-        #                                                         self.qlens: topics[1],
-        #                                                         self.maxlen: np.max(X[1]),
-        #                                                         self.batch_size: batch_size})
-        #             test_probs[i, :] = np.squeeze(batch_test_probs)
-        #         np.savetxt(name + '_probabilities_topics.txt', test_probs)
-        #         test_probs = np.reshape(test_probs, newshape=(batch_size * len(X[0])))
-        #         hist = np.histogram(test_probs, bins=100, range=[0.0, 1.0], density=True)
-        #
-        #         plt.plot(hist[0])
-        #         plt.xticks(np.arange(0, 101, 20), [str(i / 100.0) for i in xrange(0, 101, 20)])
-        #         plt.ylim(0, 50)
-        #         plt.ylabel('Density')
-        #         plt.xlabel('Relevance Probability')
-        #         plt.title('Empirical PDF of Relevance Probabilities')
-        #         # plt.show()
-        #         plt.savefig('histogram_LINSKneg02.png')
-        #         plt.close()
+    def fit_teacher(self,
+                    train_data,
+                    valid_data,
+                    load_path,
+                    topics,
+                    topic_lens,
+                    unigram_path,
+                    teacher,
+                    train_size=100,
+                    valid_size=100,
+                    learning_rate=1e-2,
+                    lr_decay=0.8,
+                    dropout=1.0,
+                    batch_size=50,
+                    distortion=1.0,
+                    optimizer=tf.train.AdamOptimizer,
+                    optimizer_params={},
+                    n_epochs=30,
+                    n_samples=1,
+                    epoch=1):
+        with self._graph.as_default():
+            # Compute number of training examples and batch size
+            n_examples = train_size * (1 + n_samples)
+            n_batches = n_examples / (batch_size * (1 + n_samples))
+
+            # If some variables have been initialized - get them into a set
+            temp = set(tf.global_variables())
+
+            # Define Global step for training
+            global_step = tf.Variable(0, trainable=False, name='global_step')
+
+            # Set up inputs
+            with tf.variable_scope(self._input_scope, reuse=True) as scope:
+                # Construct training data queues
+                targets, \
+                q_ids, \
+                responses, \
+                response_lengths, _, _ = self._construct_dataset_from_tfrecord([train_data],
+                                                                               self._parse_func,
+                                                                               self._map_func,
+                                                                               self._batch_func,
+                                                                               batch_size,
+                                                                               train=True,
+                                                                               capacity_mul=1000,
+                                                                               num_threads=8)
+
+                valid_iterator = self._construct_dataset_from_tfrecord([valid_data],
+                                                                       self._parse_func,
+                                                                       self._map_func,
+                                                                       self._batch_func,
+                                                                       batch_size,
+                                                                       train=False,
+                                                                       capacity_mul=100,
+                                                                       num_threads=1)
+
+                valid_targets, \
+                valid_q_ids, \
+                valid_responses, \
+                valid_response_lengths, _, _ = valid_iterator.get_next(name='valid_data')
+
+                targets, q_ids = self._sampling_function(targets=targets,
+                                                         q_ids=q_ids,
+                                                         unigram_path=unigram_path,
+                                                         batch_size=batch_size,
+                                                         n_samples=n_samples,
+                                                         name='train',
+                                                         distortion=distortion)
+                valid_targets, valid_q_ids = self._sampling_function(targets=valid_targets,
+                                                                     q_ids=valid_q_ids,
+                                                                     unigram_path=unigram_path,
+                                                                     batch_size=batch_size,
+                                                                     n_samples=n_samples,
+                                                                     name='valid',
+                                                                     distortion=1.0)
+
+            topics = tf.convert_to_tensor(topics, dtype=tf.int32)
+            topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
+
+            prompts = tf.nn.embedding_lookup(topics, q_ids, name='train_prompot_loopkup')
+            prompt_lens = tf.gather(topic_lens, q_ids)
+
+            valid_prompts = tf.nn.embedding_lookup(topics, valid_q_ids, name='valid_prompot_loopkup')
+            valid_prompt_lens = tf.gather(topic_lens, valid_q_ids)
+
+            # Construct Training & Validation models
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                trn_predictions, \
+                trn_probabilities, \
+                trn_logits, _, = self._construct_network(a_input=responses,
+                                                         a_seqlens=response_lengths,
+                                                         n_samples=n_samples,
+                                                         q_input=prompts,
+                                                         q_seqlens=prompt_lens,
+                                                         maxlen=tf.reduce_max(response_lengths),
+                                                         batch_size=batch_size,
+                                                         keep_prob=self.dropout)
+
+                valid_predictions, \
+                valid_probabilities, \
+                valid_logits, \
+                valid_attention = self._construct_network(a_input=valid_responses,
+                                                          a_seqlens=valid_response_lengths,
+                                                          n_samples=n_samples,
+                                                          q_input=valid_prompts,
+                                                          q_seqlens=valid_prompt_lens,
+                                                          maxlen=tf.reduce_max(valid_response_lengths),
+                                                          batch_size=batch_size,
+                                                          keep_prob=1.0)
+
+            # Construct the ensemble teacher
+            with tf.variable_scope('ensemble_teacher') as scope:
+                trn_teacher_predictions = teacher.infere(a_input=responses,
+                                                         a_seqlens=response_lengths,
+                                                         n_samples=n_samples,
+                                                         q_input=prompts,
+                                                         q_seqlens=prompt_lens,
+                                                         maxlen=tf.reduce_max(response_lengths),
+                                                         batch_size=batch_size,
+                                                         keep_prob=1.0)
+                valid_teacher_predictions = teacher.infere(a_input=valid_responses,
+                                                           a_seqlens=valid_response_lengths,
+                                                           n_samples=n_samples,
+                                                           q_input=valid_prompts,
+                                                           q_seqlens=valid_prompt_lens,
+                                                           maxlen=tf.reduce_max(valid_response_lengths),
+                                                           batch_size=batch_size,
+                                                           keep_prob=1.0)
+
+            # Construct XEntropy training costs
+            trn_cost, total_loss = self._construct_xent_cost(targets=trn_teacher_predictions,
+                                                             logits=trn_logits,
+                                                             pos_weight=float(n_samples),
+                                                             is_training=True)
+            evl_cost = self._construct_xent_cost(targets=valid_teacher_predictions,
+                                                 logits=valid_logits,
+                                                 pos_weight=float(n_samples),
+                                                 is_training=False)
+
+            train_op = util.create_train_op(total_loss=total_loss,
+                                            learning_rate=learning_rate,
+                                            optimizer=optimizer,
+                                            optimizer_params=optimizer_params,
+                                            n_examples=n_examples,
+                                            batch_size=batch_size,
+                                            learning_rate_decay=lr_decay,
+                                            global_step=global_step,
+                                            clip_gradient_norm=10.0,
+                                            summarize_gradients=False)
+
+            # Intialize only newly created variables, as opposed to reused - allows for finetuning and transfer learning :)
+            init = tf.variables_initializer(set(tf.global_variables()) - temp)
+            self.sess.run(init)
+
+            if load_path != None:
+                self._load_variables(load_scope='model/Embeddings/word_embedding',
+                                     new_scope='atm/Embeddings/word_embedding', load_path=load_path)
+
+            # Update Log with training details
+            with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                format_str = (
+                    'Learning Rate: %f\nLearning Rate Decay: %f\nBatch Size: %d\nValid Size: %d\nOptimizer: %s\nDropout: %f\nSEED: %i\n')
+                f.write(format_str % (
+                    learning_rate, lr_decay, batch_size, valid_size, str(optimizer), dropout, self._seed) + '\n\n')
+
+            format_str = (
+                'Epoch %d, Train Loss = %.2f, Valid Loss = %.2f, Valid ROC = %.2f, (%.1f examples/sec; %.3f ' 'sec/batch)')
+            print("Starting Training!\n-----------------------------")
+            start_time = time.time()
+            for epoch in xrange(epoch + 1, epoch + n_epochs + 1):
+                # Run Training Loop
+                loss = 0.0
+                batch_time = time.time()
+                for batch in xrange(n_batches):
+                    _, loss_value = self.sess.run([train_op, trn_cost], feed_dict={self.dropout: dropout})
+                    assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+                    loss += loss_value
+
+                duration = time.time() - batch_time
+                loss /= n_batches
+                examples_per_sec = batch_size / duration
+                sec_per_epoch = float(duration)
+
+                # Run Validation Loop
+                eval_loss = 0.0
+                valid_probs = None
+                vld_targets = None
+                total_size = 0
+                self.sess.run(valid_iterator.initializer)
+                while True:
+                    try:
+                        batch_eval_loss, \
+                        batch_valid_preds, \
+                        batch_valid_probs, \
+                        batch_attention, \
+                        batch_valid_targets, \
+                        batch_valid_teacher_probs = self.sess.run([evl_cost,
+                                                             valid_predictions,
+                                                             valid_probabilities,
+                                                             valid_attention,
+                                                             valid_targets,
+                                                            valid_teacher_predictions])
+                        size = batch_valid_probs.shape[0]
+                        eval_loss += float(size) * batch_eval_loss
+                        if valid_probs is None:
+                            valid_probs = batch_valid_probs
+                            vld_targets = batch_valid_targets
+                        else:
+                            valid_probs = np.concatenate((valid_probs, batch_valid_probs), axis=0)
+                            vld_targets = np.concatenate((vld_targets, batch_valid_targets), axis=0)
+                        total_size += size
+                    except:  # tf.errors.OutOfRangeError:
+                        break
+
+                eval_loss = eval_loss / float(total_size)
+                roc_score = roc(np.squeeze(vld_targets), np.squeeze(valid_probs))
+
+                # Summarize Epoch
+                with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                    f.write(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch) + '\n')
+                print(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
+                self.save(step=epoch)
+
+            # Finish Training
+            duration = time.time() - start_time
+            with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                format_str = ('Training took %.3f sec')
+                f.write('\n' + format_str % (duration) + '\n')
+                f.write('----------------------------------------------------------\n')
+            print(format_str % (duration))
+            self.save()

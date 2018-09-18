@@ -7,7 +7,7 @@ alongside with grades, speaker-ids and other meta-data into human-readable .txt 
 -----
 
 Generates files:
-responses.txt prompts.txt speakers.txt conf.txt sections.txt prompt_ids.txt
+responses.txt prompts.txt speakers.txt confidences.txt sections.txt prompt_ids.txt
 
 -----
 
