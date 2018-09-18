@@ -1,15 +1,30 @@
-# File preprocessing
-Generation of a new training dataset is done in two steps:
-### Process the transcriptions and save the processed files as readable .txt files:
+# Training Data Preprocessing
+Scripts for preprocessing the ATM training data.
+## Usage
+The first step converts the 'raw' mlf files into prompt-response pairs and saves them (and related meta-data) into a directory:
+### 1. Process the transcriptions and scripts and save the processed files as readable .txt files:
 ```
-python magic_bruno_script_of_pywer.py /home/alta/BLTSpeaking/convert-v2/4/lib/script.v7/scripts.mlf /home/alta/BLTSpeaking/exp-ar527/grammar/detection/data/word/mlf/BLXXXeval1.mlf /home/miproj/urop.2018/bkm28/test_dataset_preprocessing/ --fixed_sections A B --exclude_sections A B --multi_sections E --multi_sections_master SE0006 --fixed_questions --speaker_grades_path /home/alta/BLTSpeaking/convert-v2/4/lib/grades-orig/BLXXXeval1.lst --exclude_grades 1
+python magic_preprocess_raw.py /path/to/scripts.mlf /path/to/responses/transcription.mlf /path/to/destination/directory --fixed_sections A B --exclude_sections A B --multi_sections E --multi_sections_master SE0006 --speaker_grades_path /path/to/speaker/grades.lst --exclude_grades 2
 ```
-### Generate the required tfrecords files from the processed .txt files
+The second step depends on whether the dataset is going to be used for evaluation or for training.
+
+If the dataset is going to be used for training:
+### 2. (train) Generate the required tfrecords files from the processed .txt files
 ```
-python magic_bruno_script_of_virTFue.py /home/miproj/urop.2018/bkm28/test_dataset_preprocessing /home/alta/BLTSpeaking/exp-am969/relevance-experiments/data/input.wlist.index /home/miproj/urop.2018/bkm28/test_dataset_preprocessing/tfrecords --valid_fraction 0.1 --preprocessing_type train
+python magic_preprocess_to_tfrecords.py /directory/with/preprocessed/txt/files /path/to/word-list/file/input.wlist.index /destination/directory --valid_fraction 0.1 --preprocessing_type train
 ```
 
+If the dataset is going to be used for evaluation:
+### 2.a (eval) Create an evaluation set by shuffling prompts and responses to generate file with a mix of positive (on-topic) and negative (off-topic) examples.
+```
+python magic_preprocess_shuffle.py /directory/with/unshuffled/.txt/data /destination/directory --samples 10
+```
+### 2.b (eval) Generate the required tfrecords files from the processed and shuffled .txt files
+```
+python magic_preprocess_to_tfrecords.py /directory/with/shuffled/txt/data /path/to/word-list/file/input.wlist.index /destination/directory --preprocessing_type test --sorted_topics_path /path/to/sorted-topics.txt(optional)
+```
 
+### 
 
 ## Relevant Paths:
 #### Scripts (prompts):
