@@ -1,5 +1,15 @@
-"""
+#! /usr/bin/env python
 
+"""
+Preprocess 'raw' mlf transcription and scripts files into prompt-response pairs and save them
+alongside with grades, speaker-ids and other meta-data into human-readable .txt in the destination directory.
+
+-----
+
+Generates files:
+responses.txt prompts.txt speakers.txt conf.txt sections.txt prompt_ids.txt
+
+-----
 
 The jargon used in the documentation of this code that might be non-trivial to infer:
 
@@ -18,10 +28,6 @@ Some other quirks:
 If the prompt section id number is above that of a master section id given in the flag, it will be set to be that of
 the flag.
 
------
-
-Generates files:
-responses.txt prompts.txt speakers.txt conf.txt sections.txt prompt_ids.txt
 
 """
 from __future__ import print_function
@@ -156,6 +162,8 @@ def _add_pair_to_mapping(mapping, inv_mapping, prompt_id, prompt):
 
 
 def process_mlf_scripts(mlf_path, word_pattern=r"[%A-Za-z'\\_.]+$"):
+    """Process the mlf script file pointed to by path mlf_path and return a list of prompts and a list of
+    corresponding ids associated with that prompt."""
     sentences = []
     ids = []
     with open(mlf_path, 'r') as file:
@@ -229,16 +237,18 @@ def process_mlf_responses(mlf_path, word_line_pattern=r"[0-9]* [0-9]* [\"%A-Za-z
     return sentences, ids, confidences
 
 
-def fixed_section_filter(prompt_id, fixed_sections, fixed_questions):
-    section_id = prompt_id.split('-')[1]  # Extracts the section id, for example 'SA0001'
-    if section_id[1] in fixed_sections or section_id in fixed_questions:
-        print("Id lookup reduced: , ", prompt_id)
-        return section_id
-    else:
-        return prompt_id
+# def fixed_section_filter(prompt_id, fixed_sections, fixed_questions):
+#     section_id = prompt_id.split('-')[1]  # Extracts the section id, for example 'SA0001'
+#     if section_id[1] in fixed_sections or section_id in fixed_questions:
+#         print("Id lookup reduced: , ", prompt_id)
+#         return section_id
+#     else:
+#         return prompt_id
 
 
 def filter_hesitations_and_partial(responses, confidences):
+    """Remove all the hesitations and partial words from responses and the corresponding confidences from the
+    confidences list."""
     filtered_responses, filtered_confidences = [], []
     # Filter out the %HESITATION% and partial words
     for response, conf_line in zip(responses, confidences):

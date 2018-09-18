@@ -1,10 +1,24 @@
+#! /usr/bin/env python
+
+"""
+Expand the data-set by creating negative samples through shuffling. Done to create an evaluation set by shuffling
+prompts and responses to generate files with a mix of positive (on-topic) and negative (off-topic) examples.
+
+-----
+
+Generates files:
+responses.txt prompts.txt speakers.txt conf.txt sections.txt prompt_ids.txt targets.txt
+
+in the same format as magic_preprocess_raw.py, just with an additional file targets.txt which specifies whether the
+prompt response pair is matching (on-topic).
+"""
 from __future__ import print_function, division
 import numpy as np
 from math import floor
 import sys, os, re
 import argparse
 
-parser = argparse.ArgumentParser(description='Expand the data-set by creating negative samples as well')
+parser = argparse.ArgumentParser(description='Expand the data-set by creating negative samples through shuffling.')
 parser.add_argument('data_dir', type=str,
                     help='absolute path to the directory with the processed responses, prompts, speakers, grades etc. .txt data')
 parser.add_argument('destination_dir', type=str,
