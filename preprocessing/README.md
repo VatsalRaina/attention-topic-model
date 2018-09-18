@@ -6,6 +6,11 @@ The first step converts the 'raw' mlf files into prompt-response pairs and saves
 ```
 python magic_preprocess_raw.py /path/to/scripts.mlf /path/to/responses/transcription.mlf /path/to/destination/directory --fixed_sections A B --exclude_sections A B --multi_sections E --multi_sections_master SE0006 --speaker_grades_path /path/to/speaker/grades.lst --exclude_grades 2
 ```
+Generates files:
+`responses.txt` `prompts.txt` `speakers.txt` `conf.txt` `sections.txt` `prompt_ids.txt`
+with the same number of lines where each line in each file corresponds to one another.
+
+
 The second step depends on whether the dataset is going to be used for evaluation or for training.
 
 If the dataset is going to be used for training:
