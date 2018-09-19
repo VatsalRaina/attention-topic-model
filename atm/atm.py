@@ -53,9 +53,9 @@ class AttentionTopicModel(BaseModel):
                                                               keep_prob=self.dropout)
 
                 # Restore and save the variable names without the arch scope:
-                self.saver_dict = {'/'.join(variable.name.split('/')[1:]): variable for variable in
+                self.saver_dict = {'/'.join(variable.name.split('/')[1:]).replace(":0", ""): variable for variable in
                                    tf.global_variables(scope=self.arch_scope)}
-                print(self.saver_dict)
+                # todo: remove print(self.saver_dict)
                 self._saver = tf.train.Saver(self.saver_dict, max_to_keep=10)
 
         if load_path == None:
