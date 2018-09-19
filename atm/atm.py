@@ -184,7 +184,6 @@ class AttentionTopicModel(BaseModel):
         Returns:
           predictions, probabilities, logits, attention
         """
-
         L2 = self.network_architecture['L2']
         initializer = self.network_architecture['initializer']
 
@@ -197,17 +196,17 @@ class AttentionTopicModel(BaseModel):
                                             regularizer=slim.l2_regularizer(L2),
                                             device='/GPU:0')
             a_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, a_input, name='embedded_data'),
-                                         keep_prob=keep_prob, seed=self._seed + 1)
+                                     keep_prob=keep_prob, seed=self._seed + 1)
             q_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_input, name='embedded_data'),
-                                         keep_prob=keep_prob, seed=self._seed + 2)
+                                     keep_prob=keep_prob, seed=self._seed + 2)
 
             q_inputs_fw = tf.transpose(q_inputs, [1, 0, 2])
             q_inputs_bw = tf.transpose(tf.reverse_sequence(q_inputs, seq_lengths=q_seqlens, seq_axis=1, batch_axis=0),
-                                           [1, 0, 2])
+                                       [1, 0, 2])
 
             a_inputs_fw = tf.transpose(a_inputs, [1, 0, 2])
             a_inputs_bw = tf.transpose(tf.reverse_sequence(a_inputs, seq_lengths=a_seqlens, seq_axis=1, batch_axis=0),
-                                           [1, 0, 2])
+                                       [1, 0, 2])
 
         # Prompt Encoder RNN
         with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
@@ -238,40 +237,40 @@ class AttentionTopicModel(BaseModel):
         outputs = tf.tile(outputs, [1 + n_samples, 1, 1])
 
         hidden, attention = self._bahdanau_attention(memory=outputs, seq_lens=a_seqlens, maxlen=maxlen,
-                                                         query=question_embeddings,
-                                                         size=2 * self.network_architecture['n_rhid'],
-                                                         batch_size=batch_size * (n_samples + 1))
+                                                     query=question_embeddings,
+                                                     size=2 * self.network_architecture['n_rhid'],
+                                                     batch_size=batch_size * (n_samples + 1))
 
         with tf.variable_scope('Grader') as scope:
             for layer in xrange(self.network_architecture['n_flayers']):
                 hidden = slim.fully_connected(hidden,
-                                                  self.network_architecture['n_fhid'],
-                                                  activation_fn=self.network_architecture['f_activation_fn'],
-                                                  weights_regularizer=slim.l2_regularizer(L2),
-                                                  scope="hidden_layer_" + str(layer))
+                                              self.network_architecture['n_fhid'],
+                                              activation_fn=self.network_architecture['f_activation_fn'],
+                                              weights_regularizer=slim.l2_regularizer(L2),
+                                              scope="hidden_layer_" + str(layer))
                 hidden = tf.nn.dropout(hidden, keep_prob=keep_prob, seed=self._seed + layer)
 
             logits = slim.fully_connected(hidden,
-                                              self.network_architecture['n_out'],
-                                              activation_fn=None,
-                                              scope="output_layer")
+                                          self.network_architecture['n_out'],
+                                          activation_fn=None,
+                                          scope="output_layer")
             probabilities = self.network_architecture['output_fn'](logits)
             predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
 
         return predictions, probabilities, logits, attention
 
     def infere(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen, batch_size, keep_prob=1.0):
-        predictions, \
-        probabilities, \
         with tf.variable_scope(self.arch_scope):
+            predictions, \
+            probabilities, \
             logits, _, = self._construct_network(a_input=a_input,
-                                             a_seqlens=a_seqlens,
-                                             n_samples=n_samples,
-                                             q_input=q_input,
-                                             q_seqlens=q_seqlens,
-                                             maxlen=maxlen,
-                                             batch_size=batch_size,
-                                             keep_prob=keep_prob)
+                                                 a_seqlens=a_seqlens,
+                                                 n_samples=n_samples,
+                                                 q_input=q_input,
+                                                 q_seqlens=q_seqlens,
+                                                 maxlen=maxlen,
+                                                 batch_size=batch_size,
+                                                 keep_prob=keep_prob)
 
             probabilities = tf.stop_gradient(probabilities)
         return probabilities
@@ -487,42 +486,43 @@ class AttentionTopicModel(BaseModel):
 
     def predict(self, test_pattern, batch_size=20, cache_inputs=False):
         with self._graph.as_default():
-            test_files = tf.gfile.Glob(test_pattern)
-            test_iterator = self._construct_dataset_from_tfrecord(test_files,
-                                                                  self._parse_func,
-                                                                  self._map_func,
-                                                                  self._batch_func,
-                                                                  batch_size=batch_size,
-                                                                  train=False,
-                                                                  capacity_mul=100,
-                                                                  num_threads=1)
-            test_targets, \
-            test_q_ids, \
-            test_responses, \
-            test_response_lengths, test_prompts, test_prompt_lens = test_iterator.get_next(name='valid_data')
+            with tf.variable_scope(self.arch_scope):
+                test_files = tf.gfile.Glob(test_pattern)
+                test_iterator = self._construct_dataset_from_tfrecord(test_files,
+                                                                      self._parse_func,
+                                                                      self._map_func,
+                                                                      self._batch_func,
+                                                                      batch_size=batch_size,
+                                                                      train=False,
+                                                                      capacity_mul=100,
+                                                                      num_threads=1)
+                test_targets, \
+                test_q_ids, \
+                test_responses, \
+                test_response_lengths, test_prompts, test_prompt_lens = test_iterator.get_next(name='valid_data')
 
-            with tf.variable_scope(self._model_scope, reuse=True) as scope:
-                test_predictions, \
-                test_probabilities, \
-                test_logits, \
-                test_attention = self._construct_network(a_input=test_responses,
-                                                         a_seqlens=test_response_lengths,
-                                                         n_samples=0,
-                                                         q_input=test_prompts,
-                                                         q_seqlens=test_prompt_lens,
-                                                         maxlen=tf.reduce_max(test_response_lengths),
-                                                         batch_size=batch_size,
-                                                         keep_prob=1.0)
+                with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                    test_predictions, \
+                    test_probabilities, \
+                    test_logits, \
+                    test_attention = self._construct_network(a_input=test_responses,
+                                                             a_seqlens=test_response_lengths,
+                                                             n_samples=0,
+                                                             q_input=test_prompts,
+                                                             q_seqlens=test_prompt_lens,
+                                                             maxlen=tf.reduce_max(test_response_lengths),
+                                                             batch_size=batch_size,
+                                                             keep_prob=1.0)
 
-            loss = self._construct_xent_cost(targets=test_targets, logits=tf.squeeze(test_logits), pos_weight=1.0,
-                                             is_training=False)
-            self.sess.run(test_iterator.initializer)
-            if cache_inputs:
-                return self._predict_loop_with_caching(loss, test_probabilities, test_targets,
-                                                       test_responses, test_response_lengths, test_prompts,
-                                                       test_prompt_lens)
-            else:
-                return self._predict_loop(loss, test_probabilities, test_targets)
+                loss = self._construct_xent_cost(targets=test_targets, logits=tf.squeeze(test_logits), pos_weight=1.0,
+                                                 is_training=False)
+                self.sess.run(test_iterator.initializer)
+                if cache_inputs:
+                    return self._predict_loop_with_caching(loss, test_probabilities, test_targets,
+                                                           test_responses, test_response_lengths, test_prompts,
+                                                           test_prompt_lens)
+                else:
+                    return self._predict_loop(loss, test_probabilities, test_targets)
 
     def _predict_loop_with_caching(self, loss, test_probabilities, test_targets, test_responses, test_response_lengths, test_prompts, test_prompt_lens):
         test_loss = 0.0
