@@ -724,25 +724,26 @@ class AttentionTopicModel(BaseModel):
                                                               batch_size=batch_size,
                                                               keep_prob=1.0)
 
-                # Construct the ensemble teacher
-                with tf.variable_scope('ensemble_teacher') as scope:
-                    trn_teacher_predictions = teacher.infere(a_input=responses,
-                                                             a_seqlens=response_lengths,
-                                                             n_samples=n_samples,
-                                                             q_input=prompts,
-                                                             q_seqlens=prompt_lens,
-                                                             maxlen=tf.reduce_max(response_lengths),
-                                                             batch_size=batch_size,
-                                                             keep_prob=1.0)
-                    valid_teacher_predictions = teacher.infere(a_input=valid_responses,
-                                                               a_seqlens=valid_response_lengths,
-                                                               n_samples=n_samples,
-                                                               q_input=valid_prompts,
-                                                               q_seqlens=valid_prompt_lens,
-                                                               maxlen=tf.reduce_max(valid_response_lengths),
-                                                               batch_size=batch_size,
-                                                               keep_prob=1.0)
+            # Construct the ensemble teacher
+            with tf.variable_scope('ensemble_teacher') as scope:
+                trn_teacher_predictions = teacher.infere(a_input=responses,
+                                                         a_seqlens=response_lengths,
+                                                         n_samples=n_samples,
+                                                         q_input=prompts,
+                                                         q_seqlens=prompt_lens,
+                                                         maxlen=tf.reduce_max(response_lengths),
+                                                         batch_size=batch_size,
+                                                         keep_prob=1.0)
+                valid_teacher_predictions = teacher.infere(a_input=valid_responses,
+                                                           a_seqlens=valid_response_lengths,
+                                                           n_samples=n_samples,
+                                                           q_input=valid_prompts,
+                                                           q_seqlens=valid_prompt_lens,
+                                                           maxlen=tf.reduce_max(valid_response_lengths),
+                                                           batch_size=batch_size,
+                                                           keep_prob=1.0)
 
+            with tf.variable_scope(self.arch_scope):
                 # Construct XEntropy training costs
                 trn_cost, total_loss = self._construct_xent_cost(targets=trn_teacher_predictions,
                                                                  logits=trn_logits,
