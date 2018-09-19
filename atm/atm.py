@@ -24,9 +24,8 @@ class AttentionTopicModel(BaseModel):
         BaseModel.__init__(self, network_architecture=network_architecture, seed=seed, name=name, save_path=save_path,
                            load_path=load_path, debug_mode=debug_mode)
         self.arch_scope = arch_scope
-        with tf.variable_scope(self.arch_scope):
-
-            with self._graph.as_default():
+        with self._graph.as_default():
+            with tf.variable_scope(self.arch_scope):
                 with tf.variable_scope('input') as scope:
                     self._input_scope = scope
                     self.x_a = tf.placeholder(tf.int32, [None, None])
@@ -56,6 +55,7 @@ class AttentionTopicModel(BaseModel):
                 # Restore and save the variable names without the arch scope:
                 self.saver_dict = {'/'.join(variable.name.split('/')[1:]): variable for variable in
                                    tf.global_variables(scope=self.arch_scope)}
+                print(self.saver_dict)
                 self._saver = tf.train.Saver(self.saver_dict, max_to_keep=10)
 
         if load_path == None:
@@ -188,83 +188,83 @@ class AttentionTopicModel(BaseModel):
         L2 = self.network_architecture['L2']
         initializer = self.network_architecture['initializer']
 
-        with tf.variable_scope(self.arch_scope):
-            # Question Encoder RNN
-            with tf.variable_scope('Embeddings', initializer=initializer(self._seed)) as scope:
-                embedding = slim.model_variable('word_embedding',
-                                                shape=[self.network_architecture['n_in'],
-                                                       self.network_architecture['n_ehid']],
-                                                initializer=tf.truncated_normal_initializer(stddev=0.1),
-                                                regularizer=slim.l2_regularizer(L2),
-                                                device='/GPU:0')
-                a_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, a_input, name='embedded_data'),
+        # Question Encoder RNN
+        with tf.variable_scope('Embeddings', initializer=initializer(self._seed)) as scope:
+            embedding = slim.model_variable('word_embedding',
+                                            shape=[self.network_architecture['n_in'],
+                                                   self.network_architecture['n_ehid']],
+                                            initializer=tf.truncated_normal_initializer(stddev=0.1),
+                                            regularizer=slim.l2_regularizer(L2),
+                                            device='/GPU:0')
+            a_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, a_input, name='embedded_data'),
                                          keep_prob=keep_prob, seed=self._seed + 1)
-                q_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_input, name='embedded_data'),
+            q_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_input, name='embedded_data'),
                                          keep_prob=keep_prob, seed=self._seed + 2)
 
-                q_inputs_fw = tf.transpose(q_inputs, [1, 0, 2])
-                q_inputs_bw = tf.transpose(tf.reverse_sequence(q_inputs, seq_lengths=q_seqlens, seq_axis=1, batch_axis=0),
+            q_inputs_fw = tf.transpose(q_inputs, [1, 0, 2])
+            q_inputs_bw = tf.transpose(tf.reverse_sequence(q_inputs, seq_lengths=q_seqlens, seq_axis=1, batch_axis=0),
                                            [1, 0, 2])
 
-                a_inputs_fw = tf.transpose(a_inputs, [1, 0, 2])
-                a_inputs_bw = tf.transpose(tf.reverse_sequence(a_inputs, seq_lengths=a_seqlens, seq_axis=1, batch_axis=0),
+            a_inputs_fw = tf.transpose(a_inputs, [1, 0, 2])
+            a_inputs_bw = tf.transpose(tf.reverse_sequence(a_inputs, seq_lengths=a_seqlens, seq_axis=1, batch_axis=0),
                                            [1, 0, 2])
 
-            # Prompt Encoder RNN
-            with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
-                rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-                _, state_fw = rnn_fw(q_inputs_fw, sequence_length=q_seqlens, dtype=tf.float32)
+        # Prompt Encoder RNN
+        with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
+            rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            _, state_fw = rnn_fw(q_inputs_fw, sequence_length=q_seqlens, dtype=tf.float32)
 
-            with tf.variable_scope('RNN_Q_BW', initializer=initializer(self._seed)) as scope:
-                rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-                _, state_bw = rnn_bw(q_inputs_bw, sequence_length=q_seqlens, dtype=tf.float32)
+        with tf.variable_scope('RNN_Q_BW', initializer=initializer(self._seed)) as scope:
+            rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            _, state_bw = rnn_bw(q_inputs_bw, sequence_length=q_seqlens, dtype=tf.float32)
 
-            question_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
-            question_embeddings = tf.nn.dropout(question_embeddings, keep_prob=keep_prob, seed=self._seed)
+        question_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
+        question_embeddings = tf.nn.dropout(question_embeddings, keep_prob=keep_prob, seed=self._seed)
 
-            # Response Encoder RNN
-            with tf.variable_scope('RNN_A_FW', initializer=initializer(self._seed)) as scope:
-                rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-                outputs_fw, _ = rnn_fw(a_inputs_fw, sequence_length=a_seqlens, dtype=tf.float32)
+        # Response Encoder RNN
+        with tf.variable_scope('RNN_A_FW', initializer=initializer(self._seed)) as scope:
+            rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            outputs_fw, _ = rnn_fw(a_inputs_fw, sequence_length=a_seqlens, dtype=tf.float32)
 
-            with tf.variable_scope('RNN_A_BW', initializer=initializer(self._seed)) as scope:
-                rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-                outputs_bw, _ = rnn_bw(a_inputs_bw, sequence_length=a_seqlens, dtype=tf.float32)
+        with tf.variable_scope('RNN_A_BW', initializer=initializer(self._seed)) as scope:
+            rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            outputs_bw, _ = rnn_bw(a_inputs_bw, sequence_length=a_seqlens, dtype=tf.float32)
 
-            outputs = tf.concat([outputs_fw, outputs_bw], axis=2)
-            outputs = tf.transpose(outputs, [1, 0, 2])
-            outputs = tf.nn.dropout(outputs, keep_prob=keep_prob, seed=self._seed)
+        outputs = tf.concat([outputs_fw, outputs_bw], axis=2)
+        outputs = tf.transpose(outputs, [1, 0, 2])
+        outputs = tf.nn.dropout(outputs, keep_prob=keep_prob, seed=self._seed)
 
-            a_seqlens = tf.tile(a_seqlens, [n_samples + 1])
-            outputs = tf.tile(outputs, [1 + n_samples, 1, 1])
+        a_seqlens = tf.tile(a_seqlens, [n_samples + 1])
+        outputs = tf.tile(outputs, [1 + n_samples, 1, 1])
 
-            hidden, attention = self._bahdanau_attention(memory=outputs, seq_lens=a_seqlens, maxlen=maxlen,
+        hidden, attention = self._bahdanau_attention(memory=outputs, seq_lens=a_seqlens, maxlen=maxlen,
                                                          query=question_embeddings,
                                                          size=2 * self.network_architecture['n_rhid'],
                                                          batch_size=batch_size * (n_samples + 1))
 
-            with tf.variable_scope('Grader') as scope:
-                for layer in xrange(self.network_architecture['n_flayers']):
-                    hidden = slim.fully_connected(hidden,
+        with tf.variable_scope('Grader') as scope:
+            for layer in xrange(self.network_architecture['n_flayers']):
+                hidden = slim.fully_connected(hidden,
                                                   self.network_architecture['n_fhid'],
                                                   activation_fn=self.network_architecture['f_activation_fn'],
                                                   weights_regularizer=slim.l2_regularizer(L2),
                                                   scope="hidden_layer_" + str(layer))
-                    hidden = tf.nn.dropout(hidden, keep_prob=keep_prob, seed=self._seed + layer)
+                hidden = tf.nn.dropout(hidden, keep_prob=keep_prob, seed=self._seed + layer)
 
-                logits = slim.fully_connected(hidden,
+            logits = slim.fully_connected(hidden,
                                               self.network_architecture['n_out'],
                                               activation_fn=None,
                                               scope="output_layer")
-                probabilities = self.network_architecture['output_fn'](logits)
-                predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
+            probabilities = self.network_architecture['output_fn'](logits)
+            predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
 
         return predictions, probabilities, logits, attention
 
     def infere(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen, batch_size, keep_prob=1.0):
         predictions, \
         probabilities, \
-        logits, _, = self._construct_network(a_input=a_input,
+        with tf.variable_scope(self.arch_scope):
+            logits, _, = self._construct_network(a_input=a_input,
                                              a_seqlens=a_seqlens,
                                              n_samples=n_samples,
                                              q_input=q_input,
@@ -273,7 +273,7 @@ class AttentionTopicModel(BaseModel):
                                              batch_size=batch_size,
                                              keep_prob=keep_prob)
 
-        probabilities = tf.stop_gradient(probabilities)
+            probabilities = tf.stop_gradient(probabilities)
         return probabilities
 
     def fit(self,

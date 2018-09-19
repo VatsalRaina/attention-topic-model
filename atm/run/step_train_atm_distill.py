@@ -2,6 +2,7 @@
 Distill knowledge from an ensemble
 """
 #! /usr/bin/env python
+from __future__ import print_function
 
 import argparse
 import os
@@ -86,7 +87,7 @@ def main(args):
     ensemble_models = []
     for i in range(1, args.ensemble_size + 1):
         base_model_path = os.path.join(args.ensemble_dir, 'atm_seed_' + str(i))
-        print("Loading ensemble model at:\n", base_model_path)
+        print("Loading ensemble model at:\t{}".format(base_model_path))
 
         base_model = AttentionTopicModel(network_architecture=None,
                                          load_path=base_model_path,
