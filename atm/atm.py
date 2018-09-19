@@ -53,7 +53,10 @@ class AttentionTopicModel(BaseModel):
                                                               batch_size=self.batch_size,
                                                               keep_prob=self.dropout)
 
-                self._saver = tf.train.Saver(tf.global_variables(), max_to_keep=10)
+                # Restore and save the variable names without the arch scope:
+                self.saver_dict = {'/'.join(variable.name.split('/')[1:]): variable for variable in
+                                   tf.global_variables(scope=self.arch_scope)}
+                self._saver = tf.train.Saver(self.saver_dict, max_to_keep=10)
 
         if load_path == None:
             with self._graph.as_default():
@@ -408,7 +411,7 @@ class AttentionTopicModel(BaseModel):
 
             if load_path != None:
                 self._load_variables(load_scope='model/Embeddings/word_embedding',
-                                     new_scope='atm/Embeddings/word_embedding', load_path=load_path)
+                                     new_scope=self.arch_scope+'/atm/Embeddings/word_embedding', load_path=load_path)
 
             # Update Log with training details
             with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
@@ -767,7 +770,7 @@ class AttentionTopicModel(BaseModel):
 
             if load_path != None:
                 self._load_variables(load_scope='model/Embeddings/word_embedding',
-                                     new_scope='atm/Embeddings/word_embedding', load_path=load_path)
+                                     new_scope=self.arch_scope+'/atm/Embeddings/word_embedding', load_path=load_path)
 
             # Update Log with training details
             with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
@@ -808,11 +811,11 @@ class AttentionTopicModel(BaseModel):
                         batch_attention, \
                         batch_valid_targets, \
                         batch_valid_teacher_probs = self.sess.run([evl_cost,
-                                                             valid_predictions,
-                                                             valid_probabilities,
-                                                             valid_attention,
-                                                             valid_targets,
-                                                            valid_teacher_predictions])
+                                                                   valid_predictions,
+                                                                   valid_probabilities,
+                                                                   valid_attention,
+                                                                   valid_targets,
+                                                                   valid_teacher_predictions])
                         size = batch_valid_probs.shape[0]
                         eval_loss += float(size) * batch_eval_loss
                         if valid_probs is None:

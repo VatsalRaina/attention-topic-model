@@ -88,10 +88,10 @@ def main(args):
         base_model_path = os.path.join(args.ensemble_dir, 'atm_seed_' + str(i))
         print("Loading ensemble model at:\n", base_model_path)
 
-        with tf.variable_scope('base_atm_seed_' + str(i)):
-            base_model = AttentionTopicModel(network_architecture=None,
-                                             load_path=base_model_path,
-                                             epoch=args.ensemble_epoch)
+        base_model = AttentionTopicModel(network_architecture=None,
+                                         load_path=base_model_path,
+                                         epoch=args.ensemble_epoch,
+                                         arch_scope='atm_base_seed_'+str(i))
         ensemble_models.append(base_model)
 
     ensemble = Ensemble(ensemble_models, tf.reduce_mean, scope='teacher_ensemble')
@@ -102,7 +102,8 @@ def main(args):
                               save_path='./',
                               load_path=args.load_path,
                               debug_mode=args.debug,
-                              epoch=args.epoch)
+                              epoch=args.epoch,
+                              arch_scope='student')
 
     atm.fit_teacher(train_data=args.train_data,
                     valid_data=args.valid_data,

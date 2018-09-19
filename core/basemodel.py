@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import random
@@ -36,7 +37,7 @@ class BaseModel(object):
         if (os.path.isfile(os.path.join(self._save_path, 'LOG.txt')) or os.path.isfile(
                 os.path.join(self._save_path, 'model/weights.ckpt')) or os.path.isfile(
                 os.path.join(self._save_path, 'model/net_arch.pickle'))) and load_path is None:
-            print 'Model exists in directory - exiting.'
+            print('Model exists in directory - exiting.')
             sys.exit()
         if load_path is None:
             with open(os.path.join(self._save_path, 'LOG.txt'), 'w') as f:
@@ -82,7 +83,7 @@ class BaseModel(object):
     def load(self, load_path, step=None):
         with self._graph.as_default():
             # If necessary, restore model from previous
-            print 'loading model...'
+            print('loading model...')
             weights_path = 'model/weights.ckpt'
             if step is not None:
                 weights_path = 'model/weights.ckpt-' + str(step)
@@ -104,7 +105,7 @@ class BaseModel(object):
             model_variables = tf.get_collection(tf.GraphKeys.MODEL_VARIABLES, ".*" + new_scope + ".*")
         dict = {}
         for model_var in model_variables:
-            #print model_var.op.name, model_var.op.name.replace(new_scope, load_scope)
+            #print(model_var.op.name, model_var.op.name.replace(new_scope, load_scope))
             dict[model_var.op.name.replace(new_scope, load_scope)] = model_var
         sampling_saver = tf.train.Saver(dict)
         param_path = os.path.join(load_path, 'model/weights.ckpt')
@@ -262,7 +263,7 @@ class BaseModel(object):
                 return outputs, attention
 
     def _construct_xent_cost(self, targets, logits, pos_weight, is_training=False):
-        print 'Constructing XENT cost'
+        print('Constructing XENT cost')
         cost = tf.reduce_mean(
             tf.nn.weighted_cross_entropy_with_logits(logits=logits, targets=targets, pos_weight=pos_weight,
                                                      name='total_xentropy_per_batch')) / float(pos_weight)
