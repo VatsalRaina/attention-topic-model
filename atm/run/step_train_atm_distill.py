@@ -83,6 +83,7 @@ def main(args):
               "Should only be used with legacy dataset formatting")
 
     # Load the trained base learners from the ensemble
+    print('Start loading the ensemble models')
 
     ensemble_models = []
     for i in range(1, args.ensemble_size + 1):

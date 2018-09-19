@@ -30,5 +30,9 @@ class Ensemble:
                                                      batch_size=batch_size,
                                                      keep_prob=keep_prob)
             all_probabilities.append(base_learner_probs)
-        ensemble_probs = tf.reduce_mean(tf.stack(all_probabilities), axis=1)
+        all_probabilities = tf.stack(all_probabilities, axis=1)
+        print(tf.shape(all_probabilities))
+        ensemble_probs = tf.reduce_mean(all_probabilities, axis=1)
+        # ensemble_probs = tf.reduce_mean(tf.stack(all_probabilities, axis=1), axis=1)
+        # ensemble_probs = all_probabilities[0]
         return ensemble_probs

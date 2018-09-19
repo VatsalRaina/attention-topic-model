@@ -260,7 +260,7 @@ class AttentionTopicModel(BaseModel):
         return predictions, probabilities, logits, attention
 
     def infere(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen, batch_size, keep_prob=1.0):
-        with tf.variable_scope(self.arch_scope):
+        with tf.variable_scope(self.arch_scope, reuse=tf.AUTO_REUSE):
             predictions, \
             probabilities, \
             logits, _, = self._construct_network(a_input=a_input,
@@ -725,8 +725,8 @@ class AttentionTopicModel(BaseModel):
                                                               keep_prob=1.0)
 
             # Construct the ensemble teacher
-            with tf.variable_scope('ensemble_teacher') as scope:
-                trn_teacher_predictions = teacher.infere(a_input=responses,
+            # with tf.variable_scope('ensemble_teacher', reuse=True) as scope:
+            trn_teacher_predictions = teacher.infere(a_input=responses,
                                                          a_seqlens=response_lengths,
                                                          n_samples=n_samples,
                                                          q_input=prompts,
@@ -734,7 +734,7 @@ class AttentionTopicModel(BaseModel):
                                                          maxlen=tf.reduce_max(response_lengths),
                                                          batch_size=batch_size,
                                                          keep_prob=1.0)
-                valid_teacher_predictions = teacher.infere(a_input=valid_responses,
+            valid_teacher_predictions = teacher.infere(a_input=valid_responses,
                                                            a_seqlens=valid_response_lengths,
                                                            n_samples=n_samples,
                                                            q_input=valid_prompts,
