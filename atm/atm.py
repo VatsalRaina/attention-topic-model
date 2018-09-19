@@ -261,18 +261,19 @@ class AttentionTopicModel(BaseModel):
 
     def infere(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen, batch_size, keep_prob=1.0):
         with tf.variable_scope(self.arch_scope, reuse=tf.AUTO_REUSE):
-            predictions, \
-            probabilities, \
-            logits, _, = self._construct_network(a_input=a_input,
-                                                 a_seqlens=a_seqlens,
-                                                 n_samples=n_samples,
-                                                 q_input=q_input,
-                                                 q_seqlens=q_seqlens,
-                                                 maxlen=maxlen,
-                                                 batch_size=batch_size,
-                                                 keep_prob=keep_prob)
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                predictions, \
+                probabilities, \
+                logits, _, = self._construct_network(a_input=a_input,
+                                                     a_seqlens=a_seqlens,
+                                                     n_samples=n_samples,
+                                                     q_input=q_input,
+                                                     q_seqlens=q_seqlens,
+                                                     maxlen=maxlen,
+                                                     batch_size=batch_size,
+                                                     keep_prob=keep_prob)
 
-            probabilities = tf.stop_gradient(probabilities)
+                probabilities = tf.stop_gradient(probabilities)
         return probabilities
 
     def fit(self,
@@ -727,21 +728,21 @@ class AttentionTopicModel(BaseModel):
             # Construct the ensemble teacher
             # with tf.variable_scope('ensemble_teacher', reuse=True) as scope:
             trn_teacher_predictions = teacher.infere(a_input=responses,
-                                                         a_seqlens=response_lengths,
-                                                         n_samples=n_samples,
-                                                         q_input=prompts,
-                                                         q_seqlens=prompt_lens,
-                                                         maxlen=tf.reduce_max(response_lengths),
-                                                         batch_size=batch_size,
-                                                         keep_prob=1.0)
-            valid_teacher_predictions = teacher.infere(a_input=valid_responses,
-                                                           a_seqlens=valid_response_lengths,
-                                                           n_samples=n_samples,
-                                                           q_input=valid_prompts,
-                                                           q_seqlens=valid_prompt_lens,
-                                                           maxlen=tf.reduce_max(valid_response_lengths),
-                                                           batch_size=batch_size,
-                                                           keep_prob=1.0)
+                                                     a_seqlens=response_lengths,
+                                                     n_samples=n_samples,
+                                                     q_input=prompts,
+                                                     q_seqlens=prompt_lens,
+                                                     maxlen=tf.reduce_max(response_lengths),
+                                                     batch_size=batch_size,
+                                                     keep_prob=1.0)
+            # valid_teacher_predictions = teacher.infere(a_input=valid_responses,
+            #                                            a_seqlens=valid_response_lengths,
+            #                                            n_samples=n_samples,
+            #                                            q_input=valid_prompts,
+            #                                            q_seqlens=valid_prompt_lens,
+            #                                            maxlen=tf.reduce_max(valid_response_lengths),
+            #                                            batch_size=batch_size,
+            #                                            keep_prob=1.0)
 
             with tf.variable_scope(self.arch_scope):
                 # Construct XEntropy training costs
@@ -749,7 +750,7 @@ class AttentionTopicModel(BaseModel):
                                                                  logits=trn_logits,
                                                                  pos_weight=float(n_samples),
                                                                  is_training=True)
-                evl_cost = self._construct_xent_cost(targets=valid_teacher_predictions,
+                evl_cost = self._construct_xent_cost(targets=valid_targets,
                                                      logits=valid_logits,
                                                      pos_weight=float(n_samples),
                                                      is_training=False)
@@ -810,13 +811,11 @@ class AttentionTopicModel(BaseModel):
                         batch_valid_preds, \
                         batch_valid_probs, \
                         batch_attention, \
-                        batch_valid_targets, \
-                        batch_valid_teacher_probs = self.sess.run([evl_cost,
-                                                                   valid_predictions,
-                                                                   valid_probabilities,
-                                                                   valid_attention,
-                                                                   valid_targets,
-                                                                   valid_teacher_predictions])
+                        batch_valid_targets = self.sess.run([evl_cost,
+                                                             valid_predictions,
+                                                             valid_probabilities,
+                                                             valid_attention,
+                                                             valid_targets])
                         size = batch_valid_probs.shape[0]
                         eval_loss += float(size) * batch_eval_loss
                         if valid_probs is None:
