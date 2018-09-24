@@ -82,7 +82,7 @@ def main(args):
     num_on_topic = 0
     num_total = 0
 
-    eval_data = []
+    new_data = []
     for sample in xrange(args.samples):
         shuf_prompts = np.random.permutation(shuf_prompts)
         for response, conf, prompt, shuf_prompt, grade, spkr in zip(responses, confs, prompts, shuf_prompts, grades,
@@ -95,19 +95,19 @@ def main(args):
             else:
                 target = 0
 
-            eval_data.append([response, conf, prompt, str(float(1.0)), spkr, grade])
-            eval_data.append([response, conf, shuf_prompt, str(float(target)), spkr, grade])
+            new_data.append([response, conf, prompt, str(float(1.0)), spkr, grade])
+            new_data.append([response, conf, shuf_prompt, str(float(target)), spkr, grade])
 
     print('percent relevant:', float(num_on_topic) / float(num_total))
-    eval_data = list(np.random.permutation(eval_data))
+    new_data = list(np.random.permutation(new_data))
 
-    eval_responses, eval_confs, eval_prompts, eval_targets, eval_speakers, eval_grades = zip(*eval_data)
-    eval_responses, eval_confs, eval_prompts, eval_targets, eval_speakers, eval_grades = map(lambda x: '\n'.join(x),
-                                                                                             [eval_responses,
-                                                                                              eval_confs, eval_prompts,
-                                                                                              eval_targets,
-                                                                                              eval_speakers,
-                                                                                              eval_grades])
+    new_responses, new_confs, new_prompts, new_targets, new_speakers, new_grades = zip(*new_data)
+    new_responses, new_confs, new_prompts, new_targets, new_speakers, new_grades = map(lambda x: '\n'.join(x),
+                                                                                             [new_responses,
+                                                                                              new_confs, new_prompts,
+                                                                                              new_targets,
+                                                                                              new_speakers,
+                                                                                              new_grades])
 
     with open(os.path.join(args.destination_dir, 'grades.txt'), 'w') as g, open(
             os.path.join(args.destination_dir, 'confidences.txt'), 'w') as c, open(
@@ -116,12 +116,12 @@ def main(args):
         os.path.join(args.destination_dir, 'targets.txt'), 'w') as t, open(
         os.path.join(args.destination_dir, 'speakers.txt'), 'w') as s:
 
-        r.write(eval_responses)
-        p.write(eval_prompts)
-        t.write(eval_targets)
-        s.write(eval_speakers)
-        c.write(eval_confs)
-        g.write(eval_grades)
+        r.write(new_responses)
+        p.write(new_prompts)
+        t.write(new_targets)
+        s.write(new_speakers)
+        c.write(new_confs)
+        g.write(new_grades)
 
     print('Finished')
 
