@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+import time
 
 import numpy as np
 
@@ -71,6 +72,8 @@ def main(args):
 
     apply_bucketing = (not args.preserve_order)
 
+    start_time = time.time()
+
     if args.save_reordered_input:
         test_loss, \
         test_probs_arr, \
@@ -84,6 +87,8 @@ def main(args):
         test_probs_arr, \
         test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False, apply_bucketing=apply_bucketing)
 
+    end_time = time.time()
+    print("Time taken for evaluating the dataset: {10.1f} minutes".format((end_time - start_time) / 60.0))
 
     # Save the numerical output data
     data = np.concatenate((test_labels_arr, test_probs_arr), axis=1)

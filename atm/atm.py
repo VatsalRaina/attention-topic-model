@@ -1,5 +1,6 @@
 import os
 import time
+from __future__ import print_function
 
 import matplotlib
 import numpy as np
@@ -271,7 +272,7 @@ class AttentionTopicModel(BaseModel):
             optimizer=tf.train.AdamOptimizer,
             optimizer_params={},
             n_epochs=30,
-            n_samples=1, # Number of negative samples to generate per positive sample
+            n_samples=1,  # Number of negative samples to generate per positive sample
             epoch=1):
         with self._graph.as_default():
             # Compute number of training examples and batch size
@@ -399,7 +400,7 @@ class AttentionTopicModel(BaseModel):
 
             format_str = (
                 'Epoch %d, Train Loss = %.2f, Valid Loss = %.2f, Valid ROC = %.2f, (%.1f examples/sec; %.3f ' 'sec/batch)')
-            print "Starting Training!\n-----------------------------"
+            print("Starting Training!\n-----------------------------")
             start_time = time.time()
             for epoch in xrange(epoch + 1, epoch + n_epochs + 1):
                 # Run Training Loop
@@ -450,7 +451,7 @@ class AttentionTopicModel(BaseModel):
                 # Summarize Epoch
                 with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
                     f.write(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch) + '\n')
-                print (format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
+                print(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
                 self.save(step=epoch)
 
             # Finish Training
@@ -459,7 +460,7 @@ class AttentionTopicModel(BaseModel):
                 format_str = ('Training took %.3f sec')
                 f.write('\n' + format_str % (duration) + '\n')
                 f.write('----------------------------------------------------------\n')
-            print (format_str % (duration))
+            print(format_str % (duration))
             self.save()
 
     def predict(self, test_pattern, batch_size=20, cache_inputs=False, apply_bucketing=True):
@@ -522,7 +523,8 @@ class AttentionTopicModel(BaseModel):
             else:
                 return self._predict_loop(loss, test_probabilities, test_targets)
 
-    def _predict_loop_with_caching(self, loss, test_probabilities, test_targets, test_responses, test_response_lengths, test_prompts, test_prompt_lens):
+    def _predict_loop_with_caching(self, loss, test_probabilities, test_targets, test_responses, test_response_lengths,
+                                   test_prompts, test_prompt_lens):
         test_loss = 0.0
         total_size = 0
         count = 0
@@ -589,8 +591,8 @@ class AttentionTopicModel(BaseModel):
                 batch_eval_loss, \
                 batch_test_probs, \
                 batch_test_targets = self.sess.run([loss,
-                                                   test_probabilities,
-                                                   test_targets])
+                                                    test_probabilities,
+                                                    test_targets])
 
                 size = batch_test_probs.shape[0]
                 test_loss += float(size) * batch_eval_loss
@@ -641,3 +643,300 @@ class AttentionTopicModel(BaseModel):
         #         # plt.show()
         #         plt.savefig('histogram_LINSKneg02.png')
         #         plt.close()
+
+
+class AttentionTopicModelStudent(AttentionTopicModel):
+    def __init__(self, network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0, seed=100,
+                 epoch=None, num_teachers=None):
+        AttentionTopicModel.__init__(network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0,
+                                     seed=100, epoch=None)
+        self.num_teachers = num_teachers
+
+    def _parse_func(self, example_proto):
+        contexts, features = tf.parse_single_sequence_example(
+            serialized=example_proto,
+            context_features={"targets": tf.FixedLenFeature([], tf.float32),
+                              "grade": tf.FixedLenFeature([], tf.float32),
+                              "spkr": tf.FixedLenFeature([], tf.string),
+                              "q_id": tf.FixedLenFeature([], tf.int64),
+                              "teacher_preds": tf.FixedLenFeature([self.num_teachers], tf.float32)},
+            sequence_features={'response': tf.FixedLenSequenceFeature([], dtype=tf.int64),
+                               'prompt': tf.FixedLenSequenceFeature([], dtype=tf.int64)})
+
+        return contexts['targets'], contexts['teacher_preds'], contexts['q_id'], features['response'], features['prompt']
+
+    def _map_func(self, dataset, num_threads, capacity, augment=None):
+        dataset = dataset.map(lambda targets, teacher_preds, q_id, resp, prompt: (targets,
+                                                                                  teacher_preds,
+                                                                                  tf.cast(q_id, dtype=tf.int32),
+                                                                                  tf.cast(resp, dtype=tf.int32),
+                                                                                  tf.cast(prompt, dtype=tf.int32)),
+                              num_parallel_calls=num_threads).prefetch(capacity)
+
+        return dataset.map(lambda targets, teacher_preds, q_id, resp, prompt: (
+        targets, teacher_preds, q_id, resp, tf.size(resp), prompt, tf.size(prompt)),
+                           num_parallel_calls=num_threads).prefetch(capacity)
+
+    def _batch_func(self, dataset, batch_size, num_buckets=10, bucket_width=10):
+        # Bucket by source sequence length (buckets for lengths 0-9, 10-19, ...)
+        def batching_func(x):
+            return x.padded_batch(
+                batch_size,
+                # The first three entries are the source and target line rows;
+                # these have unknown-length vectors.  The last two entries are
+                # the source and target row sizes; these are scalars.
+                padded_shapes=(
+                    tf.TensorShape([]),  # targets -- unused
+                    tf.TensorShape([]),  # predictions -- unused
+                    tf.TensorShape([]),  # q_id -- unused
+                    tf.TensorShape([None]),  # resp
+                    tf.TensorShape([]),  # resp len -- unused
+                    tf.TensorShape([None]),  # prompt
+                    tf.TensorShape([])),  # prompt len -- unused
+                padding_values=(
+                    0.0,  # targets -- unused
+                    0.0,  # ensemble predictions - unused
+                    np.int32(0),  # q_id -- unused
+                    np.int32(0),  # resp
+                    np.int32(0),  # resp len -- unused
+                    np.int32(0),  # resp len -- unused
+                    np.int32(
+                        0)))
+
+        def key_func(unused_1, unused_2, unused_3, unused_4, resp_len, unused_5, unused_6):
+            # Calculate bucket_width by maximum source sequence length.
+            # Pairs with length [0, bucket_width) go to bucket 0, length
+            # [bucket_width, 2 * bucket_width) go to bucket 1, etc.  Pairs with length
+            # over ((num_bucket-1) * bucket_width) words all go into the last bucket.
+
+            # Bucket sentence pairs by the length of their response
+            bucket_id = resp_len // bucket_width
+            return tf.to_int64(tf.minimum(num_buckets, bucket_id))
+
+        def reduce_func(unused_key, windowed_data):
+            return batching_func(windowed_data)
+
+        batched_dataset = dataset.apply(tf.contrib.data.group_by_window(key_func=key_func,
+                                                                        reduce_func=reduce_func,
+                                                                        window_size=batch_size))
+
+        return batched_dataset
+
+    def fit(self,
+            train_data,
+            valid_data,
+            load_path,
+            topics,
+            topic_lens,
+            unigram_path,
+            train_size=100,
+            valid_size=100,
+            learning_rate=1e-2,
+            lr_decay=0.8,
+            dropout=1.0,
+            batch_size=50,
+            distortion=1.0,
+            optimizer=tf.train.AdamOptimizer,
+            optimizer_params={},
+            n_epochs=30,
+            n_samples=1,  # Number of negative samples to generate per positive sample
+            epoch=1):
+        with self._graph.as_default():
+            # Compute number of training examples and batch size
+            n_examples = train_size * (1 + n_samples)
+            n_batches = n_examples / (batch_size * (1 + n_samples))
+
+            # If some variables have been initialized - get them into a set
+            temp = set(tf.global_variables())
+
+            # Define Global step for training
+            global_step = tf.Variable(0, trainable=False, name='global_step')
+
+            # Set up inputs
+            with tf.variable_scope(self._input_scope, reuse=True) as scope:
+                # Construct training data queues
+                targets, \
+                teacher_predictions, \
+                q_ids, \
+                responses, \
+                response_lengths, _, _ = self._construct_dataset_from_tfrecord([train_data],
+                                                                               self._parse_func,
+                                                                               self._map_func,
+                                                                               self._batch_func,
+                                                                               batch_size,
+                                                                               train=True,
+                                                                               capacity_mul=1000,
+                                                                               num_threads=8)
+
+                valid_iterator = self._construct_dataset_from_tfrecord([valid_data],
+                                                                       self._parse_func,
+                                                                       self._map_func,
+                                                                       self._batch_func,
+                                                                       batch_size,
+                                                                       train=False,
+                                                                       capacity_mul=100,
+                                                                       num_threads=1)
+                valid_targets, \
+                valid_teacher_predictions, \
+                valid_q_ids, \
+                valid_responses, \
+                valid_response_lengths, _, _ = valid_iterator.get_next(name='valid_data')
+
+                # targets, q_ids = self._sampling_function(targets=targets,
+                #                                          q_ids=q_ids,
+                #                                          unigram_path=unigram_path,
+                #                                          batch_size=batch_size,
+                #                                          n_samples=n_samples,
+                #                                          name='train',
+                #                                          distortion=distortion)
+                # valid_targets, valid_q_ids = self._sampling_function(targets=valid_targets,
+                #                                                      q_ids=valid_q_ids,
+                #                                                      unigram_path=unigram_path,
+                #                                                      batch_size=batch_size,
+                #                                                      n_samples=n_samples,
+                #                                                      name='valid',
+                #                                                      distortion=1.0)
+
+
+            # Preprocess the teacher predictions to create targets
+
+            # Calculate student targets as the mean teacher ensemble prediction
+            trn_teacher_targets = tf.reduce_mean(teacher_predictions, axis=1)
+            valid_teacher_targets = tf.reduce_mean(valid_teacher_predictions, axis=1)
+            trn_teacher_targets = tf.Print(trn_teacher_targets, tf.shape(trn_teacher_targets), 'Shape of teacher targets')  # todo: remove once known
+
+
+            topics = tf.convert_to_tensor(topics, dtype=tf.int32)
+            topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
+
+            prompts = tf.nn.embedding_lookup(topics, q_ids, name='train_prompt_loopkup')
+            prompt_lens = tf.gather(topic_lens, q_ids)
+
+            valid_prompts = tf.nn.embedding_lookup(topics, valid_q_ids, name='valid_prompt_loopkup')
+            valid_prompt_lens = tf.gather(topic_lens, valid_q_ids)
+
+            # Construct Training & Validation models
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                trn_predictions, \
+                trn_probabilities, \
+                trn_logits, _, = self._construct_network(a_input=responses,
+                                                         a_seqlens=response_lengths,
+                                                         n_samples=n_samples,
+                                                         q_input=prompts,
+                                                         q_seqlens=prompt_lens,
+                                                         maxlen=tf.reduce_max(response_lengths),
+                                                         batch_size=batch_size,
+                                                         keep_prob=self.dropout)
+
+                valid_predictions, \
+                valid_probabilities, \
+                valid_logits, \
+                valid_attention = self._construct_network(a_input=valid_responses,
+                                                          a_seqlens=valid_response_lengths,
+                                                          n_samples=n_samples,
+                                                          q_input=valid_prompts,
+                                                          q_seqlens=valid_prompt_lens,
+                                                          maxlen=tf.reduce_max(valid_response_lengths),
+                                                          batch_size=batch_size,
+                                                          keep_prob=1.0)
+
+            # Construct XEntropy training costs
+            trn_cost, total_loss = self._construct_xent_cost(targets=trn_teacher_targets,
+                                                             logits=trn_logits,
+                                                             pos_weight=float(n_samples),
+                                                             is_training=True)
+            evl_cost = self._construct_xent_cost(targets=valid_targets,
+                                                 logits=valid_logits,
+                                                 pos_weight=float(n_samples),
+                                                 is_training=False)
+
+            train_op = util.create_train_op(total_loss=total_loss,
+                                            learning_rate=learning_rate,
+                                            optimizer=optimizer,
+                                            optimizer_params=optimizer_params,
+                                            n_examples=n_examples,
+                                            batch_size=batch_size,
+                                            learning_rate_decay=lr_decay,
+                                            global_step=global_step,
+                                            clip_gradient_norm=10.0,
+                                            summarize_gradients=False)
+
+            # Intialize only newly created variables, as opposed to reused - allows for finetuning and transfer learning :)
+            init = tf.variables_initializer(set(tf.global_variables()) - temp)
+            self.sess.run(init)
+
+            if load_path != None:
+                self._load_variables(load_scope='model/Embeddings/word_embedding',
+                                     new_scope='atm/Embeddings/word_embedding', load_path=load_path)
+
+            # Update Log with training details
+            with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                format_str = (
+                    'Learning Rate: %f\nLearning Rate Decay: %f\nBatch Size: %d\nValid Size: %d\nOptimizer: %s\nDropout: %f\nSEED: %i\n')
+                f.write(format_str % (
+                    learning_rate, lr_decay, batch_size, valid_size, str(optimizer), dropout, self._seed) + '\n\n')
+
+            format_str = (
+                'Epoch %d, Train Loss = %.2f, Valid Loss = %.2f, Valid ROC = %.2f, (%.1f examples/sec; %.3f ' 'sec/batch)')
+            print("Starting Training!\n-----------------------------")
+            start_time = time.time()
+            for epoch in xrange(epoch + 1, epoch + n_epochs + 1):
+                # Run Training Loop
+                loss = 0.0
+                batch_time = time.time()
+                for batch in xrange(n_batches):
+                    _, loss_value = self.sess.run([train_op, trn_cost], feed_dict={self.dropout: dropout})
+                    assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+                    loss += loss_value
+
+                duration = time.time() - batch_time
+                loss /= n_batches
+                examples_per_sec = batch_size / duration
+                sec_per_epoch = float(duration)
+
+                # Run Validation Loop
+                eval_loss = 0.0
+                valid_probs = None
+                vld_targets = None
+                total_size = 0
+                self.sess.run(valid_iterator.initializer)
+                while True:
+                    try:
+                        batch_eval_loss, \
+                        batch_valid_preds, \
+                        batch_valid_probs, \
+                        batch_attention, \
+                        batch_valid_targets = self.sess.run([evl_cost,
+                                                             valid_predictions,
+                                                             valid_probabilities,
+                                                             valid_attention,
+                                                             valid_targets])
+                        size = batch_valid_probs.shape[0]
+                        eval_loss += float(size) * batch_eval_loss
+                        if valid_probs is None:
+                            valid_probs = batch_valid_probs
+                            vld_targets = batch_valid_targets
+                        else:
+                            valid_probs = np.concatenate((valid_probs, batch_valid_probs), axis=0)
+                            vld_targets = np.concatenate((vld_targets, batch_valid_targets), axis=0)
+                        total_size += size
+                    except:  # tf.errors.OutOfRangeError:
+                        break
+
+                eval_loss = eval_loss / float(total_size)
+                roc_score = roc(np.squeeze(vld_targets), np.squeeze(valid_probs))
+
+                # Summarize Epoch
+                with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                    f.write(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch) + '\n')
+                print(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
+                self.save(step=epoch)
+
+            # Finish Training
+            duration = time.time() - start_time
+            with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                format_str = ('Training took %.3f sec')
+                f.write('\n' + format_str % (duration) + '\n')
+                f.write('----------------------------------------------------------\n')
+            print(format_str % (duration))
+            self.save()

@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 import sys
 import random
@@ -6,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.data import group_by_window
 import tensorflow.contrib.slim as slim
+
 try:
     import cPickle as pickle
 except:
@@ -35,8 +37,8 @@ class BaseModel(object):
 
         if (os.path.isfile(os.path.join(self._save_path, 'LOG.txt')) or os.path.isfile(
                 os.path.join(self._save_path, 'model/weights.ckpt')) or os.path.isfile(
-                os.path.join(self._save_path, 'model/net_arch.pickle'))) and load_path is None:
-            print 'Model exists in directory - exiting.'
+            os.path.join(self._save_path, 'model/net_arch.pickle'))) and load_path is None:
+            print('Model exists in directory - exiting.')
             sys.exit()
         if load_path is None:
             with open(os.path.join(self._save_path, 'LOG.txt'), 'w') as f:
@@ -82,7 +84,7 @@ class BaseModel(object):
     def load(self, load_path, step=None):
         with self._graph.as_default():
             # If necessary, restore model from previous
-            print 'loading model...'
+            print('loading model...')
             weights_path = 'model/weights.ckpt'
             if step is not None:
                 weights_path = 'model/weights.ckpt-' + str(step)
@@ -104,7 +106,7 @@ class BaseModel(object):
             model_variables = tf.get_collection(tf.GraphKeys.MODEL_VARIABLES, ".*" + new_scope + ".*")
         dict = {}
         for model_var in model_variables:
-            #print model_var.op.name, model_var.op.name.replace(new_scope, load_scope)
+            # print model_var.op.name, model_var.op.name.replace(new_scope, load_scope)
             dict[model_var.op.name.replace(new_scope, load_scope)] = model_var
         sampling_saver = tf.train.Saver(dict)
         param_path = os.path.join(load_path, 'model/weights.ckpt')
@@ -123,7 +125,7 @@ class BaseModel(object):
                                          augment=False,
                                          train=False):
         with tf.device('/cpu:0'):
-            capacity = capacity_mul*batch_size
+            capacity = capacity_mul * batch_size
             dataset = tf.data.TFRecordDataset(filenames)
             dataset = dataset.map(_parse_func, num_parallel_calls=num_threads).cache()
 
@@ -149,7 +151,7 @@ class BaseModel(object):
             serialized=example_proto,
             context_features={"targets": tf.FixedLenFeature([], tf.float32),
                               "grade": tf.FixedLenFeature([], tf.float32),
-                              "spkr" : tf.FixedLenFeature([], tf.string),
+                              "spkr": tf.FixedLenFeature([], tf.string),
                               "q_id": tf.FixedLenFeature([], tf.int64)},
             sequence_features={'response': tf.FixedLenSequenceFeature([], dtype=tf.int64),
                                'prompt': tf.FixedLenSequenceFeature([], dtype=tf.int64)})
@@ -158,14 +160,15 @@ class BaseModel(object):
 
     def _map_func(self, dataset, num_threads, capacity, augment=None):
 
-        dataset =  dataset.map(lambda targets, q_id, resp, prompt: (targets,
-                                                                    tf.cast(q_id, dtype=tf.int32),
-                                                                    tf.cast(resp, dtype=tf.int32),
-                                                                    tf.cast(prompt, dtype=tf.int32)),
-                               num_parallel_calls=num_threads).prefetch(capacity)
+        dataset = dataset.map(lambda targets, q_id, resp, prompt: (targets,
+                                                                   tf.cast(q_id, dtype=tf.int32),
+                                                                   tf.cast(resp, dtype=tf.int32),
+                                                                   tf.cast(prompt, dtype=tf.int32)),
+                              num_parallel_calls=num_threads).prefetch(capacity)
 
-        return dataset.map(lambda targets, q_id, resp, prompt: (targets, q_id, resp, tf.size(resp), prompt, tf.size(prompt)),
-                           num_parallel_calls=num_threads).prefetch(capacity)
+        return dataset.map(
+            lambda targets, q_id, resp, prompt: (targets, q_id, resp, tf.size(resp), prompt, tf.size(prompt)),
+            num_parallel_calls=num_threads).prefetch(capacity)
 
     def _batch_func(self, dataset, batch_size, num_buckets=10, bucket_width=10):
         # Bucket by source sequence length (buckets for lengths 0-9, 10-19, ...)
@@ -176,19 +179,20 @@ class BaseModel(object):
                 # these have unknown-length vectors.  The last two entries are
                 # the source and target row sizes; these are scalars.
                 padded_shapes=(
-                    tf.TensorShape([]), # targets -- unused
-                    tf.TensorShape([]), # q_id -- unused
-                    tf.TensorShape([None]),   # resp
-                    tf.TensorShape([]), # resp len -- unused
+                    tf.TensorShape([]),  # targets -- unused
+                    tf.TensorShape([]),  # q_id -- unused
+                    tf.TensorShape([None]),  # resp
+                    tf.TensorShape([]),  # resp len -- unused
                     tf.TensorShape([None]),  # prompt
                     tf.TensorShape([])),  # prompt len -- unused
                 padding_values=(
-                    0.0, # targets -- unused
-                    np.int32(0), # q_id -- unused
-                    np.int32(0), # resp
-                    np.int32(0), # resp len -- unused
+                    0.0,  # targets -- unused
+                    np.int32(0),  # q_id -- unused
+                    np.int32(0),  # resp
                     np.int32(0),  # resp len -- unused
-                    np.int32(0)))#.filter(lambda targets, q_id, resp, size, prompt: tf.equal(tf.size(size), batch_size))  # prompt
+                    np.int32(0),  # resp len -- unused
+                    np.int32(
+                        0)))  # .filter(lambda targets, q_id, resp, size, prompt: tf.equal(tf.size(size), batch_size))  # prompt
 
         def key_func(unused_1, unused_2, unused_3, resp_len, unused_4, unused_5):
             # Calculate bucket_width by maximum source sequence length.
@@ -204,48 +208,49 @@ class BaseModel(object):
             return batching_func(windowed_data)
 
         batched_dataset = dataset.apply(group_by_window(key_func=key_func,
-                                                  reduce_func=reduce_func,
-                                                  window_size=batch_size))
+                                                        reduce_func=reduce_func,
+                                                        window_size=batch_size))
 
         return batched_dataset
 
     def _batch_func_without_bucket(self, dataset, batch_size):
         """Same as _batch_func, but doesn't apply bucketing and hence preserves order of the data."""
         batched_dataset = dataset.padded_batch(
-                batch_size,
-                # The first three entries are the source and target line rows;
-                # these have unknown-length vectors.  The last two entries are
-                # the source and target row sizes; these are scalars.
-                padded_shapes=(
-                    tf.TensorShape([]), # targets -- unused
-                    tf.TensorShape([]), # q_id -- unused
-                    tf.TensorShape([None]),   # resp
-                    tf.TensorShape([]), # resp len -- unused
-                    tf.TensorShape([None]),  # prompt
-                    tf.TensorShape([])),  # prompt len -- unused
-                padding_values=(
-                    0.0, # targets -- unused
-                    np.int32(0), # q_id -- unused
-                    np.int32(0), # resp
-                    np.int32(0), # resp len -- unused
-                    np.int32(0),  # resp len -- unused
-                    np.int32(0)))#.filter(lambda targets, q_id, resp, size, prompt: tf.equal(tf.size(size), batch_size))  # prompt
+            batch_size,
+            # The first three entries are the source and target line rows;
+            # these have unknown-length vectors.  The last two entries are
+            # the source and target row sizes; these are scalars.
+            padded_shapes=(
+                tf.TensorShape([]),  # targets -- unused
+                tf.TensorShape([]),  # q_id -- unused
+                tf.TensorShape([None]),  # resp
+                tf.TensorShape([]),  # resp len -- unused
+                tf.TensorShape([None]),  # prompt
+                tf.TensorShape([])),  # prompt len -- unused
+            padding_values=(
+                0.0,  # targets -- unused
+                np.int32(0),  # q_id -- unused
+                np.int32(0),  # resp
+                np.int32(0),  # resp len -- unused
+                np.int32(0),  # resp len -- unused
+                np.int32(0)))
 
         return batched_dataset
 
     # Trainnig cost/attention sampling functions
 
     def _sampling_function(self, targets, q_ids, unigram_path, batch_size, n_samples, name, distortion=1.0):
-        sampled_indecies, _, _ = tf.nn.fixed_unigram_candidate_sampler(tf.cast(tf.expand_dims(q_ids, axis=1), dtype=tf.int64),
-                                                                       num_true=1,
-                                                                       num_sampled=batch_size * n_samples,
-                                                                       unique=False,
-                                                                       distortion=distortion,
-                                                                       range_max=self.network_architecture['n_topics'],
-                                                                       vocab_file=unigram_path,
-                                                                       seed=self._seed,
-                                                                       name='Unigram_Sampler_'+name)
-        sampled_indecies=tf.cast(sampled_indecies, dtype=tf.int32)
+        sampled_indecies, _, _ = tf.nn.fixed_unigram_candidate_sampler(
+            tf.cast(tf.expand_dims(q_ids, axis=1), dtype=tf.int64),
+            num_true=1,
+            num_sampled=batch_size * n_samples,
+            unique=False,
+            distortion=distortion,
+            range_max=self.network_architecture['n_topics'],
+            vocab_file=unigram_path,
+            seed=self._seed,
+            name='Unigram_Sampler_' + name)
+        sampled_indecies = tf.cast(sampled_indecies, dtype=tf.int32)
         targets_sampled = tf.where(tf.equal(tf.tile(q_ids, [n_samples]), sampled_indecies),
                                    tf.ones(shape=[batch_size * n_samples], dtype=tf.float32),
                                    tf.zeros(shape=[batch_size * n_samples], dtype=tf.float32))
@@ -286,7 +291,7 @@ class BaseModel(object):
                 return outputs, attention
 
     def _construct_xent_cost(self, targets, logits, pos_weight, is_training=False):
-        print 'Constructing XENT cost'
+        print('Constructing XENT cost')
         cost = tf.reduce_mean(
             tf.nn.weighted_cross_entropy_with_logits(logits=logits, targets=targets, pos_weight=pos_weight,
                                                      name='total_xentropy_per_batch')) / float(pos_weight)
