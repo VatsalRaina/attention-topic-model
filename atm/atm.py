@@ -271,7 +271,7 @@ class AttentionTopicModel(BaseModel):
             optimizer=tf.train.AdamOptimizer,
             optimizer_params={},
             n_epochs=30,
-            n_samples=1,
+            n_samples=1, # Number of negative samples to generate per positive sample
             epoch=1):
         with self._graph.as_default():
             # Compute number of training examples and batch size
