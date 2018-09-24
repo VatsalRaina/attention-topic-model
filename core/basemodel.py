@@ -209,6 +209,30 @@ class BaseModel(object):
 
         return batched_dataset
 
+    def _batch_func_without_bucket(self, dataset, batch_size):
+        """Same as _batch_func, but doesn't apply bucketing and hence preserves order of the data."""
+        batched_dataset = dataset.padded_batch(
+                batch_size,
+                # The first three entries are the source and target line rows;
+                # these have unknown-length vectors.  The last two entries are
+                # the source and target row sizes; these are scalars.
+                padded_shapes=(
+                    tf.TensorShape([]), # targets -- unused
+                    tf.TensorShape([]), # q_id -- unused
+                    tf.TensorShape([None]),   # resp
+                    tf.TensorShape([]), # resp len -- unused
+                    tf.TensorShape([None]),  # prompt
+                    tf.TensorShape([])),  # prompt len -- unused
+                padding_values=(
+                    0.0, # targets -- unused
+                    np.int32(0), # q_id -- unused
+                    np.int32(0), # resp
+                    np.int32(0), # resp len -- unused
+                    np.int32(0),  # resp len -- unused
+                    np.int32(0)))#.filter(lambda targets, q_id, resp, size, prompt: tf.equal(tf.size(size), batch_size))  # prompt
+
+        return batched_dataset
+
     # Trainnig cost/attention sampling functions
 
     def _sampling_function(self, targets, q_ids, unigram_path, batch_size, n_samples, name, distortion=1.0):

@@ -32,6 +32,14 @@ commandLineParser.add_argument('--wlist_path', type=str, default=None)
 commandLineParser.add_argument('--save_reordered_input', action='store_true', help="Whether to save the input words and"
                                                                                    "responses to model as reordered during"
                                                                                    "evaluation to the evaluation directory.")
+commandLineParser.add_argument('--preserve_order', action='store_true', help="Whether to preserve order of the "
+                                                                             "input files, so that outputted "
+                                                                             "probabilities appear in the same order"
+                                                                             "as prompt/response pairs in input. "
+                                                                             "The disadvantage of using this flag is "
+                                                                             "that bucketing won't be applied to the "
+                                                                             "data, and the evaluation might take "
+                                                                             "significantly longer to run.")
 commandLineParser.add_argument('--make_plots', action='store_true',
                                help="Whether to make the ROC and PR plots for the model.")
 commandLineParser.add_argument('data_pattern', type=str,
@@ -61,8 +69,7 @@ def main(args):
                               debug_mode=args.debug,
                               epoch=args.epoch)
 
-    #todo: remove line below once working
-    # test_labels, test_probs, test_loss = atm.predict(args.data_pattern)
+    apply_bucketing = (not args.preserve_order)
 
     if args.save_reordered_input:
         test_loss, \
@@ -71,11 +78,11 @@ def main(args):
         test_response_lens_arr, \
         test_prompt_lens_arr, \
         test_responses_list, \
-        test_prompts_list = atm.predict(args.data_pattern, cache_inputs=True)
+        test_prompts_list = atm.predict(args.data_pattern, cache_inputs=True, apply_bucketing=apply_bucketing)
     else:
         test_loss, \
         test_probs_arr, \
-        test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False)
+        test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False, apply_bucketing=apply_bucketing)
 
 
     # Save the numerical output data

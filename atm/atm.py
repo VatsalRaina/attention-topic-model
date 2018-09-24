@@ -462,13 +462,34 @@ class AttentionTopicModel(BaseModel):
             print (format_str % (duration))
             self.save()
 
-    def predict(self, test_pattern, batch_size=20, cache_inputs=False):
+    def predict(self, test_pattern, batch_size=20, cache_inputs=False, apply_bucketing=True):
+        """
+        Run inference on a trained model on a dataset.
+        :param test_pattern: filepath to dataset to run inference/evaluation on
+        :param batch_size: int
+        :param cache_inputs: Whether to save the response, prompts, response lengths, and prompt lengths in
+        text form together with the predictions. Useful, since bucketing changes the order of the files and this allows
+        to investigate which prediction corresponds to which prompt/response pair
+        :param apply_bucketing: bool, whether to apply bucketing, i.e. group examples by their response length to
+        minimise the overhead associated with zero-padding. If False, the examples will be evaluated in the original
+        order as read from the file.
+
+        :return: Depends on whether the inputs are being cached. If cache_inputs=False:
+        returns test_loss, test_probabilities_array, test_true_labels_array
+        If cache_inputs=True:
+        returns test_loss, test_probabilities_array, test_true_labels_array, test_response_lengths,
+                test_prompt_lengths, test_responses_list, test_prompts_list
+        """
         with self._graph.as_default():
             test_files = tf.gfile.Glob(test_pattern)
+            if apply_bucketing:
+                batching_function = self._batch_func
+            else:
+                batching_function = self._batch_func_without_bucket
             test_iterator = self._construct_dataset_from_tfrecord(test_files,
                                                                   self._parse_func,
                                                                   self._map_func,
-                                                                  self._batch_func,
+                                                                  batching_function,
                                                                   batch_size=batch_size,
                                                                   train=False,
                                                                   capacity_mul=100,
