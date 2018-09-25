@@ -70,7 +70,7 @@ def write_to_tfrecords(filename, destination_dir, responses, prompts, q_ids, gra
             context=tf.train.Features(feature={
                 'targets': tfrecord_utils.float_feature([tgt]),
                 'grade': tfrecord_utils.float_feature([float(grd)]),
-                'teacher_pred': tfrecord_utils.float_feature(example_pred),
+                'teacher_pred': tfrecord_utils.float_feature([example_pred]),
                 'spkr': tfrecord_utils.bytes_feature([spkr]),
                 'q_id': tfrecord_utils.int64_feature([q_id]),
                 'example_idx': tfrecord_utils.int64_feature([idx])  # Stores the example number for easy back-reference to txt files even when examples get shuffled (0 indexed)
@@ -166,10 +166,9 @@ def main(args):
     with open(speakers_path, 'r') as file:
         speakers = np.asarray([line.replace('\n', '') for line in file.readlines()])
     # Load the teacher predictions
-    predictions = list(
-        np.loadtxt(predictions_path, dtype=np.float32))  # todo: test if this loads correctly before running!
+    predictions = np.loadtxt(predictions_path, dtype=np.float32)
     # load targets
-    targets = list(np.loadtxt(targets_path, dtype=np.float32))
+    targets = np.loadtxt(targets_path, dtype=np.float32)
 
     # Create or load the topic ID dictionary:
     if args.sorted_topics_path == '':

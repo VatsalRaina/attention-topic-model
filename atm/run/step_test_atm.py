@@ -88,7 +88,7 @@ def main(args):
         test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False, apply_bucketing=apply_bucketing)
 
     end_time = time.time()
-    print("Time taken for evaluating the dataset: {10.1f} minutes".format((end_time - start_time) / 60.0))
+    print("Time taken for evaluating the dataset: {} minutes".format((end_time - start_time) / 60.0))
 
     # Save the numerical output data
     data = np.concatenate((test_labels_arr, test_probs_arr), axis=1)
