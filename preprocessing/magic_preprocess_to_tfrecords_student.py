@@ -61,11 +61,6 @@ def write_to_tfrecords(filename, destination_dir, responses, prompts, q_ids, gra
 
     writer = tf.python_io.TFRecordWriter(os.path.join(destination_dir, filename))
     for response, prompt, q_id, grd, spkr, tgt, example_pred, idx in zip(responses, prompts, q_ids, grades, speakers, targets, predictions, range(len(q_ids))):
-        if debug:
-            # Print out the data that is going to be saved:
-            print("-----------------\n", "EXAMPLE: \n",
-                  "Response: {}\nPrompt: {}\nQ_id: {}\n\ntarget: {}\ngrade: {}\n\n".format(response, prompt, q_id, tgt,
-                                                                                           grd))
         example = tf.train.SequenceExample(
             context=tf.train.Features(feature={
                 'targets': tfrecord_utils.float_feature([tgt]),
@@ -78,6 +73,9 @@ def write_to_tfrecords(filename, destination_dir, responses, prompts, q_ids, gra
             feature_lists=tf.train.FeatureLists(feature_list={
                 'response': tfrecord_utils.int64_feature_list(response),
                 'prompt': tfrecord_utils.int64_feature_list(prompt)}))
+        if debug:
+            # Print out the data that is going to be saved:
+            print("-----------------\n", "EXAMPLE: \n", "Response: {}\nPrompt: {}\nQ_id: {}\n\ntarget: {}\ngrade: {}\n,teacher_pred: {}\nexample_num: {}\n\n".format(response, prompt, q_id, tgt, grd, example_pred, idx))
         writer.write(example.SerializeToString())
     writer.close()
     return

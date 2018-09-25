@@ -808,7 +808,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
             print (teacher_predictions.shape)
             trn_teacher_targets = tf.reduce_mean(teacher_predictions, axis=1, keep_dims=True)
             valid_teacher_targets = tf.reduce_mean(valid_teacher_predictions, axis=1, keep_dims=True)
-            trn_teacher_targets = tf.Print(trn_teacher_targets, [tf.shape(trn_teacher_targets)], 'Shape of teacher targets')  # todo: remove once known
+            # trn_teacher_targets = tf.Print(trn_teacher_targets, [tf.shape(trn_teacher_targets)], 'Shape of teacher targets')  # todo: remove once known
 
             topics = tf.convert_to_tensor(topics, dtype=tf.int32)
             topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
