@@ -648,8 +648,8 @@ class AttentionTopicModel(BaseModel):
 class AttentionTopicModelStudent(AttentionTopicModel):
     def __init__(self, network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0, seed=100,
                  epoch=None, num_teachers=None):
-        AttentionTopicModel.__init__(network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0,
-                                     seed=100, epoch=None)
+        AttentionTopicModel.__init__(network_architecture=network_architecture, name=name, save_path=save_path, load_path=load_path, debug_mode=debug_mode,
+                                     seed=seed, epoch=epoch)
         self.num_teachers = num_teachers
 
     def _parse_func(self, example_proto):
