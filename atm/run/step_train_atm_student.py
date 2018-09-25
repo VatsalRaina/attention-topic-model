@@ -22,7 +22,7 @@ import sys
 import tensorflow as tf
 
 import context
-from core.utilities.utilities import text_to_array
+from core.utilities.utilities import text_to_array, get_train_size_from_meta
 from atm.atm import AttentionTopicModelStudent
 
 parser = argparse.ArgumentParser(description='Compute features from labels.')
@@ -111,9 +111,7 @@ def main(args):
 
         topics, topic_lens = text_to_array(topic_path, wlist_path, strip_start_end=args.strip_start_end)
 
-        # todo: Load the meta file and get the train size
         train_size = get_train_size_from_meta(dataset_meta_path)
-
 
         if epoch == 0:
             init = args.init
@@ -142,14 +140,6 @@ def main(args):
         tf.reset_default_graph()
 
 
-def get_train_size_from_meta(dataset_meta_path):
-    with open(dataset_meta_path, 'r'):
-        for line in dataset_meta_path.readlines():
-            if 'num_examples_train' in line:
-                size = line.split('\t')[1]
-                size = int(size)
-                return size
-    return None
 
 if __name__ == '__main__':
     args = parser.parse_args()
