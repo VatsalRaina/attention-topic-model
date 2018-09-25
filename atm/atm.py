@@ -648,7 +648,7 @@ class AttentionTopicModel(BaseModel):
 class AttentionTopicModelStudent(AttentionTopicModel):
     def __init__(self, network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0, seed=100,
                  epoch=None, num_teachers=None):
-        AttentionTopicModel.__init__(network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0,
+        AttentionTopicModel.__init__(self, network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0,
                                      seed=100, epoch=None)
         self.num_teachers = num_teachers
 
