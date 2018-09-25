@@ -294,6 +294,26 @@ def process_data_bucket(data, path, spId, input_index):
     return processed_data, slens, np.int32(np.max(slens) - 1)
 
 
+def get_train_size_from_meta(dataset_meta_path):
+    with open(dataset_meta_path, 'r') as f:
+        for line in f.readlines():
+            if 'num_examples_train' in line:
+                size = line.split('\t')[1]
+                size = int(size)
+                return size
+    raise EOFError('Training size not found in file')
+
+
+def get_num_topics_from_meta(dataset_meta_path):
+    with open(dataset_meta_path, 'r') as f:
+        for line in f.readlines():
+            if 'num_unique_topics' in line:
+                num_topics = line.split('\t')[1]
+                num_topics = int(num_topics)
+                return num_topics
+    raise EOFError('Num topics not found in file')
+
+
 def split_train_valid(data_list, valid_size):
     """ Helper Function
     Args:

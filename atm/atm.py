@@ -722,29 +722,28 @@ class AttentionTopicModelStudent(AttentionTopicModel):
 
         return batched_dataset
 
-    def fit(self,
-            train_data,
-            valid_data,
-            load_path,
-            topics,
-            topic_lens,
-            unigram_path,
-            train_size=100,
-            valid_size=100,
-            learning_rate=1e-2,
-            lr_decay=0.8,
-            dropout=1.0,
-            batch_size=50,
-            distortion=1.0,
-            optimizer=tf.train.AdamOptimizer,
-            optimizer_params={},
-            n_epochs=30,
-            n_samples=1,  # Number of negative samples to generate per positive sample
-            epoch=1):
+    def fit_student(self,
+                    train_data,
+                    valid_data,
+                    load_path,
+                    topics,
+                    topic_lens,
+                    unigram_path,
+                    train_size=100,
+                    valid_size=100,
+                    learning_rate=1e-2,
+                    lr_decay=0.8,
+                    dropout=1.0,
+                    batch_size=50,
+                    distortion=1.0,
+                    optimizer=tf.train.AdamOptimizer,
+                    optimizer_params={},
+                    n_epochs=30,
+                    epoch=1):
         with self._graph.as_default():
             # Compute number of training examples and batch size
-            n_examples = train_size * (1 + n_samples)
-            n_batches = n_examples / (batch_size * (1 + n_samples))
+            n_examples = train_size #todo:
+            n_batches = n_examples / batch_size
 
             # If some variables have been initialized - get them into a set
             temp = set(tf.global_variables())
@@ -805,7 +804,6 @@ class AttentionTopicModelStudent(AttentionTopicModel):
             valid_teacher_targets = tf.reduce_mean(valid_teacher_predictions, axis=1)
             trn_teacher_targets = tf.Print(trn_teacher_targets, tf.shape(trn_teacher_targets), 'Shape of teacher targets')  # todo: remove once known
 
-
             topics = tf.convert_to_tensor(topics, dtype=tf.int32)
             topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
 
@@ -821,7 +819,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                 trn_probabilities, \
                 trn_logits, _, = self._construct_network(a_input=responses,
                                                          a_seqlens=response_lengths,
-                                                         n_samples=n_samples,
+                                                         n_samples=0,
                                                          q_input=prompts,
                                                          q_seqlens=prompt_lens,
                                                          maxlen=tf.reduce_max(response_lengths),
@@ -833,7 +831,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                 valid_logits, \
                 valid_attention = self._construct_network(a_input=valid_responses,
                                                           a_seqlens=valid_response_lengths,
-                                                          n_samples=n_samples,
+                                                          n_samples=0,
                                                           q_input=valid_prompts,
                                                           q_seqlens=valid_prompt_lens,
                                                           maxlen=tf.reduce_max(valid_response_lengths),
@@ -843,11 +841,11 @@ class AttentionTopicModelStudent(AttentionTopicModel):
             # Construct XEntropy training costs
             trn_cost, total_loss = self._construct_xent_cost(targets=trn_teacher_targets,
                                                              logits=trn_logits,
-                                                             pos_weight=float(n_samples),
+                                                             pos_weight=1.,
                                                              is_training=True)
             evl_cost = self._construct_xent_cost(targets=valid_targets,
                                                  logits=valid_logits,
-                                                 pos_weight=float(n_samples),
+                                                 pos_weight=1.,
                                                  is_training=False)
 
             train_op = util.create_train_op(total_loss=total_loss,
