@@ -648,8 +648,9 @@ class AttentionTopicModel(BaseModel):
 class AttentionTopicModelStudent(AttentionTopicModel):
     def __init__(self, network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0, seed=100,
                  epoch=None, num_teachers=None):
-        AttentionTopicModel.__init__(self, network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0,
-                                     seed=100, epoch=None)
+
+        AttentionTopicModel.__init__(self, network_architecture=network_architecture, name=name, save_path=save_path, load_path=load_path, debug_mode=debug_mode, seed=seed, epoch=epoch)
+
         self.num_teachers = num_teachers
 
     def _parse_func(self, example_proto):
@@ -659,11 +660,11 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                               "grade": tf.FixedLenFeature([], tf.float32),
                               "spkr": tf.FixedLenFeature([], tf.string),
                               "q_id": tf.FixedLenFeature([], tf.int64),
-                              "teacher_preds": tf.FixedLenFeature([self.num_teachers], tf.float32)},
+                              "teacher_pred": tf.FixedLenFeature([self.num_teachers], tf.float32)},
             sequence_features={'response': tf.FixedLenSequenceFeature([], dtype=tf.int64),
                                'prompt': tf.FixedLenSequenceFeature([], dtype=tf.int64)})
 
-        return contexts['targets'], contexts['teacher_preds'], contexts['q_id'], features['response'], features['prompt']
+        return contexts['targets'], contexts['teacher_pred'], contexts['q_id'], features['response'], features['prompt']
 
     def _map_func(self, dataset, num_threads, capacity, augment=None):
         dataset = dataset.map(lambda targets, teacher_preds, q_id, resp, prompt: (targets,
@@ -687,7 +688,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                 # the source and target row sizes; these are scalars.
                 padded_shapes=(
                     tf.TensorShape([]),  # targets -- unused
-                    tf.TensorShape([]),  # predictions -- unused
+                    tf.TensorShape([self.num_teachers]),  # predictions -- unused
                     tf.TensorShape([]),  # q_id -- unused
                     tf.TensorShape([None]),  # resp
                     tf.TensorShape([]),  # resp len -- unused
@@ -781,6 +782,10 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                 valid_responses, \
                 valid_response_lengths, _, _ = valid_iterator.get_next(name='valid_data')
 
+                # Expand the dims of targets (normally done in the _sampling_function
+                valid_targets = tf.expand_dims(valid_targets, axis=1)
+                targets = tf.expand_dims(targets, axis=1)
+
                 # targets, q_ids = self._sampling_function(targets=targets,
                 #                                          q_ids=q_ids,
                 #                                          unigram_path=unigram_path,
@@ -800,9 +805,10 @@ class AttentionTopicModelStudent(AttentionTopicModel):
             # Preprocess the teacher predictions to create targets
 
             # Calculate student targets as the mean teacher ensemble prediction
-            trn_teacher_targets = tf.reduce_mean(teacher_predictions, axis=1)
-            valid_teacher_targets = tf.reduce_mean(valid_teacher_predictions, axis=1)
-            trn_teacher_targets = tf.Print(trn_teacher_targets, tf.shape(trn_teacher_targets), 'Shape of teacher targets')  # todo: remove once known
+            print (teacher_predictions.shape)
+            trn_teacher_targets = tf.reduce_mean(teacher_predictions, axis=1, keep_dims=True)
+            valid_teacher_targets = tf.reduce_mean(valid_teacher_predictions, axis=1, keep_dims=True)
+            trn_teacher_targets = tf.Print(trn_teacher_targets, [tf.shape(trn_teacher_targets)], 'Shape of teacher targets')  # todo: remove once known
 
             topics = tf.convert_to_tensor(topics, dtype=tf.int32)
             topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)

@@ -102,7 +102,7 @@ def main(args):
         topic_path = os.path.join(epoch_tfrecords_dir, args.topic_file)
         wlist_path = os.path.join(epoch_tfrecords_dir, args.wlist_file)
 
-        topic_count_path = os.path.join(epoch_tfrecords_dir, args.topic_count_path)
+        topic_count_path = os.path.join(epoch_tfrecords_dir, args.topic_count_file)
 
         train_data = os.path.join(epoch_tfrecords_dir, args.train_file)
         valid_data = os.path.join(epoch_tfrecords_dir, args.valid_file)
