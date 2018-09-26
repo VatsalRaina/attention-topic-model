@@ -1254,6 +1254,7 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
 
                 # Convert the logits and probabilities into the old format (1 value instead of two)
                 test_probabilities = test_probabilities[:, 0]
+                test_probabilities = tf.expand_dims(test_probabilities, axis=1)
 
             # todo: Loss is fairly incorrect
             loss = self._construct_xent_cost(targets=test_targets, logits=tf.squeeze(test_logits[:, 0]), pos_weight=1.0,
