@@ -727,7 +727,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
     def _construct_kl_div_student_cost(self, teacher_predictions, logits, pos_weight, is_training=False):
         print('Constructing KL Divergence cost')
         y_true = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon), clip_value_max=(1.0 - self.epsilon))
-        y_pred = tf.clip_by_value(tf.sigmoid(logits), clip_value_min=(0.0 + self.epsilon), clip_value_max=(1.0 - self.epsilon))
+        y_pred = tf.sigmoid(logits)
 
         cost = tf.reduce_mean(tf.reduce_sum(y_true * tf.log(y_true / y_pred), axis=1), name='total_kl_loss_per_batch')
 
@@ -1006,6 +1006,9 @@ class ATMPriorNetworkStudent(AttentionTopicModel):
     def _construct_nll_loss_under_dirichlet(self, teacher_predictions, logits, is_training=False):
         """Negative Log Likelihood (NLL) cost for a binary classification under Dirichlet prior"""
         print('Constructing NLL cost under Dirichlet prior')
+        # Clip the predictions for numerical stability
+        teacher_predictions = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon), clip_value_max=(1.0 - self.epsilon))
+
         concentration_params = tf.exp(logits)
         alpha1, alpha2 = tf.split(concentration_params, num_or_size_splits=2,
                                   axis=1)  # todo: write in the alternative way if doesn't work
