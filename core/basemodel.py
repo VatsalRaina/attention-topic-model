@@ -15,7 +15,9 @@ except:
 
 
 class BaseModel(object):
-    def __init__(self, network_architecture, name=None, save_path=None, load_path=None, debug_mode=0, seed=100):
+    def __init__(self, network_architecture, name=None, save_path=None, load_path=None, debug_mode=0, seed=100, epsilon=10e-7):
+        # Value to use for clipping for numerical stability
+        self.epsilon = epsilon
 
         # Misc book-keeping parameters
         self._debug_mode = debug_mode
