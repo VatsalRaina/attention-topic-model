@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from __future__ import print_function
 import argparse
 import os
 import sys
@@ -18,11 +19,11 @@ commandLineParser = argparse.ArgumentParser(description='Compute features from l
 commandLineParser.add_argument('data_path', type=str,
                                help='absolute path to data')
 commandLineParser.add_argument('destination_dir', type=str,
-                               help='absolute path location where to setup')
+                               help='absolute path to directory location where to setup')
 commandLineParser.add_argument('library_path', type=str,
-                               help='absolute path location where to setup')
+                               help='absolute path to the repository with attention-topic-model code files')
 commandLineParser.add_argument('wlist_path', type=str,
-                               help='which should be loaded')
+                               help='path to word list file (vocabulary for embeddings)')
 commandLineParser.add_argument('--name', type=str, default='attention_based_topic_model',
                                help='Specify the name of the model')
 commandLineParser.add_argument('--seed', type=int, default=100,
@@ -30,15 +31,15 @@ commandLineParser.add_argument('--seed', type=int, default=100,
 commandLineParser.add_argument('--debug', type=int, choices=[0, 1, 2], default=0,
                                help='Specify the debug output level')
 commandLineParser.add_argument('--load_path', type=str, default=None,
-                               help='Specify path to model which should be loaded')
+                               help='Specify path to model which should be loaded ')
 commandLineParser.add_argument('--save_path', type=str, default='./',
                                help='Specify path to model which should be loaded')
 commandLineParser.add_argument('--init', type=str, default=None,
-                               help='Specify path to from which to initialize model')
+                               help='Specify path to from which to initialize model (to initialise embedding weights)')
 commandLineParser.add_argument('--epoch', type=str, default=None,
                                help='which should be loaded')
-commandLineParser.add_argument('--n_in', type=int, default=62416,
-                               help='which should be loaded')
+# Model parameters
+commandLineParser.add_argument('--n_in', type=int, default=62416)
 commandLineParser.add_argument('--n_ehid', type=int, default=200,
                                help='which should be loaded')
 commandLineParser.add_argument('--n_fhid', type=int, default=180,
@@ -52,7 +53,7 @@ commandLineParser.add_argument('--n_rlayers', type=int, default=1,
 commandLineParser.add_argument('--n_flayers', type=int, default=2,
                                help='which should be loaded')
 commandLineParser.add_argument('--n_out', type=int, default=1,
-                               help='which should be loaded')
+                               help='which should be loaded')  # For a prior network, set to two!
 commandLineParser.add_argument('--l2', type=float, default=4e-7,
                                help='which should be loaded')
 commandLineParser.add_argument('--n_topics', type=int, default=379,
@@ -68,10 +69,9 @@ commandLineParser.add_argument('--r_activation_fn', choices=activation_fn_list,
                                 help='which should be loaded')
 commandLineParser.add_argument('--output_fn', choices=activation_fn_list,
                                 default='sigmoid',
-                                help='which should be loaded')
+                                help='output activation function')  # For a prior network, set to softmax!
 commandLineParser.add_argument('--initializer', choices=initializer_list,
-                                default='xavier',
-                                help='which should be loaded')
+                                default='xavier')
 
 
 def main(argv=None):
@@ -85,7 +85,7 @@ def main(argv=None):
         f.write('--------------------------------\n')
 
     if os.path.isdir(args.destination_dir):
-        print 'destination directory exists. Exiting...'
+        print('destination directory exists. Exiting...')
     else:
         os.makedirs(args.destination_dir)
 
@@ -97,22 +97,24 @@ def main(argv=None):
     print("Num topics used in model: ", args.n_topics)
 
     #Define network architecture
-    network_architecture=dict(model_name=args.name,         # Define Model Type
-                              n_in=args.n_in,               # data input dimension
-                              n_ehid=args.n_ehid,           # Size of word embeddings
-                              n_fhid=args.n_fhid,           # feed-forward hidden layer size
-                              n_rhid=args.n_rhid,           # Response hidden layer size (doubled for BRNN)
-                              n_phid=args.n_phid,           # Prompt hidden layer size (doubled for BRNN)
-                              n_rlayers=args.n_rlayers,     # Number of Recurrent Layers. Unused
-                              n_flayers=args.n_flayers,     # Number of feed-forward hidden layers
-                              n_out=args.n_out,             # output dimensionality
-                              f_activation_fn=activation_dict[args.f_activation_fn], # Activation Function feed-forward layers
-                              r_activation_fn=activation_dict[args.r_activation_fn], # Activation Function Recurrent Layers
-                              output_fn=activation_dict[args.output_fn],             # Output function
-                              initializer=initializer_dict[args.initializer],        # Parameter Initializer
-                              sample_distortion=args.sample_distortion,
-                              L2=args.l2,                   # L2 weight decay
-                              n_topics=args.n_topics        # Number of topics in training data
+    network_architecture = dict(model_name=args.name,  # Define Model Type
+                                n_in=args.n_in,  # data input dimension
+                                n_ehid=args.n_ehid,  # Size of word embeddings
+                                n_fhid=args.n_fhid,  # feed-forward hidden layer size
+                                n_rhid=args.n_rhid,  # Response hidden layer size (doubled for BRNN)
+                                n_phid=args.n_phid,  # Prompt hidden layer size (doubled for BRNN)
+                                n_rlayers=args.n_rlayers,  # Number of Recurrent Layers. Unused
+                                n_flayers=args.n_flayers,  # Number of feed-forward hidden layers
+                                n_out=args.n_out,  # output dimensionality
+                                f_activation_fn=activation_dict[args.f_activation_fn],
+                                # Activation Function feed-forward layers
+                                r_activation_fn=activation_dict[args.r_activation_fn],
+                                # Activation Function Recurrent Layers
+                                output_fn=activation_dict[args.output_fn],  # Output function
+                                initializer=initializer_dict[args.initializer],  # Parameter Initializer
+                                sample_distortion=args.sample_distortion,
+                                L2=args.l2,  # L2 weight decay
+                                n_topics=args.n_topics  # Number of topics in training data
     )
 
     # initialize the model and save intialized parameters

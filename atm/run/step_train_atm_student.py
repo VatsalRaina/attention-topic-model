@@ -23,7 +23,7 @@ import tensorflow as tf
 
 import context
 from core.utilities.utilities import text_to_array, get_train_size_from_meta
-from atm.atm import AttentionTopicModelStudent
+from atm.atm import AttentionTopicModelStudent, ATMPriorNetworkStudent
 
 parser = argparse.ArgumentParser(description='Compute features from labels.')
 # parser.add_argument('--valid_size', type=int, default=14188,  # 1034,##28375,
@@ -74,6 +74,10 @@ parser.add_argument('--load_epoch', type=str, default=None,
 parser.add_argument('--strip_start_end', action='store_true',
                     help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt '
                          'file (used for legacy sorted_topics.txt formatting')
+parset.add_argument('--train_prior_network', action='store_true', help='If specified, train a prior network '
+                                                                       'with two softmax outputs with the prior '
+                                                                       'net NLL loss function, instead of a normal'
+                                                                       'ATM with a sigmoid output.')
 
 
 
@@ -86,16 +90,22 @@ def main(args):
 
     if args.strip_start_end: print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
 
+    # Whether to train a prior network or standard ATM
+    if args.train_prior_network:
+        atm_class = ATMPriorNetworkStudent
+    else:
+        atm_class = AttentionTopicModelStudent
+
     for epoch in range(0, args.n_epochs):
 
-        atm_student = AttentionTopicModelStudent(network_architecture=None,
-                                                 seed=args.seed,
-                                                 name=args.name,
-                                                 save_path='./',
-                                                 load_path=args.load_path,
-                                                 debug_mode=args.debug,
-                                                 epoch=args.load_epoch,
-                                                 num_teachers=args.num_teachers)
+        atm_student = atm_class(network_architecture=None,
+                                seed=args.seed,
+                                name=args.name,
+                                save_path='./',
+                                load_path=args.load_path,
+                                debug_mode=args.debug,
+                                epoch=args.load_epoch,
+                                num_teachers=args.num_teachers)
 
         # Get the paths to all the relevant files for this epoch
         epoch_tfrecords_dir = os.path.join(args.teacher_data_dir, 'epoch' + str(epoch + 1), 'tfrecords')

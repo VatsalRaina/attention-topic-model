@@ -649,7 +649,8 @@ class AttentionTopicModelStudent(AttentionTopicModel):
     def __init__(self, network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0, seed=100,
                  epoch=None, num_teachers=None):
 
-        AttentionTopicModel.__init__(self, network_architecture=network_architecture, name=name, save_path=save_path, load_path=load_path, debug_mode=debug_mode, seed=seed, epoch=epoch)
+        AttentionTopicModel.__init__(self, network_architecture=network_architecture, name=name, save_path=save_path,
+                                     load_path=load_path, debug_mode=debug_mode, seed=seed, epoch=epoch)
 
         self.num_teachers = num_teachers
 
@@ -675,7 +676,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                               num_parallel_calls=num_threads).prefetch(capacity)
 
         return dataset.map(lambda targets, teacher_preds, q_id, resp, prompt: (
-        targets, teacher_preds, q_id, resp, tf.size(resp), prompt, tf.size(prompt)),
+            targets, teacher_preds, q_id, resp, tf.size(resp), prompt, tf.size(prompt)),
                            num_parallel_calls=num_threads).prefetch(capacity)
 
     def _batch_func(self, dataset, batch_size, num_buckets=10, bucket_width=10):
@@ -743,7 +744,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                     epoch=1):
         with self._graph.as_default():
             # Compute number of training examples and batch size
-            n_examples = train_size #todo:
+            n_examples = train_size  # todo:
             n_batches = n_examples / batch_size
 
             # If some variables have been initialized - get them into a set
@@ -801,11 +802,10 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                 #                                                      name='valid',
                 #                                                      distortion=1.0)
 
-
             # Preprocess the teacher predictions to create targets
 
             # Calculate student targets as the mean teacher ensemble prediction
-            print (teacher_predictions.shape)
+            print(teacher_predictions.shape)
             trn_teacher_targets = tf.reduce_mean(teacher_predictions, axis=1, keep_dims=True)
             valid_teacher_targets = tf.reduce_mean(valid_teacher_predictions, axis=1, keep_dims=True)
             # trn_teacher_targets = tf.Print(trn_teacher_targets, [tf.shape(trn_teacher_targets)], 'Shape of teacher targets')  # todo: remove once known
@@ -853,6 +853,257 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                                                  logits=valid_logits,
                                                  pos_weight=1.,
                                                  is_training=False)
+
+            train_op = util.create_train_op(total_loss=total_loss,
+                                            learning_rate=learning_rate,
+                                            optimizer=optimizer,
+                                            optimizer_params=optimizer_params,
+                                            n_examples=n_examples,
+                                            batch_size=batch_size,
+                                            learning_rate_decay=lr_decay,
+                                            global_step=global_step,
+                                            clip_gradient_norm=10.0,
+                                            summarize_gradients=False)
+
+            # Intialize only newly created variables, as opposed to reused - allows for finetuning and transfer learning :)
+            init = tf.variables_initializer(set(tf.global_variables()) - temp)
+            self.sess.run(init)
+
+            if load_path != None:
+                self._load_variables(load_scope='model/Embeddings/word_embedding',
+                                     new_scope='atm/Embeddings/word_embedding', load_path=load_path)
+
+            # Update Log with training details
+            with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                format_str = (
+                    'Learning Rate: %f\nLearning Rate Decay: %f\nBatch Size: %d\nValid Size: %d\nOptimizer: %s\nDropout: %f\nSEED: %i\n')
+                f.write(format_str % (
+                    learning_rate, lr_decay, batch_size, valid_size, str(optimizer), dropout, self._seed) + '\n\n')
+
+            format_str = (
+                'Epoch %d, Train Loss = %.2f, Valid Loss = %.2f, Valid ROC = %.2f, (%.1f examples/sec; %.3f ' 'sec/batch)')
+            print("Starting Training!\n-----------------------------")
+            start_time = time.time()
+            for epoch in xrange(epoch + 1, epoch + n_epochs + 1):
+                # Run Training Loop
+                loss = 0.0
+                batch_time = time.time()
+                for batch in xrange(n_batches):
+                    _, loss_value = self.sess.run([train_op, trn_cost], feed_dict={self.dropout: dropout})
+                    assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+                    loss += loss_value
+
+                duration = time.time() - batch_time
+                loss /= n_batches
+                examples_per_sec = batch_size / duration
+                sec_per_epoch = float(duration)
+
+                # Run Validation Loop
+                eval_loss = 0.0
+                valid_probs = None
+                vld_targets = None
+                total_size = 0
+                self.sess.run(valid_iterator.initializer)
+                while True:
+                    try:
+                        batch_eval_loss, \
+                        batch_valid_preds, \
+                        batch_valid_probs, \
+                        batch_attention, \
+                        batch_valid_targets = self.sess.run([evl_cost,
+                                                             valid_predictions,
+                                                             valid_probabilities,
+                                                             valid_attention,
+                                                             valid_targets])
+                        size = batch_valid_probs.shape[0]
+                        eval_loss += float(size) * batch_eval_loss
+                        if valid_probs is None:
+                            valid_probs = batch_valid_probs
+                            vld_targets = batch_valid_targets
+                        else:
+                            valid_probs = np.concatenate((valid_probs, batch_valid_probs), axis=0)
+                            vld_targets = np.concatenate((vld_targets, batch_valid_targets), axis=0)
+                        total_size += size
+                    except:  # tf.errors.OutOfRangeError:
+                        break
+
+                eval_loss = eval_loss / float(total_size)
+                roc_score = roc(np.squeeze(vld_targets), np.squeeze(valid_probs))
+
+                # Summarize Epoch
+                with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                    f.write(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch) + '\n')
+                print(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
+                self.save(step=epoch)
+
+            # Finish Training
+            duration = time.time() - start_time
+            with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                format_str = ('Training took %.3f sec')
+                f.write('\n' + format_str % (duration) + '\n')
+                f.write('----------------------------------------------------------\n')
+            print(format_str % (duration))
+            self.save()
+
+
+class ATMPriorNetworkStudent(AttentionTopicModel):
+    def __init__(self, network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0, seed=100,
+                 epoch=None, num_teachers=None):
+        AttentionTopicModelStudent.__init__(self, network_architecture=network_architecture, name=name,
+                                            save_path=save_path, load_path=load_path, debug_mode=debug_mode, seed=seed,
+                                            epoch=epoch, num_teachers=num_teachers)
+
+    def _construct_nll_loss_under_dirichlet(self, teacher_predictions, logits, is_training=False):
+        """Negative Log Likelihood (NLL) cost for a binary classification under Dirichlet prior"""
+        print('Constructing NLL cost under Dirichlet prior')
+        concentration_params = tf.exp(logits)
+        alpha1, alpha2 = tf.split(concentration_params, num_or_size_splits=2, axis=1)  # todo: write in the alternative way if doesn't work
+
+        log_likelihood_const_part = tf.lgamma(alpha1 + alpha2) - tf.lgamma(alpha1) - tf.lgamma(alpha2)
+        log_likelihood_var_part = tf.log(teacher_predictions) * (alpha1 - 1.0) + tf.log(1.0 - teacher_predictions) * (
+        alpha2 - 1.0)
+        log_likelihood = log_likelihood_const_part + log_likelihood_var_part
+
+        nll_loss = -1.0 * tf.reduce_mean(log_likelihood, axis=1)  # Take the mean over individual ensemble predictions
+        nll_cost = tf.reduce_mean(nll_loss)  # Take mean batch-wise (over the number of examples)
+
+        if self._debug_mode > 1:
+            tf.scalar_summary('nll_cost', nll_cost)
+
+        if is_training:
+            tf.add_to_collection('losses', nll_cost)
+            # The total loss is defined as the target loss plus all of the weight
+            # decay terms (L2 loss).
+            total_cost = tf.add_n(tf.get_collection('losses'), name='total_cost')
+            return nll_cost, total_cost
+        else:
+            return nll_cost
+
+    def _construct_softmax_xent_cost(self, labels, logits, is_training=False):
+        print('Constructing XENT cost')
+        xent_cost = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits, name='total_xentropy')
+        cost = tf.reduce_mean(xent_cost, name='total_xentropy_per_batch')
+
+        if self._debug_mode > 1:
+            tf.scalar_summary('XENT', cost)
+
+        if is_training:
+            tf.add_to_collection('losses', cost)
+            # The total loss is defined as the target loss plus all of the weight
+            # decay terms (L2 loss).
+            total_cost = tf.add_n(tf.get_collection('losses'), name='total_cost')
+            return cost, total_cost
+        else:
+            return cost
+
+    def fit_student(self,
+                    train_data,
+                    valid_data,
+                    load_path,
+                    topics,
+                    topic_lens,
+                    unigram_path,
+                    train_size=100,
+                    valid_size=100,
+                    learning_rate=1e-2,
+                    lr_decay=0.8,
+                    dropout=1.0,
+                    batch_size=50,
+                    distortion=1.0,
+                    optimizer=tf.train.AdamOptimizer,
+                    optimizer_params={},
+                    n_epochs=30,
+                    epoch=1):
+        with self._graph.as_default():
+            # Compute number of training examples and batch size
+            n_examples = train_size  # todo:
+            n_batches = n_examples / batch_size
+
+            # If some variables have been initialized - get them into a set
+            temp = set(tf.global_variables())
+
+            # Define Global step for training
+            global_step = tf.Variable(0, trainable=False, name='global_step')
+
+            # Set up inputs
+            with tf.variable_scope(self._input_scope, reuse=True) as scope:
+                # Construct training data queues
+                targets, \
+                teacher_predictions, \
+                q_ids, \
+                responses, \
+                response_lengths, _, _ = self._construct_dataset_from_tfrecord([train_data],
+                                                                               self._parse_func,
+                                                                               self._map_func,
+                                                                               self._batch_func,
+                                                                               batch_size,
+                                                                               train=True,
+                                                                               capacity_mul=1000,
+                                                                               num_threads=8)
+
+                valid_iterator = self._construct_dataset_from_tfrecord([valid_data],
+                                                                       self._parse_func,
+                                                                       self._map_func,
+                                                                       self._batch_func,
+                                                                       batch_size,
+                                                                       train=False,
+                                                                       capacity_mul=100,
+                                                                       num_threads=1)
+                valid_targets, \
+                valid_teacher_predictions, \
+                valid_q_ids, \
+                valid_responses, \
+                valid_response_lengths, _, _ = valid_iterator.get_next(name='valid_data')
+
+                # Expand the dims of targets (normally done in the _sampling_function
+                valid_targets = tf.expand_dims(valid_targets, axis=1)
+                targets = tf.expand_dims(targets, axis=1)
+
+            # # Calculate student targets as the mean teacher ensemble prediction
+            # trn_teacher_targets = tf.reduce_mean(teacher_predictions, axis=1, keep_dims=True)
+            # valid_teacher_targets = tf.reduce_mean(valid_teacher_predictions, axis=1, keep_dims=True)
+
+            topics = tf.convert_to_tensor(topics, dtype=tf.int32)
+            topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
+
+            prompts = tf.nn.embedding_lookup(topics, q_ids, name='train_prompt_loopkup')
+            prompt_lens = tf.gather(topic_lens, q_ids)
+
+            valid_prompts = tf.nn.embedding_lookup(topics, valid_q_ids, name='valid_prompt_loopkup')
+            valid_prompt_lens = tf.gather(topic_lens, valid_q_ids)
+
+            # Construct Training & Validation models
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                trn_predictions, \
+                trn_probabilities, \
+                trn_logits, _, = self._construct_network(a_input=responses,
+                                                         a_seqlens=response_lengths,
+                                                         n_samples=0,
+                                                         q_input=prompts,
+                                                         q_seqlens=prompt_lens,
+                                                         maxlen=tf.reduce_max(response_lengths),
+                                                         batch_size=batch_size,
+                                                         keep_prob=self.dropout)
+
+                valid_predictions, \
+                valid_probabilities, \
+                valid_logits, \
+                valid_attention = self._construct_network(a_input=valid_responses,
+                                                          a_seqlens=valid_response_lengths,
+                                                          n_samples=0,
+                                                          q_input=valid_prompts,
+                                                          q_seqlens=valid_prompt_lens,
+                                                          maxlen=tf.reduce_max(valid_response_lengths),
+                                                          batch_size=batch_size,
+                                                          keep_prob=1.0)
+
+            # Construct XEntropy training costs
+            trn_cost, total_loss = self._construct_nll_loss_under_dirichlet(teacher_predictions=teacher_predictions,
+                                                                            logits=trn_logits,
+                                                                            is_training=True)
+            evl_cost = self._construct_softmax_xent_cost(labels=valid_targets,
+                                                         logits=valid_logits,
+                                                         is_training=False)
 
             train_op = util.create_train_op(total_loss=total_loss,
                                             learning_rate=learning_rate,
