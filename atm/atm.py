@@ -958,6 +958,7 @@ class ATMPriorNetworkStudent(AttentionTopicModel):
         print('Constructing NLL cost under Dirichlet prior')
         concentration_params = tf.exp(logits)
         alpha1, alpha2 = tf.split(concentration_params, num_or_size_splits=2, axis=1)  # todo: write in the alternative way if doesn't work
+        # The first column (alpha1) corresponds to P_relevant, and the 2nd column (alpha2) corresponds to P_off_topic.
 
         log_likelihood_const_part = tf.lgamma(alpha1 + alpha2) - tf.lgamma(alpha1) - tf.lgamma(alpha2)
         log_likelihood_var_part = tf.log(teacher_predictions) * (alpha1 - 1.0) + tf.log(1.0 - teacher_predictions) * (
@@ -1058,6 +1059,9 @@ class ATMPriorNetworkStudent(AttentionTopicModel):
                 # Expand the dims of targets (normally done in the _sampling_function
                 valid_targets = tf.expand_dims(valid_targets, axis=1)
                 targets = tf.expand_dims(targets, axis=1)
+                # Turn into softmax compatible format (class distribution instead of P_relevant)
+                valid_targets = tf.concat([valid_targets, 1.0 - valid_targets], axis=1)
+                targets = tf.concat([targets, 1.0 - targets], axis=1)
 
             # # Calculate student targets as the mean teacher ensemble prediction
             # trn_teacher_targets = tf.reduce_mean(teacher_predictions, axis=1, keep_dims=True)

@@ -66,12 +66,12 @@ def main(args):
     if args.strip_start_end: print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
 
     atm = AttentionTopicModel(network_architecture=None,
-                             seed=args.seed,
-                             name=args.name,
-                             save_path='./',
-                             load_path=args.load_path,
-                             debug_mode=args.debug,
-                             epoch=args.epoch)
+                              seed=args.seed,
+                              name=args.name,
+                              save_path='./',
+                              load_path=args.load_path,
+                              debug_mode=args.debug,
+                              epoch=args.epoch)
 
     atm.fit(train_data=args.train_data,
             valid_data=args.valid_data,

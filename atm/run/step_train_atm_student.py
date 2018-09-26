@@ -74,7 +74,7 @@ parser.add_argument('--load_epoch', type=str, default=None,
 parser.add_argument('--strip_start_end', action='store_true',
                     help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt '
                          'file (used for legacy sorted_topics.txt formatting')
-parset.add_argument('--train_prior_network', action='store_true', help='If specified, train a prior network '
+parser.add_argument('--train_prior_network', action='store_true', help='If specified, train a prior network '
                                                                        'with two softmax outputs with the prior '
                                                                        'net NLL loss function, instead of a normal'
                                                                        'ATM with a sigmoid output.')
