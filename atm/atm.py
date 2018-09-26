@@ -946,7 +946,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
             self.save()
 
 
-class ATMPriorNetworkStudent(AttentionTopicModel):
+class ATMPriorNetworkStudent(AttentionTopicModelStudent):
     def __init__(self, network_architecture=None, name=None, save_path='./', load_path=None, debug_mode=0, seed=100,
                  epoch=None, num_teachers=None):
         AttentionTopicModelStudent.__init__(self, network_architecture=network_architecture, name=name,
