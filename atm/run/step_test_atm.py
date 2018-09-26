@@ -62,8 +62,6 @@ def main(args):
     if not os.path.isdir(args.output_dir):
         os.makedirs(args.output_dir)
 
-
-
     # Initialize and Run the Model
     atm = AttentionTopicModel(network_architecture=None,
                               load_path=args.load_path,

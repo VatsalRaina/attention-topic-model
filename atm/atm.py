@@ -724,6 +724,25 @@ class AttentionTopicModelStudent(AttentionTopicModel):
 
         return batched_dataset
 
+    def _construct_kl_div_student_cost(self, teacher_predictions, logits, pos_weight, is_training=False):
+        print('Constructing KL Divergence cost')
+        y_true = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon), clip_value_max=(1.0 - self.epsilon))
+        y_pred = tf.sigmoid(logits)
+
+        cost = tf.reduce_mean(tf.reduce_sum(y_true * tf.log(y_true / y_pred), axis=1), name='total_kl_loss_per_batch')
+
+        if self._debug_mode > 1:
+            tf.scalar_summary('XENT', cost)
+
+        if is_training:
+            tf.add_to_collection('losses', cost)
+            # The total loss is defined as the target loss plus all of the weight
+            # decay terms (L2 loss).
+            total_cost = tf.add_n(tf.get_collection('losses'), name='total_cost')
+            return cost, total_cost
+        else:
+            return cost
+
     def fit_student(self,
                     train_data,
                     valid_data,
@@ -741,7 +760,32 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                     optimizer=tf.train.AdamOptimizer,
                     optimizer_params={},
                     n_epochs=30,
-                    epoch=1):
+                    epoch=1,
+                    match_sample=False):
+        """
+        Custom training procedure for knowledge distillation from teacher
+
+        :param train_data:
+        :param valid_data:
+        :param load_path:
+        :param topics:
+        :param topic_lens:
+        :param unigram_path:
+        :param train_size:
+        :param valid_size:
+        :param learning_rate:
+        :param lr_decay:
+        :param dropout:
+        :param batch_size:
+        :param distortion:
+        :param optimizer:
+        :param optimizer_params:
+        :param n_epochs:
+        :param epoch:
+        :param match_sample: bool - whether the cost function is between the average of teacher predictions and output
+        or between each individual teacher's model prediction and output
+        :return:
+        """
         with self._graph.as_default():
             # Compute number of training examples and batch size
             n_examples = train_size  # todo:
@@ -808,7 +852,6 @@ class AttentionTopicModelStudent(AttentionTopicModel):
             print(teacher_predictions.shape)
             trn_teacher_targets = tf.reduce_mean(teacher_predictions, axis=1, keep_dims=True)
             valid_teacher_targets = tf.reduce_mean(valid_teacher_predictions, axis=1, keep_dims=True)
-            # trn_teacher_targets = tf.Print(trn_teacher_targets, [tf.shape(trn_teacher_targets)], 'Shape of teacher targets')  # todo: remove once known
 
             topics = tf.convert_to_tensor(topics, dtype=tf.int32)
             topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
@@ -845,10 +888,17 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                                                           keep_prob=1.0)
 
             # Construct XEntropy training costs
-            trn_cost, total_loss = self._construct_xent_cost(targets=trn_teacher_targets,
-                                                             logits=trn_logits,
-                                                             pos_weight=1.,
-                                                             is_training=True)
+            if match_sample:
+                # Match the individual teacher predictions
+                trn_cost, total_loss = self._construct_kl_div_student_cost(teacher_predictions=teacher_predictions,
+                                                                           logits=trn_logits,
+                                                                           is_training=True)
+            else:
+                # Match the teacher statistic (average in this case)
+                trn_cost, total_loss = self._construct_xent_cost(targets=trn_teacher_targets,
+                                                                 logits=trn_logits,
+                                                                 pos_weight=1.,
+                                                                 is_training=True)
             evl_cost = self._construct_xent_cost(targets=valid_targets,
                                                  logits=valid_logits,
                                                  pos_weight=1.,
@@ -956,6 +1006,9 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
     def _construct_nll_loss_under_dirichlet(self, teacher_predictions, logits, is_training=False):
         """Negative Log Likelihood (NLL) cost for a binary classification under Dirichlet prior"""
         print('Constructing NLL cost under Dirichlet prior')
+        # Clip the predictions for numerical stability
+        teacher_predictions = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon), clip_value_max=(1.0 - self.epsilon))
+
         concentration_params = tf.exp(logits)
         alpha1, alpha2 = tf.split(concentration_params, num_or_size_splits=2,
                                   axis=1)  # todo: write in the alternative way if doesn't work
@@ -1016,6 +1069,8 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                     optimizer_params={},
                     n_epochs=30,
                     epoch=1):
+        """Custom fit student. Minimises the negative log likelihood of the teacher model predictions under the
+        parameterisation of the Dirichlet given by the outputs of the prior network."""
         with self._graph.as_default():
             # Compute number of training examples and batch size
             n_examples = train_size  # todo:
@@ -1203,6 +1258,9 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
 
     def predict(self, test_pattern, batch_size=20, cache_inputs=False, apply_bucketing=True):
         """
+        Custom predict for the prior network. A different predict needed because the prior network outputs two logits
+        corresponding to classes off-topic and on-topic instead of a single probability of relevance.
+
         Run inference on a trained model on a dataset.
         :param test_pattern: filepath to dataset to run inference/evaluation on
         :param batch_size: int
