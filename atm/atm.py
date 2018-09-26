@@ -724,7 +724,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
 
         return batched_dataset
 
-    def _construct_kl_div_student_cost(self, teacher_predictions, logits, pos_weight, is_training=False):
+    def _construct_kl_div_student_cost(self, teacher_predictions, logits, is_training=False):
         print('Constructing KL Divergence cost')
         y_true = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon), clip_value_max=(1.0 - self.epsilon))
         y_pred = tf.sigmoid(logits)
@@ -1068,7 +1068,8 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                     optimizer=tf.train.AdamOptimizer,
                     optimizer_params={},
                     n_epochs=30,
-                    epoch=1):
+                    epoch=1,
+                    match_sample=True):
         """Custom fit student. Minimises the negative log likelihood of the teacher model predictions under the
         parameterisation of the Dirichlet given by the outputs of the prior network."""
         with self._graph.as_default():
