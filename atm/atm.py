@@ -957,12 +957,13 @@ class ATMPriorNetworkStudent(AttentionTopicModel):
         """Negative Log Likelihood (NLL) cost for a binary classification under Dirichlet prior"""
         print('Constructing NLL cost under Dirichlet prior')
         concentration_params = tf.exp(logits)
-        alpha1, alpha2 = tf.split(concentration_params, num_or_size_splits=2, axis=1)  # todo: write in the alternative way if doesn't work
+        alpha1, alpha2 = tf.split(concentration_params, num_or_size_splits=2,
+                                  axis=1)  # todo: write in the alternative way if doesn't work
         # The first column (alpha1) corresponds to P_relevant, and the 2nd column (alpha2) corresponds to P_off_topic.
 
         log_likelihood_const_part = tf.lgamma(alpha1 + alpha2) - tf.lgamma(alpha1) - tf.lgamma(alpha2)
         log_likelihood_var_part = tf.log(teacher_predictions) * (alpha1 - 1.0) + tf.log(1.0 - teacher_predictions) * (
-        alpha2 - 1.0)
+            alpha2 - 1.0)
         log_likelihood = log_likelihood_const_part + log_likelihood_var_part
 
         nll_loss = -1.0 * tf.reduce_mean(log_likelihood, axis=1)  # Take the mean over individual ensemble predictions
@@ -1199,3 +1200,86 @@ class ATMPriorNetworkStudent(AttentionTopicModel):
                 f.write('----------------------------------------------------------\n')
             print(format_str % (duration))
             self.save()
+
+    def predict(self, test_pattern, batch_size=20, cache_inputs=False, apply_bucketing=True):
+        """
+        Run inference on a trained model on a dataset.
+        :param test_pattern: filepath to dataset to run inference/evaluation on
+        :param batch_size: int
+        :param cache_inputs: Whether to save the response, prompts, response lengths, and prompt lengths in
+        text form together with the predictions. Useful, since bucketing changes the order of the files and this allows
+        to investigate which prediction corresponds to which prompt/response pair
+        :param apply_bucketing: bool, whether to apply bucketing, i.e. group examples by their response length to
+        minimise the overhead associated with zero-padding. If False, the examples will be evaluated in the original
+        order as read from the file.
+
+        :return: Depends on whether the inputs are being cached. If cache_inputs=False:
+        returns test_loss, test_probabilities_array, test_true_labels_array
+        If cache_inputs=True:
+        returns test_loss, test_probabilities_array, test_true_labels_array, test_response_lengths,
+                test_prompt_lengths, test_responses_list, test_prompts_list
+        """
+        with self._graph.as_default():
+            test_files = tf.gfile.Glob(test_pattern)
+            if apply_bucketing:
+                batching_function = self._batch_func_eval
+            else:
+                batching_function = self._batch_func_without_bucket_eval
+            test_iterator = AttentionTopicModel._construct_dataset_from_tfrecord(self,
+                                                                                 test_files,
+                                                                                 self._parse_func_eval,
+                                                                                 self._map_func_eval,
+                                                                                 batching_function,
+                                                                                 batch_size=batch_size,
+                                                                                 train=False,
+                                                                                 capacity_mul=100,
+                                                                                 num_threads=1)
+            test_targets, \
+            test_q_ids, \
+            test_responses, \
+            test_response_lengths, test_prompts, test_prompt_lens = test_iterator.get_next(name='valid_data')
+
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                test_predictions, \
+                test_probabilities, \
+                test_logits, \
+                test_attention = self._construct_network(a_input=test_responses,
+                                                         a_seqlens=test_response_lengths,
+                                                         n_samples=0,
+                                                         q_input=test_prompts,
+                                                         q_seqlens=test_prompt_lens,
+                                                         maxlen=tf.reduce_max(test_response_lengths),
+                                                         batch_size=batch_size,
+                                                         keep_prob=1.0)
+
+                # Convert the logits and probabilities into the old format (1 value instead of two)
+                test_probabilities = test_probabilities[:, 0]
+
+            # todo: Loss is fairly incorrect
+            loss = self._construct_xent_cost(targets=test_targets, logits=tf.squeeze(test_logits[:, 0]), pos_weight=1.0,
+                                             is_training=False)
+            self.sess.run(test_iterator.initializer)
+
+            if cache_inputs:  # todo: this won't work yet
+                return self._predict_loop_with_caching(loss, test_probabilities, test_targets,
+                                                       test_responses, test_response_lengths, test_prompts,
+                                                       test_prompt_lens)
+            else:
+                return self._predict_loop(loss, test_probabilities, test_targets)
+
+    def _parse_func_eval(self, example_proto):
+        """Used for data that doesn't come with teacher predictions"""
+        return AttentionTopicModel._parse_func(self, example_proto)
+
+    def _map_func_eval(self, dataset, num_threads, capacity, augment=None):
+        """Used for data that doesn't come with teacher predictions"""
+        return AttentionTopicModel._map_func(self, dataset, num_threads, capacity, augment)
+
+    def _batch_func_eval(self, dataset, batch_size, num_buckets=10, bucket_width=10):
+        """Used for data that doesn't come with teacher predictions"""
+        return AttentionTopicModel._batch_func(self, dataset, batch_size, num_buckets, bucket_width)
+
+    def _batch_func_without_bucket_eval(self, dataset, batch_size):
+        """Same as _batch_func, but doesn't apply bucketing and hence preserves order of the data.
+        Used for data that doesn't come with teacher predictions"""
+        return AttentionTopicModel._batch_func_without_bucket(self, dataset, batch_size)
