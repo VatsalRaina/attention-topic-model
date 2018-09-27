@@ -14,6 +14,7 @@ from core.utilities.utilities import activation_dict
 from core.utilities.utilities import initializer_dict
 from core.utilities.utilities import activation_fn_list
 from core.utilities.utilities import initializer_list
+from core.utilities.utilities import get_num_topics_from_meta
 
 commandLineParser = argparse.ArgumentParser(description='Compute features from labels.')
 commandLineParser.add_argument('data_path', type=str,
@@ -24,6 +25,13 @@ commandLineParser.add_argument('library_path', type=str,
                                help='absolute path to the repository with attention-topic-model code files')
 commandLineParser.add_argument('wlist_path', type=str,
                                help='path to word list file (vocabulary for embeddings)')
+commandLineParser.add_argument('--n_topics', type=int, default=379,
+                               help='which should be loaded')
+commandLineParser.add_argument('--meta_data_path', type=str, default=None, help="Path to metadata file with number of "
+                                                                                "topics in the training data. This can"
+                                                                                "be used to override the n_topics "
+                                                                                "flag and load num. of topics from a"
+                                                                                "file.")
 commandLineParser.add_argument('--name', type=str, default='attention_based_topic_model',
                                help='Specify the name of the model')
 commandLineParser.add_argument('--seed', type=int, default=100,
@@ -55,8 +63,6 @@ commandLineParser.add_argument('--n_flayers', type=int, default=2,
 commandLineParser.add_argument('--n_out', type=int, default=1,
                                help='which should be loaded')  # For a prior network, set to two!
 commandLineParser.add_argument('--l2', type=float, default=4e-7,
-                               help='which should be loaded')
-commandLineParser.add_argument('--n_topics', type=int, default=379,
                                help='which should be loaded')
 commandLineParser.add_argument('--sample_distortion', type=bool, default=False,
                                help='which should be loaded')
@@ -94,7 +100,13 @@ def main(argv=None):
     os.mkdir('model')
     os.symlink(args.data_path, 'data')
     os.symlink(args.library_path, 'atm')
-    print("Num topics used in model: ", args.n_topics)
+
+
+    if args.meta_data_path is None:
+        n_topics = args.n_topics
+    else:
+        n_topics = get_num_topics_from_meta(args.meta_data_path)
+    print("Num topics used in model: ", n_topics)
 
     #Define network architecture
     network_architecture = dict(model_name=args.name,  # Define Model Type
@@ -114,17 +126,17 @@ def main(argv=None):
                                 initializer=initializer_dict[args.initializer],  # Parameter Initializer
                                 sample_distortion=args.sample_distortion,
                                 L2=args.l2,  # L2 weight decay
-                                n_topics=args.n_topics  # Number of topics in training data
+                                n_topics=n_topics  # Number of topics in training data
     )
 
     # initialize the model and save intialized parameters
     atm = AttentionTopicModel(network_architecture=network_architecture,
-                             seed=args.seed,
-                             name=args.name,
-                             save_path=args.save_path,
-                             load_path=args.load_path,
-                             debug_mode=args.debug,
-                             epoch=args.epoch)
+                              seed=args.seed,
+                              name=args.name,
+                              save_path=args.save_path,
+                              load_path=args.load_path,
+                              debug_mode=args.debug,
+                              epoch=args.epoch)
     atm.save()
 
 if __name__ == '__main__':

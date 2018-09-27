@@ -121,10 +121,9 @@ def main(args):
         valid_data = os.path.join(epoch_tfrecords_dir, args.valid_file)
 
         dataset_meta_path = os.path.join(epoch_tfrecords_dir, args.meta_file)
+        train_size = get_train_size_from_meta(dataset_meta_path)
 
         topics, topic_lens = text_to_array(topic_path, wlist_path, strip_start_end=args.strip_start_end)
-
-        train_size = get_train_size_from_meta(dataset_meta_path)
 
         if epoch == 0:
             init = args.init

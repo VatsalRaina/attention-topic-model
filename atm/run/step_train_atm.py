@@ -7,7 +7,7 @@ import sys
 import tensorflow as tf
 
 import context
-from core.utilities.utilities import text_to_array
+from core.utilities.utilities import text_to_array, get_train_size_from_meta
 from atm.atm import AttentionTopicModel
 
 commandLineParser = argparse.ArgumentParser(description='Compute features from labels.')
@@ -41,8 +41,8 @@ commandLineParser.add_argument('--epoch', type=str, default=None,
                                help='which should be loaded')
 commandLineParser.add_argument('train_data', type=str,
                                help='which should be loaded')
-commandLineParser.add_argument('train_size', type=int,
-                               help='which should be loaded')
+commandLineParser.add_argument('meta_data_path', type=str,
+                               help='Path to the meta data file (which contains the dataset size and number of topics).')
 commandLineParser.add_argument('valid_data', type=str,
                                help='which should be loaded')
 commandLineParser.add_argument('topic_path', type=str,
@@ -62,6 +62,8 @@ def main(args):
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
+    train_size = get_train_size_from_meta(args.meta_data_path)
+
     topics, topic_lens = text_to_array(args.topic_path, args.wlist_path, strip_start_end=args.strip_start_end)
     if args.strip_start_end: print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
 
@@ -79,7 +81,7 @@ def main(args):
             topics=topics,
             topic_lens=topic_lens,
             unigram_path=args.topic_count_path,
-            train_size=args.train_size,
+            train_size=train_size,
             learning_rate=args.learning_rate,
             lr_decay=args.lr_decay,
             dropout=args.dropout,

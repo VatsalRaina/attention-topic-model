@@ -60,6 +60,7 @@ def main(args):
         f.write(' '.join(sys.argv) + '\n')
 
     if not os.path.isdir(args.output_dir):
+
         os.makedirs(args.output_dir)
 
     # Initialize and Run the Model
