@@ -786,9 +786,10 @@ class AttentionTopicModelStudent(AttentionTopicModel):
         or between each individual teacher's model prediction and output
         :return:
         """
+        # todo: match sample does not work yet
         with self._graph.as_default():
             # Compute number of training examples and batch size
-            n_examples = train_size  # todo:
+            n_examples = train_size
             n_batches = n_examples / batch_size
 
             # If some variables have been initialized - get them into a set
