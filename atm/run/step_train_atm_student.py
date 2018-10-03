@@ -82,6 +82,9 @@ parser.add_argument('--match_samples', action='store_true', help='In the loss fu
                                                                  'match the individual samples of the teacher models\' '
                                                                  'predictions using KL divergence '
                                                                  'instead of matching the teacher average.')
+parser.add_argument('--reuse_epoch_dataset', action='store_true', help='Whether there is just one teacher dataset'
+                                                                       'that the training procedure should reuse for'
+                                                                       'each epoch of training.')
 
 
 def main(args):
@@ -91,7 +94,8 @@ def main(args):
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
-    if args.strip_start_end: print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
+    if args.strip_start_end: print(
+        "Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
 
     # Whether to train a prior network or standard ATM
     if args.train_prior_network:
@@ -111,7 +115,10 @@ def main(args):
                                 num_teachers=args.num_teachers)
 
         # Get the paths to all the relevant files for this epoch
-        epoch_tfrecords_dir = os.path.join(args.teacher_data_dir, 'epoch' + str(epoch + 1), 'tfrecords')
+        if args.reuse_epoch_dataset:
+            epoch_tfrecords_dir = os.path.join(args.teacher_data_dir, 'tfrecords')
+        else:
+            epoch_tfrecords_dir = os.path.join(args.teacher_data_dir, 'epoch' + str(epoch + 1), 'tfrecords')
         topic_path = os.path.join(epoch_tfrecords_dir, args.topic_file)
         wlist_path = os.path.join(epoch_tfrecords_dir, args.wlist_file)
 
