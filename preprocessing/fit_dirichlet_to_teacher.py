@@ -58,9 +58,9 @@ def main(args):
         exit()
 
     # Cache the command:
-    if not os.path.isdir(os.path.join(args.destination_dir, 'CMDs')):
-        os.makedirs(os.path.join(args.destination_dir, 'CMDs'))
-    with open(os.path.join(args.destination_dir, 'CMDs/preprocessing.cmd'), 'a') as f:
+    if not os.path.isdir(os.path.join(args.data_dir, 'CMDs')):
+        os.makedirs(os.path.join(args.data_dir, 'CMDs'))
+    with open(os.path.join(args.data_dir, 'CMDs/preprocessing.cmd'), 'a') as f:
         f.write(' '.join(sys.argv) + '\n')
         f.write('-----------------------------------------------------------\n')
 
@@ -95,8 +95,9 @@ def main(args):
     num_examples = teacher_preds_array.shape[0]
     for i in range(num_examples):
         sess.run(reset_alphas)
-        for j in range(args.num_iter):
-            sess.run(fit_op, feed_dict={teacher_predictions: teacher_preds_array[i, :]})
+        example = np.expand_dims(teacher_preds_array[i, :], axis=0)
+        for j in range(args.num_steps):
+            sess.run(fit_op, feed_dict={teacher_predictions: example})
             sess.run(clip_alphas)
         alphas_fitted[i, :] = alphas.eval()
 
