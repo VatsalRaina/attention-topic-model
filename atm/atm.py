@@ -724,12 +724,13 @@ class AttentionTopicModelStudent(AttentionTopicModel):
 
         return batched_dataset
 
-    def _construct_kl_div_student_cost(self, teacher_predictions, logits, is_training=False):
-        print('Constructing KL Divergence cost')
-        y_true = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon), clip_value_max=(1.0 - self.epsilon))
-        y_pred = tf.sigmoid(logits)
-
-        cost = tf.reduce_mean(tf.reduce_sum(y_true * tf.log(y_true / y_pred), axis=1), name='total_kl_loss_per_batch')
+    def _construct_sample_kl_div_student_cost(self, teacher_predictions, logits, is_training=False, num_teachers=10):
+        print('Constructing XENT cost')
+        targets = tf.reshape(teacher_predictions, [None, 1])
+        logits_all = tf.reshape(tf.tile(logits, [1, num_teachers]), [None, 1])
+        cost = tf.reduce_mean(
+            tf.nn.weighted_cross_entropy_with_logits(logits=logits_all, targets=targets, pos_weight=1.,
+                                                     name='total_xentropy_per_batch'))
 
         if self._debug_mode > 1:
             tf.scalar_summary('XENT', cost)
@@ -891,9 +892,10 @@ class AttentionTopicModelStudent(AttentionTopicModel):
             # Construct XEntropy training costs
             if match_sample:
                 # Match the individual teacher predictions
-                trn_cost, total_loss = self._construct_kl_div_student_cost(teacher_predictions=teacher_predictions,
-                                                                           logits=trn_logits,
-                                                                           is_training=True)
+                trn_cost, total_loss = self._construct_sample_kl_div_student_cost(
+                    teacher_predictions=teacher_predictions,
+                    logits=trn_logits,
+                    is_training=True)
             else:
                 # Match the teacher statistic (average in this case)
                 trn_cost, total_loss = self._construct_xent_cost(targets=trn_teacher_targets,
