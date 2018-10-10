@@ -30,7 +30,7 @@ parser.add_argument('--teacher_predictions_filename', type=str, default='teacher
 parser.add_argument('--output_filename', type=str, default='alphas.txt')
 # parser.add_argument('--batch_size', type=int, default=1000, help='batch size for fitting the 2 alpha parameters')
 parser.add_argument('--learning_rate', type=float, default=0.04, help='learning rate for fitting the dirchlets')
-parser.add_argument('--num_steps', type=int, default=10000, help='number of steps to fit the dirichlets')
+parser.add_argument('--num_steps', type=int, default=500, help='number of steps to fit the dirichlets')
 
 
 def nll_loss(alphas, teacher_predictions):
@@ -47,8 +47,6 @@ def nll_loss(alphas, teacher_predictions):
 
 
 def main(args):
-    # Get the input data
-
     # Get the paths to the relevant files
     teacher_pred_path = os.path.join(args.data_dir, args.teacher_predictions_filename)
 
@@ -63,9 +61,11 @@ def main(args):
     with open(os.path.join(args.data_dir, 'CMDs/preprocessing.cmd'), 'a') as f:
         f.write(' '.join(sys.argv) + '\n')
         f.write('-----------------------------------------------------------\n')
+    print("Command cached")
 
     # Open the files
     teacher_preds_array = np.loadtxt(teacher_pred_path, dtype=np.float32)
+    print('Teacher predictions loaded')
 
 
     # Create the graph for estimating the Dirichlet
@@ -90,19 +90,21 @@ def main(args):
 
     # array to store the alpha values
     alphas_fitted = np.zeros([teacher_preds_array.shape[0], 2], dtype=np.float32)
+    
+    print("Start fitting")
 
     # Fit a Dirichlet to each example
     num_examples = teacher_preds_array.shape[0]
-    for i in range(num_examples):
+    for i in xrange(num_examples):
         sess.run(reset_alphas)
         example = np.expand_dims(teacher_preds_array[i, :], axis=0)
-        for j in range(args.num_steps):
+        for _ in xrange(args.num_steps):
             sess.run(fit_op, feed_dict={teacher_predictions: example})
             sess.run(clip_alphas)
         alphas_fitted[i, :] = alphas.eval()
 
         # Print every n steps
-        if i % 500 == 0:
+        if i % 100 == 0:
             print('Step {} out of {}'.format(i, num_examples))
 
     # Save the results
