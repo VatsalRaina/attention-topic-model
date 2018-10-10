@@ -2,6 +2,8 @@ import os
 import sys
 
 import numpy as np
+import scipy
+from scipy.special import loggamma
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
@@ -600,3 +602,15 @@ def create_train_op(total_loss,
                                          colocate_gradients_with_ops=colocate_gradients_with_ops,
                                          gradient_multipliers=gradient_multipliers,
                                          check_numerics=check_numerics)
+
+def nll_exp(log_alphas, samples):
+    """Copmute the negative log likelihood given a parametrisation os alpha given by the exponents of the argument
+    passed (to force alpha to be positive, improve numerical stability)."""
+    alphas = np.exp(log_alphas)
+    log_likelihood_const_part = loggamma(alphas[0] + alphas[1]) - loggamma(alphas[0]) - loggamma(alphas[1])
+    log_likelihood_var_part = np.log(samples) * (alphas[0] - 1.0) + np.log(1.0 - samples) * (
+        alphas[1] - 1.0)
+    log_likelihood = log_likelihood_const_part + log_likelihood_var_part
+
+    nll_loss = -1.0 * np.mean(log_likelihood)
+    return nll_loss

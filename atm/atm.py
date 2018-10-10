@@ -8,6 +8,8 @@ import numpy as np
 matplotlib.use('agg')
 from matplotlib import pyplot as plt
 from sklearn.metrics import roc_auc_score as roc
+import scipy
+from scipy.special import loggamma
 
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
@@ -762,7 +764,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                     optimizer_params={},
                     n_epochs=30,
                     epoch=1,
-                    match_sample=False):
+                    use_teacher_stat=False):
         """
         Custom training procedure for knowledge distillation from teacher
 
@@ -783,7 +785,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
         :param optimizer_params:
         :param n_epochs:
         :param epoch:
-        :param match_sample: bool - whether the cost function is between the average of teacher predictions and output
+        :param use_teacher_stat: bool - whether the cost function is between the average of teacher predictions and output
         or between each individual teacher's model prediction and output
         :return:
         """
@@ -890,7 +892,7 @@ class AttentionTopicModelStudent(AttentionTopicModel):
                                                           keep_prob=1.0)
 
             # Construct XEntropy training costs
-            if match_sample:
+            if not use_teacher_stat:
                 # Match the individual teacher predictions
                 trn_cost, total_loss = self._construct_sample_kl_div_student_cost(
                     teacher_predictions=teacher_predictions,
@@ -1010,7 +1012,8 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
         """Negative Log Likelihood (NLL) cost for a binary classification under Dirichlet prior"""
         print('Constructing NLL cost under Dirichlet prior')
         # Clip the predictions for numerical stability
-        teacher_predictions = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon), clip_value_max=(1.0 - self.epsilon))
+        teacher_predictions = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon),
+                                               clip_value_max=(1.0 - self.epsilon))
 
         concentration_params = tf.exp(logits)
         alpha1, alpha2 = tf.split(concentration_params, num_or_size_splits=2,
@@ -1036,6 +1039,40 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
             return nll_cost, total_cost
         else:
             return nll_cost
+
+    def _construct_kl_loss_between_dirichlets(self, teacher_alphas, logits, is_training=False):
+        """KL loss for binary classification under Dirichlet prior, calculated between Dirichlet
+        parametrised by the model and the max-likelihood Dirichlet given observations (teacher predictions)"""
+        print('Constructing KL loss between max-likelihood and model Dirichlet')
+        # # Clip the predictions for numerical stability
+        # teacher_predictions = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon),
+        #                                        clip_value_max=(1.0 - self.epsilon))
+
+        model_alphas = tf.exp(logits)
+        # alpha1, alpha2 = tf.split(model_alphas, num_or_size_splits=2,
+        #                           axis=1)  # todo: write in the alternative way if doesn't work
+
+        # The first column (alpha1) corresponds to P_relevant, and the 2nd column (alpha2) corresponds to P_off_topic.
+        kl_divergence = tf.lgamma(tf.reduce_sum(teacher_alphas, axis=1)) - tf.lgamma(
+            tf.reduce_sum(model_alphas, axis=1)) - tf.reduce_sum(tf.lgamma(teacher_alphas), axis=1) + tf.reduce_sum(
+            tf.lgamma(model_alphas), axis=1) + tf.reduce_sum(
+            (teacher_alphas - model_alphas) * (
+            tf.digamma(teacher_alphas) - tf.digamma(tf.reduce_sum(teacher_alphas, axis=1))),
+            axis=1)
+
+        kl_cost = tf.reduce_mean(kl_divergence)  # Take mean batch-wise (over the number of examples)
+
+        if self._debug_mode > 1:
+            tf.scalar_summary('kl_cost', kl_cost)
+
+        if is_training:
+            tf.add_to_collection('losses', kl_cost)
+            # The total loss is defined as the target loss plus all of the weight
+            # decay terms (L2 loss).
+            total_cost = tf.add_n(tf.get_collection('losses'), name='total_cost')
+            return kl_cost, total_cost
+        else:
+            return kl_cost
 
     def _construct_softmax_xent_cost(self, labels, logits, is_training=False):
         print('Constructing XENT cost')
@@ -1072,7 +1109,7 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                     optimizer_params={},
                     n_epochs=30,
                     epoch=1,
-                    match_sample=True):
+                    use_teacher_stat=False):
         """Custom fit student. Minimises the negative log likelihood of the teacher model predictions under the
         parameterisation of the Dirichlet given by the outputs of the prior network."""
         with self._graph.as_default():
@@ -1161,10 +1198,19 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                                                           batch_size=batch_size,
                                                           keep_prob=1.0)
 
-            # Construct XEntropy training costs
-            trn_cost, total_loss = self._construct_nll_loss_under_dirichlet(teacher_predictions=teacher_predictions,
-                                                                            logits=trn_logits,
-                                                                            is_training=True)
+            if use_teacher_stat:
+                # Calculate the parameters of the max-likelihood Dirichlet
+                alphas = tf.py_func(self._fit_dirichlet, [teacher_predictions], tf.float32,
+                                    name='fit_max_likelihood_dirichlet')
+                # Construct KL training cost
+                trn_cost, total_loss = self._construct_kl_loss_between_dirichlets(teacher_alphas=alphas,
+                                                                                  logits=trn_logits,
+                                                                                  is_training=True)
+            else:
+                # Construct XEntropy training costs
+                trn_cost, total_loss = self._construct_nll_loss_under_dirichlet(teacher_predictions=teacher_predictions,
+                                                                                logits=trn_logits,
+                                                                                is_training=True)
             evl_cost = self._construct_softmax_xent_cost(labels=valid_targets,
                                                          logits=valid_logits,
                                                          is_training=False)
@@ -1346,3 +1392,13 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
         """Same as _batch_func, but doesn't apply bucketing and hence preserves order of the data.
         Used for data that doesn't come with teacher predictions"""
         return AttentionTopicModel._batch_func_without_bucket(self, dataset, batch_size)
+
+    def _fit_dirichlet(self, teacher_predictions):
+        alphas = np.empty([teacher_predictions.shape[0], 2], dtype=np.float32)
+        for i in teacher_predictions.shape[0]:
+            row = teacher_predictions[i]
+            log_alphas = scipy.optimize.fmin(lambda x: util.nll_exp(x, row), np.array([1., 1.]))
+            alphas[i] = log_alphas
+        alphas = np.exp(log_alphas)
+        return alphas
+

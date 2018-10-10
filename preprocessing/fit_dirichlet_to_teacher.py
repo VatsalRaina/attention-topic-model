@@ -1,6 +1,9 @@
 #! /usr/bin/env python
 
 """
+OBSOLETE
+
+
 Fits parameters alpha to teacher predictions for each example as to maximise log-likelihood.
 
 Creates a file:
