@@ -78,10 +78,11 @@ parser.add_argument('--train_prior_network', action='store_true', help='If speci
                                                                        'with two softmax outputs with the prior '
                                                                        'net NLL loss function, instead of a normal'
                                                                        'ATM with a sigmoid output.')
-parser.add_argument('--match_samples', action='store_true', help='In the loss function (for normal atm student), '
-                                                                 'match the individual samples of the teacher models\' '
-                                                                 'predictions using KL divergence '
-                                                                 'instead of matching the teacher average.')
+parser.add_argument('--match_samples', action='store_true',
+                    help='In the loss function (for either std atm student or a prior net), '
+                         'match the individual samples of the teacher models\' '
+                         'predictions using KL divergence '
+                         'instead of matching a teacher statistic.')
 parser.add_argument('--reuse_epoch_dataset', action='store_true', help='Whether there is just one teacher dataset'
                                                                        'that the training procedure should reuse for'
                                                                        'each epoch of training.')
@@ -152,7 +153,7 @@ def main(args):
                                 optimizer_params={},
                                 n_epochs=1,
                                 epoch=epoch,
-                                match_sample=args.match_samples)
+                                use_teacher_stat=(not args.match_samples))
 
         atm_student.save()
 
