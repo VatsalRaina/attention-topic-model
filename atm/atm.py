@@ -1057,7 +1057,7 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
             tf.reduce_sum(model_alphas, axis=1)) - tf.reduce_sum(tf.lgamma(teacher_alphas), axis=1) + tf.reduce_sum(
             tf.lgamma(model_alphas), axis=1) + tf.reduce_sum(
             (teacher_alphas - model_alphas) * (
-            tf.digamma(teacher_alphas) - tf.digamma(tf.reduce_sum(teacher_alphas, axis=1))),
+            tf.digamma(teacher_alphas) - tf.digamma(tf.reduce_sum(teacher_alphas, axis=1, keep_dims=True))),
             axis=1)
 
         kl_cost = tf.reduce_mean(kl_divergence)  # Take mean batch-wise (over the number of examples)
