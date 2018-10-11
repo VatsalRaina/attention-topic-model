@@ -1203,7 +1203,6 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                 alphas = tf.py_func(self._fit_dirichlet, [teacher_predictions], tf.float32,
                                     name='fit_max_likelihood_dirichlet')
                 # Construct KL training cost
-                alphas = tf.Print(alphas, [alphas, trn_logits], "The alphas and trn_logits")  # todo: remove!!
                 trn_cost, total_loss = self._construct_kl_loss_between_dirichlets(teacher_alphas=alphas,
                                                                                   logits=trn_logits,
                                                                                   is_training=True)
@@ -1395,11 +1394,11 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
         return AttentionTopicModel._batch_func_without_bucket(self, dataset, batch_size)
 
     def _fit_dirichlet(self, teacher_predictions):
-        alphas = np.empty([teacher_predictions.shape[0], 2], dtype=np.float32)
+        log_alphas = np.empty([teacher_predictions.shape[0], 2], dtype=np.float32)
         for i in xrange(teacher_predictions.shape[0]):
             row = teacher_predictions[i]
-            log_alphas = scipy.optimize.fmin(lambda x: util.nll_exp(x, row), np.array([1., 1.]), disp=False)
-            alphas[i] = log_alphas
+            log_alphas_row = scipy.optimize.fmin(lambda x: util.nll_exp(x, row), np.array([1., 1.]), disp=False)
+            log_alphas[i] = log_alphas_row
         alphas = np.exp(log_alphas).astype(np.float32)
         return alphas
 
