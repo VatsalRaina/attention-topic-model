@@ -728,8 +728,8 @@ class AttentionTopicModelStudent(AttentionTopicModel):
 
     def _construct_sample_kl_div_student_cost(self, teacher_predictions, logits, is_training=False, num_teachers=10):
         print('Constructing XENT cost')
-        targets = tf.reshape(teacher_predictions, [None, 1])
-        logits_all = tf.reshape(tf.tile(logits, [1, num_teachers]), [None, 1])
+        targets = tf.reshape(teacher_predictions, [-1, 1])
+        logits_all = tf.reshape(tf.tile(logits, [1, num_teachers]), [-1, 1])
         cost = tf.reduce_mean(
             tf.nn.weighted_cross_entropy_with_logits(logits=logits_all, targets=targets, pos_weight=1.,
                                                      name='total_xentropy_per_batch'))
@@ -1395,10 +1395,10 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
 
     def _fit_dirichlet(self, teacher_predictions):
         alphas = np.empty([teacher_predictions.shape[0], 2], dtype=np.float32)
-        for i in teacher_predictions.shape[0]:
+        for i in xrange(teacher_predictions.shape[0]):
             row = teacher_predictions[i]
-            log_alphas = scipy.optimize.fmin(lambda x: util.nll_exp(x, row), np.array([1., 1.]))
+            log_alphas = scipy.optimize.fmin(lambda x: util.nll_exp(x, row), np.array([1., 1.]), disp=False)
             alphas[i] = log_alphas
-        alphas = np.exp(log_alphas)
+        alphas = np.exp(log_alphas).astype(np.float32)
         return alphas
 
