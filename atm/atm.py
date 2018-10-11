@@ -1203,6 +1203,7 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                 alphas = tf.py_func(self._fit_dirichlet, [teacher_predictions], tf.float32,
                                     name='fit_max_likelihood_dirichlet')
                 # Construct KL training cost
+                alphas = tf.Print(alphas, [alphas, trn_logits], "The alphas and trn_logits")  # todo: remove!!
                 trn_cost, total_loss = self._construct_kl_loss_between_dirichlets(teacher_alphas=alphas,
                                                                                   logits=trn_logits,
                                                                                   is_training=True)
