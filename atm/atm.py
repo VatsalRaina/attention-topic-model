@@ -1049,8 +1049,6 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
         #                                        clip_value_max=(1.0 - self.epsilon))
 
         model_alphas = tf.exp(logits)
-        # alpha1, alpha2 = tf.split(model_alphas, num_or_size_splits=2,
-        #                           axis=1)  # todo: write in the alternative way if doesn't work
 
         # The first column (alpha1) corresponds to P_relevant, and the 2nd column (alpha2) corresponds to P_off_topic.
         kl_divergence = tf.lgamma(tf.reduce_sum(teacher_alphas, axis=1)) - tf.lgamma(

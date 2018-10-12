@@ -1,9 +1,6 @@
 #! /usr/bin/env python
 
 """
-OBSOLETE
-
-
 Fits parameters alpha to teacher predictions for each example as to maximise log-likelihood.
 
 Creates a file:
@@ -11,17 +8,19 @@ alphas.txt
 
 """
 from __future__ import print_function
+import context
 
 import os
 import sys
 import argparse
 
 import numpy as np
-import tensorflow as tf
 
 import sys
-import scipy as sp
+import scipy
+import scipy.optimize
 import scipy.stats as stats
+from core.utilities.utilities import nll_exp
 
 
 parser = argparse.ArgumentParser(description='Create k new k-fold split datasets that can be used for generating '
@@ -32,21 +31,21 @@ parser.add_argument('data_dir', type=str,
 parser.add_argument('--teacher_predictions_filename', type=str, default='teacher_predictions.txt')
 parser.add_argument('--output_filename', type=str, default='alphas.txt')
 # parser.add_argument('--batch_size', type=int, default=1000, help='batch size for fitting the 2 alpha parameters')
-parser.add_argument('--learning_rate', type=float, default=0.04, help='learning rate for fitting the dirchlets')
-parser.add_argument('--num_steps', type=int, default=500, help='number of steps to fit the dirichlets')
+# parser.add_argument('--learning_rate', type=float, default=0.04, help='learning rate for fitting the dirchlets')
+# parser.add_argument('--num_steps', type=int, default=500, help='number of steps to fit the dirichlets')
 
 
-def nll_loss(alphas, teacher_predictions):
-    alpha1, alpha2 = tf.split(alphas, num_or_size_splits=2, axis=1)
-
-    log_likelihood_const_part = tf.lgamma(alpha1 + alpha2) - tf.lgamma(alpha1) - tf.lgamma(alpha2)
-    log_likelihood_var_part = tf.log(teacher_predictions) * (alpha1 - 1.0) + tf.log(1.0 - teacher_predictions) * (
-        alpha2 - 1.0)
-    log_likelihood = log_likelihood_const_part + log_likelihood_var_part
-
-    nll_loss = -1.0 * tf.reduce_mean(log_likelihood, axis=1)  # Take the mean over individual ensemble predictions
-    nll_cost = tf.reduce_mean(nll_loss)  # Take mean batch-wise (over the number of examples)
-    return nll_cost
+# def nll_loss(alphas, teacher_predictions):
+#     alpha1, alpha2 = tf.split(alphas, num_or_size_splits=2, axis=1)
+#
+#     log_likelihood_const_part = tf.lgamma(alpha1 + alpha2) - tf.lgamma(alpha1) - tf.lgamma(alpha2)
+#     log_likelihood_var_part = tf.log(teacher_predictions) * (alpha1 - 1.0) + tf.log(1.0 - teacher_predictions) * (
+#         alpha2 - 1.0)
+#     log_likelihood = log_likelihood_const_part + log_likelihood_var_part
+#
+#     nll_loss = -1.0 * tf.reduce_mean(log_likelihood, axis=1)  # Take the mean over individual ensemble predictions
+#     nll_cost = tf.reduce_mean(nll_loss)  # Take mean batch-wise (over the number of examples)
+#     return nll_cost
 
 
 def main(args):
@@ -67,53 +66,27 @@ def main(args):
     print("Command cached")
 
     # Open the files
-    teacher_preds_array = np.loadtxt(teacher_pred_path, dtype=np.float32)
+    teacher_predictions = np.loadtxt(teacher_pred_path, dtype=np.float32)
     print('Teacher predictions loaded')
 
 
-    # Create the graph for estimating the Dirichlet
-    sess = tf.InteractiveSession()
-
-    alphas = tf.Variable([[1., 1.]], dtype=tf.float32, trainable=True)
-    teacher_predictions = tf.placeholder(dtype=tf.float32, shape=[1, 10])
-
-    init = tf.global_variables_initializer()
-    sess.run(init)
-
-    # The reset operation
-    reset_alphas = alphas.assign([[1., 1.]])
-
-    # The alpha rounding operation (to keep alphas always non-negative)
-    clip_alphas = alphas.assign(tf.clip_by_value(alphas, 1e-7, 10e7))
-    log_likelihood_loss = nll_loss(alphas, teacher_predictions)
-
-    gdo = tf.train.GradientDescentOptimizer(learning_rate=args.learning_rate)
-    fit_op = gdo.minimize(log_likelihood_loss)
-
-
-    # array to store the alpha values
-    alphas_fitted = np.zeros([teacher_preds_array.shape[0], 2], dtype=np.float32)
-    
-    print("Start fitting")
-
     # Fit a Dirichlet to each example
-    num_examples = teacher_preds_array.shape[0]
-    for i in xrange(num_examples):
-        sess.run(reset_alphas)
-        example = np.expand_dims(teacher_preds_array[i, :], axis=0)
-        for _ in xrange(args.num_steps):
-            sess.run(fit_op, feed_dict={teacher_predictions: example})
-            sess.run(clip_alphas)
-        alphas_fitted[i, :] = alphas.eval()
+    num_examples = teacher_predictions.shape[0]
+    log_alphas = np.empty([teacher_predictions.shape[0], 2], dtype=np.float32)
+    for i in xrange(teacher_predictions.shape[0]):
+        row = teacher_predictions[i]
+        log_alphas_row = scipy.optimize.fmin(lambda x: nll_exp(x, row), np.array([1., 1.]), disp=False)
+        log_alphas[i] = log_alphas_row
 
         # Print every n steps
         if i % 100 == 0:
             print('Step {} out of {}'.format(i, num_examples))
+    alphas = np.exp(log_alphas).astype(np.float32)
+    return alphas
 
     # Save the results
     save_path = os.path.join(args.data_dir, args.output_filename)
-    np.savetxt(save_path, alphas_fitted)
-
+    np.savetxt(save_path, alphas)
     return
 
 
