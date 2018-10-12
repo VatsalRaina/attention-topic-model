@@ -1484,12 +1484,17 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
         Used for data that doesn't come with teacher predictions"""
         return AttentionTopicModel._batch_func_without_bucket(self, dataset, batch_size)
 
-    def _fit_dirichlet(self, teacher_predictions):
+    def _fit_dirichlet_batch(self, teacher_predictions):
         log_alphas = np.empty([teacher_predictions.shape[0], 2], dtype=np.float32)
         for i in xrange(teacher_predictions.shape[0]):
             row = teacher_predictions[i]
             log_alphas_row = scipy.optimize.fmin(lambda x: util.nll_exp(x, row), np.array([1., 1.]), disp=False)
             log_alphas[i] = log_alphas_row
+        alphas = np.exp(log_alphas).astype(np.float32)
+        return alphas
+
+    def _fit_dirichlet(self, teacher_predictions):
+        log_alphas = scipy.optimize.fmin(lambda x: util.nll_exp(x, teacher_predictions), np.array([1., 1.]), disp=False)
         alphas = np.exp(log_alphas).astype(np.float32)
         return alphas
 
