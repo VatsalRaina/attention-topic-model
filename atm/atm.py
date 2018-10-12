@@ -1106,7 +1106,7 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                     tf.TensorShape([]),  # resp len -- unused
                     tf.TensorShape([None]),  # prompt
                     tf.TensorShape([]),  # prompt len -- unused
-                    tf.TensorShape([])),  # Dirichlet parameters (alphas) -- unused
+                    tf.TensorShape([2])),  # Dirichlet parameters (alphas) -- unused
                 padding_values=(
                     0.0,  # targets -- unused
                     0.0,  # ensemble predictions - unused
