@@ -1074,6 +1074,22 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
         else:
             return kl_cost
 
+    def _map_func_with_fit(self, dataset, num_threads, capacity, augment=None):
+        """Map function that also fits the Dirichlet. Hopefully should improve training speed"""
+        dataset = dataset.map(lambda targets, teacher_preds, q_id, resp, prompt: (targets,
+                                                                                  teacher_preds,
+                                                                                  tf.cast(q_id, dtype=tf.int32),
+                                                                                  tf.cast(resp, dtype=tf.int32),
+                                                                                  tf.cast(prompt, dtype=tf.int32)),
+                              num_parallel_calls=num_threads).prefetch(capacity)
+
+        return dataset.map(lambda targets, teacher_preds, q_id, resp, prompt: (
+            targets, teacher_preds, q_id, resp, tf.size(resp), prompt, tf.size(prompt), tf.py_func(self._fit_dirichlet,
+                                                                                             [teacher_preds],
+                                                                                             tf.float32,
+                                                                                             name='fit_maxl_dirich')),
+                           num_parallel_calls=num_threads).prefetch(capacity)
+
     def _construct_softmax_xent_cost(self, labels, logits, is_training=False):
         print('Constructing XENT cost')
         xent_cost = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits, name='total_xentropy')
@@ -1126,6 +1142,34 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
             # Set up inputs
             with tf.variable_scope(self._input_scope, reuse=True) as scope:
                 # Construct training data queues
+                if use_teacher_stat:
+                    targets, \
+                    teacher_predictions, \
+                    q_ids, \
+                    responses, \
+                    response_lengths, _, _, \
+                    alphas = self._construct_dataset_from_tfrecord([train_data],
+                                                                   self._parse_func,
+                                                                   self._map_func_with_fit,
+                                                                   self._batch_func,
+                                                                   batch_size,
+                                                                   train=True,
+                                                                   capacity_mul=1000,
+                                                                   num_threads=8)
+                else:
+                    targets, \
+                    teacher_predictions, \
+                    q_ids, \
+                    responses, \
+                    response_lengths, _, _ = self._construct_dataset_from_tfrecord([train_data],
+                                                                                   self._parse_func,
+                                                                                   self._map_func,
+                                                                                   self._batch_func,
+                                                                                   batch_size,
+                                                                                   train=True,
+                                                                                   capacity_mul=1000,
+                                                                                   num_threads=8)
+
                 targets, \
                 teacher_predictions, \
                 q_ids, \
@@ -1200,8 +1244,8 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
 
             if use_teacher_stat:
                 # Calculate the parameters of the max-likelihood Dirichlet
-                alphas = tf.py_func(self._fit_dirichlet, [teacher_predictions], tf.float32,
-                                    name='fit_max_likelihood_dirichlet')
+                # alphas = tf.py_func(self._fit_dirichlet, [teacher_predictions], tf.float32,
+                #                     name='fit_max_likelihood_dirichlet')
                 # Construct KL training cost
                 trn_cost, total_loss = self._construct_kl_loss_between_dirichlets(teacher_alphas=alphas,
                                                                                   logits=trn_logits,
