@@ -1090,6 +1090,51 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                                                                                              name='fit_maxl_dirich')),
                            num_parallel_calls=num_threads).prefetch(capacity)
 
+    def _batch_func_with_fit(self, dataset, batch_size, num_buckets=10, bucket_width=10):
+        # Bucket by source sequence length (buckets for lengths 0-9, 10-19, ...)
+        def batching_func(x):
+            return x.padded_batch(
+                batch_size,
+                # The first three entries are the source and target line rows;
+                # these have unknown-length vectors.  The last two entries are
+                # the source and target row sizes; these are scalars.
+                padded_shapes=(
+                    tf.TensorShape([]),  # targets -- unused
+                    tf.TensorShape([self.num_teachers]),  # predictions -- unused
+                    tf.TensorShape([]),  # q_id -- unused
+                    tf.TensorShape([None]),  # resp
+                    tf.TensorShape([]),  # resp len -- unused
+                    tf.TensorShape([None]),  # prompt
+                    tf.TensorShape([]),  # prompt len -- unused
+                    tf.TensorShape([])),  # prompt len -- unused
+                padding_values=(
+                    0.0,  # targets -- unused
+                    0.0,  # ensemble predictions - unused
+                    np.int32(0),  # q_id -- unused
+                    np.int32(0),  # resp
+                    np.int32(0),  # resp len -- unused
+                    np.int32(0),  # resp len -- unused
+                    np.int32(0)))
+
+        def key_func(unused_1, unused_2, unused_3, unused_4, resp_len, unused_5, unused_6, unused_7):
+            # Calculate bucket_width by maximum source sequence length.
+            # Pairs with length [0, bucket_width) go to bucket 0, length
+            # [bucket_width, 2 * bucket_width) go to bucket 1, etc.  Pairs with length
+            # over ((num_bucket-1) * bucket_width) words all go into the last bucket.
+
+            # Bucket sentence pairs by the length of their response
+            bucket_id = resp_len // bucket_width
+            return tf.to_int64(tf.minimum(num_buckets, bucket_id))
+
+        def reduce_func(unused_key, windowed_data):
+            return batching_func(windowed_data)
+
+        batched_dataset = dataset.apply(tf.contrib.data.group_by_window(key_func=key_func,
+                                                                        reduce_func=reduce_func,
+                                                                        window_size=batch_size))
+
+        return batched_dataset
+
     def _construct_softmax_xent_cost(self, labels, logits, is_training=False):
         print('Constructing XENT cost')
         xent_cost = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits, name='total_xentropy')
@@ -1151,7 +1196,7 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                     alphas = self._construct_dataset_from_tfrecord([train_data],
                                                                    self._parse_func,
                                                                    self._map_func_with_fit,
-                                                                   self._batch_func,
+                                                                   self._batch_func_with_fit,
                                                                    batch_size,
                                                                    train=True,
                                                                    capacity_mul=1000,
