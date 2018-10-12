@@ -1106,15 +1106,17 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                     tf.TensorShape([]),  # resp len -- unused
                     tf.TensorShape([None]),  # prompt
                     tf.TensorShape([]),  # prompt len -- unused
-                    tf.TensorShape([])),  # prompt len -- unused
+                    tf.TensorShape([])),  # Dirichlet parameters (alphas) -- unused
                 padding_values=(
                     0.0,  # targets -- unused
                     0.0,  # ensemble predictions - unused
                     np.int32(0),  # q_id -- unused
                     np.int32(0),  # resp
                     np.int32(0),  # resp len -- unused
-                    np.int32(0),  # resp len -- unused
-                    np.int32(0)))
+                    np.int32(0),  # prompt
+                    np.int32(0),  # prompt len -- unused
+                    0.0)  # Dirichlet parameters (alphas) -- unused
+            )
 
         def key_func(unused_1, unused_2, unused_3, unused_4, resp_len, unused_5, unused_6, unused_7):
             # Calculate bucket_width by maximum source sequence length.
