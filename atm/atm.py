@@ -1012,8 +1012,8 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
         """Negative Log Likelihood (NLL) cost for a binary classification under Dirichlet prior"""
         print('Constructing NLL cost under Dirichlet prior')
         # Clip the predictions for numerical stability
-        teacher_predictions = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon),
-                                               clip_value_max=(1.0 - self.epsilon))
+        # teacher_predictions = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon),
+        #                                        clip_value_max=(1.0 - self.epsilon))
 
         concentration_params = tf.exp(logits)
         alpha1, alpha2 = tf.split(concentration_params, num_or_size_splits=2,
@@ -1044,9 +1044,6 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
         """KL loss for binary classification under Dirichlet prior, calculated between Dirichlet
         parametrised by the model and the max-likelihood Dirichlet given observations (teacher predictions)"""
         print('Constructing KL loss between max-likelihood and model Dirichlet')
-        # # Clip the predictions for numerical stability
-        # teacher_predictions = tf.clip_by_value(teacher_predictions, clip_value_min=(0.0 + self.epsilon),
-        #                                        clip_value_max=(1.0 - self.epsilon))
 
         model_alphas = tf.exp(logits)
 
