@@ -1187,13 +1187,13 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                 if use_teacher_stat:
                     targets, \
                     teacher_predictions, \
+                    alphas, \
                     q_ids, \
                     responses, \
-                    response_lengths, _, _, \
-                    alphas = self._construct_dataset_from_tfrecord([train_data],
-                                                                   self._parse_func,
-                                                                   self._map_func_with_fit,
-                                                                   self._batch_func_with_fit,
+                    response_lengths, _, _ = self._construct_dataset_from_tfrecord([train_data],
+                                                                   self._parse_func_with_dirich,
+                                                                   self._map_func_with_dirich,
+                                                                   self._batch_func_with_dirich,
                                                                    batch_size,
                                                                    train=True,
                                                                    capacity_mul=1000,
@@ -1212,18 +1212,6 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                                                                                    capacity_mul=1000,
                                                                                    num_threads=8)
 
-                targets, \
-                teacher_predictions, \
-                q_ids, \
-                responses, \
-                response_lengths, _, _ = self._construct_dataset_from_tfrecord([train_data],
-                                                                               self._parse_func,
-                                                                               self._map_func,
-                                                                               self._batch_func,
-                                                                               batch_size,
-                                                                               train=True,
-                                                                               capacity_mul=1000,
-                                                                               num_threads=8)
 
                 valid_iterator = self._construct_dataset_from_tfrecord([valid_data],
                                                                        self._parse_func,
@@ -1245,10 +1233,6 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
                 # Turn into softmax compatible format (class distribution instead of P_relevant)
                 valid_targets = tf.concat([valid_targets, 1.0 - valid_targets], axis=1)
                 targets = tf.concat([targets, 1.0 - targets], axis=1)
-
-            # # Calculate student targets as the mean teacher ensemble prediction
-            # trn_teacher_targets = tf.reduce_mean(teacher_predictions, axis=1, keep_dims=True)
-            # valid_teacher_targets = tf.reduce_mean(valid_teacher_predictions, axis=1, keep_dims=True)
 
             topics = tf.convert_to_tensor(topics, dtype=tf.int32)
             topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
@@ -1492,4 +1476,78 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
         log_alphas = scipy.optimize.fmin(lambda x: util.nll_exp(x, teacher_predictions), np.array([1., 1.]), disp=False)
         alphas = np.exp(log_alphas).astype(np.float32)
         return alphas
+
+    def _parse_func_with_dirich(self, example_proto):
+        contexts, features = tf.parse_single_sequence_example(
+            serialized=example_proto,
+            context_features={"targets": tf.FixedLenFeature([], tf.float32),
+                              "grade": tf.FixedLenFeature([], tf.float32),
+                              "spkr": tf.FixedLenFeature([], tf.string),
+                              "q_id": tf.FixedLenFeature([], tf.int64),
+                              "teacher_pred": tf.FixedLenFeature([self.num_teachers], tf.float32),
+                              "dirich_params": tf.FixedLenFeature([2], tf.float32)},
+            sequence_features={'response': tf.FixedLenSequenceFeature([], dtype=tf.int64),
+                               'prompt': tf.FixedLenSequenceFeature([], dtype=tf.int64)})
+
+        return contexts['targets'], contexts['teacher_pred'], contexts['dirich_params'], contexts['q_id'], features[
+            'response'], features['prompt']
+
+    def _map_func_with_dirich(self, dataset, num_threads, capacity, augment=None):
+        dataset = dataset.map(lambda targets, teacher_preds, dirich, q_id, resp, prompt: (targets,
+                                                                                          teacher_preds,
+                                                                                          dirich,
+                                                                                          tf.cast(q_id, dtype=tf.int32),
+                                                                                          tf.cast(resp, dtype=tf.int32),
+                                                                                          tf.cast(prompt,
+                                                                                                  dtype=tf.int32)),
+                              num_parallel_calls=num_threads).prefetch(capacity)
+
+        return dataset.map(lambda targets, teacher_preds, dirich, q_id, resp, prompt: (
+            targets, teacher_preds, dirich, q_id, resp, tf.size(resp), prompt, tf.size(prompt)),
+                           num_parallel_calls=num_threads).prefetch(capacity)
+
+    def _batch_func_with_dirich(self, dataset, batch_size, num_buckets=10, bucket_width=10):
+        # Bucket by source sequence length (buckets for lengths 0-9, 10-19, ...)
+        def batching_func(x):
+            return x.padded_batch(
+                batch_size,
+                # The first three entries are the source and target line rows;
+                # these have unknown-length vectors.  The last two entries are
+                # the source and target row sizes; these are scalars.
+                padded_shapes=(
+                    tf.TensorShape([]),  # targets -- unused
+                    tf.TensorShape([self.num_teachers]),  # predictions -- unused
+                    tf.TensorShape([2]),  # Dirichlet params -- unused
+                    tf.TensorShape([]),  # q_id -- unused
+                    tf.TensorShape([None]),  # resp
+                    tf.TensorShape([]),  # resp len -- unused
+                    tf.TensorShape([None]),  # prompt
+                    tf.TensorShape([])),  # prompt len -- unused
+                padding_values=(
+                    0.0,  # targets -- unused
+                    0.0,  # ensemble predictions - unused
+                    0.0,  # Dirichlet params - unused
+                    np.int32(0),  # q_id -- unused
+                    np.int32(0),  # resp
+                    np.int32(0),  # resp len -- unused
+                    np.int32(0),  # prompt
+                    np.int32(0)))  # prompt len -- unused
+
+        def key_func(unused_1, unused_2, unused_3, unused_4, unused_5, resp_len, unused_6, unused_7):
+            # Calculate bucket_width by maximum source sequence length.
+            # Pairs with length [0, bucket_width) go to bucket 0, length
+            # [bucket_width, 2 * bucket_width) go to bucket 1, etc.  Pairs with length
+            # over ((num_bucket-1) * bucket_width) words all go into the last bucket.
+
+            # Bucket sentence pairs by the length of their response
+            bucket_id = resp_len // bucket_width
+            return tf.to_int64(tf.minimum(num_buckets, bucket_id))
+
+        def reduce_func(unused_key, windowed_data):
+            return batching_func(windowed_data)
+
+        batched_dataset = dataset.apply(tf.contrib.data.group_by_window(key_func=key_func,
+                                                                        reduce_func=reduce_func,
+                                                                        window_size=batch_size))
+        return batched_dataset
 
