@@ -22,6 +22,8 @@ commandLineParser.add_argument('library_path', type=str,
                                help='absolute path location wheree to setup ')
 commandLineParser.add_argument('wlist_path', type=str,
                                help='which should be loaded')
+commandLineParser.add_argument('embedding_path', type=str,
+                               help='Specify path to from which to initialize model')
 commandLineParser.add_argument('--name', type=str, default='attention_based_topic_model',
                                help='Specify the name of the model')
 commandLineParser.add_argument('--seed', type=int, default=100,
@@ -93,6 +95,7 @@ def main(argv=None):
     os.mkdir('model')
     os.symlink(args.data_path, 'data')
     os.symlink(args.library_path, 'atm')
+    os.symlink(args.embedding_path, 'model/prompt_embeddings.txt')
 
     #Define network architecture
     network_architecture=dict(model_name=args.name,         # Define Model Type

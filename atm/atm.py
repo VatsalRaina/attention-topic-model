@@ -561,32 +561,15 @@ class AttentionTopicModel(BaseModel):
 
         return test_labels, test_probs, test_loss
 
-        # def rank(self, X, topics, name=None):
-        #     with self._graph.as_default():
-        #         test_probs = None
-        #         batch_size = len(topics[1])
-        #         test_probs = np.zeros(shape=(len(X[0]), batch_size), dtype=np.float32)
-        #         for i in xrange(len(X[1])):
-        #             if i % 10 == 0: print i
-        #             batch_test_probs = self.sess.run(self._probabilities,
-        #                                              feed_dict={self.x_a: np.asarray([X[0][i]] * batch_size),
-        #                                                         self.alens: np.asarray([X[1][i]] * batch_size),
-        #                                                         self.q_ids: np.arange(batch_size),
-        #                                                         self.x_q: topics[0],
-        #                                                         self.qlens: topics[1],
-        #                                                         self.maxlen: np.max(X[1]),
-        #                                                         self.batch_size: batch_size})
-        #             test_probs[i, :] = np.squeeze(batch_test_probs)
-        #         np.savetxt(name + '_probabilities_topics.txt', test_probs)
-        #         test_probs = np.reshape(test_probs, newshape=(batch_size * len(X[0])))
-        #         hist = np.histogram(test_probs, bins=100, range=[0.0, 1.0], density=True)
-        #
-        #         plt.plot(hist[0])
-        #         plt.xticks(np.arange(0, 101, 20), [str(i / 100.0) for i in xrange(0, 101, 20)])
-        #         plt.ylim(0, 50)
-        #         plt.ylabel('Density')
-        #         plt.xlabel('Relevance Probability')
-        #         plt.title('Empirical PDF of Relevance Probabilities')
-        #         # plt.show()
-        #         plt.savefig('histogram_LINSKneg02.png')
-        #         plt.close()
+    def get_prompt_embeddings(self, prompts, prompt_lens, save_path):
+        with self._graph.as_default():
+            prompts = tf.convert_to_tensor(prompts, dtype=tf.int32)
+            prompt_lens = tf.convert_to_tensor(prompt_lens, dtype=tf.int32)
+
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                prompt_embeddings = self._construct_prompt_encoder(p_input=prompts, p_seqlens=prompt_lens)
+
+            embeddings = self.sess.run(prompt_embeddings)
+
+            path = os.path.join(save_path, 'prompt_embeddings.txt')
+            np.savetxt(path, embeddings)
