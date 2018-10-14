@@ -27,6 +27,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
+parser.add_argument('models_parent_dir', type=str, help='Path to ensemble directory')
 parser.add_argument('--savedir', type=str, default='./',
                     help='Path to directory where to save the plots')
 parser.add_argument('--rel_labels_path', type=str, default='eval4_naive/labels-probs.txt')
@@ -406,8 +407,7 @@ def test_plot_auc_vs_percentage_included():
 def main():
     args = parser.parse_args()
 
-    models_parent_dir = '/home/miproj/urop.2018/bkm28/seed_experiments'
-    model_dirs = [os.path.join(models_parent_dir, "atm_seed_{}".format(int(i))) for i in range(1, 11)]
+    model_dirs = [os.path.join(args.models_parent_dir, "atm_seed_{}".format(int(i))) for i in range(1, 11)]
 
     labels, ensemble_predictions = get_ensemble_predictions(model_dirs, rel_labels_filepath=args.rel_labels_path)
 
