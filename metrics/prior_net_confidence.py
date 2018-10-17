@@ -24,14 +24,12 @@ import matplotlib.patches as mpatches
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 
-from metrics.seed_spread_confidence import get_label_predictions
-
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
 parser.add_argument('model_parent_dir', type=str, help='Path to model directory')
 parser.add_argument('--save_dir', type=str, default='.',
                     help='Path to directory where to save the plots')
-parser.add_argument('--unseen_eval_dir', type=str, default='linsk_ALL_naive')
-parser.add_argument('--seen_eval_dir', type=str, default='eval4_naive')
+parser.add_argument('--unseen_eval_dir', type=str, default='eval_linsk_ALL')
+parser.add_argument('--seen_eval_dir', type=str, default='eval4_CDE')
 
 matplotlib.rcParams['savefig.dpi'] = 200
 
@@ -56,8 +54,8 @@ def get_labels_logits_predictions(eval_dir):
     logits = []
     with open(os.path.join(eval_dir, 'logits.txt'), "r") as file:
         for line in file.readlines():
-            single_example = line.strip()
-            logit = float(single_example)
+            single_example = line.strip().split()
+            logit = map(lambda x: float(x), single_example)
             logits.append(logit)
     predictions = []
     with open(os.path.join(eval_dir, 'predictions.txt'), "r") as file:
@@ -127,6 +125,8 @@ def main(args):
     plot_auc_vs_percentage_included(labels_unseen, preds_unseen, diff_entropy_unseen, resolution=200, sort_by_name='diff. entropy')
     plt.savefig(os.path.join(args.save_dir, 'auc_vs_cumulative_samples_included_diff_entropy_unseen.png'), bbox_inches='tight')
     plt.clf()
+
+    print("Mean Diff. entropy seen: {}, unseen: {}".format(np.mean(diff_entropy_seen), np.mean(diff_entropy_unseen)))
 
     # mean_target_deviation = np.abs(labels - avg_predictions)
     # # print("mean_target_deviation\n", mean_target_deviation.shape, "\n", mean_target_deviation[:5])
