@@ -1440,11 +1440,112 @@ class ATMPriorNetworkStudent(AttentionTopicModelStudent):
             self.sess.run(test_iterator.initializer)
 
             if cache_inputs:  # todo: this won't work yet
-                return self._predict_loop_with_caching(loss, test_probabilities, test_targets,
+                return self._predict_loop_with_caching(loss, test_probabilities, test_logits, test_targets,
                                                        test_responses, test_response_lengths, test_prompts,
                                                        test_prompt_lens)
             else:
-                return self._predict_loop(loss, test_probabilities, test_targets)
+                return self._predict_loop(loss, test_probabilities, test_logits, test_targets)
+
+    def _predict_loop_with_caching(self, loss, test_probabilities, test_logits, test_targets, test_responses, test_response_lengths,
+                                   test_prompts, test_prompt_lens):
+        test_loss = 0.0
+        total_size = 0
+        count = 0
+
+        # Variables for storing the batch_ordered data
+        test_responses_list = []
+        test_prompts_list = []
+        while True:
+            try:
+                batch_eval_loss, \
+                batch_test_probs, \
+                batch_test_logits, \
+                batch_test_targets, \
+                batch_responses, \
+                batch_response_lengths, \
+                batch_prompts, \
+                batch_prompt_lens = self.sess.run([loss,
+                                                   test_probabilities,
+                                                   test_logits,
+                                                   test_targets,
+                                                   test_responses,
+                                                   test_response_lengths,
+                                                   test_prompts,
+                                                   test_prompt_lens])
+
+                size = batch_test_probs.shape[0]
+                test_loss += float(size) * batch_eval_loss
+                if count == 0:
+                    test_probs_arr = batch_test_probs  # shape: (num_batches, 1)
+                    test_logits_arr = batch_test_logits  # shape: (num_batches, 2)
+                    test_labels_arr = batch_test_targets[:, np.newaxis]  # becomes shape: (num_batches, 1)
+                    test_response_lens_arr = batch_response_lengths[:, np.newaxis]  # becomes shape: (num_batches, 1)
+                    test_prompt_lens_arr = batch_prompt_lens[:, np.newaxis]  # becomes shape: (num_batches, 1)
+                else:
+                    test_probs_arr = np.concatenate((test_probs_arr, batch_test_probs), axis=0)
+                    test_logits_arr = np.concatenate((test_logits_arr, batch_test_logits), axis=0)
+                    test_labels_arr = np.concatenate((test_labels_arr, batch_test_targets[:, np.newaxis]), axis=0)
+                    test_response_lens_arr = np.concatenate(
+                        (test_response_lens_arr, batch_response_lengths[:, np.newaxis]), axis=0)
+                    test_prompt_lens_arr = np.concatenate((test_prompt_lens_arr, batch_prompt_lens[:, np.newaxis]),
+                                                          axis=0)
+                test_responses_list.extend(list(batch_responses))  # List of numpy arrays!
+                test_prompts_list.extend(list(batch_prompts))  # List of numpy arrays!
+
+                total_size += size
+                count += 1
+            except:  # todo: tf.errors.OutOfRangeError:
+                break
+
+        test_loss = test_loss / float(total_size)
+
+        return (test_loss,
+                test_probs_arr,
+                test_logits_arr,
+                test_labels_arr.astype(np.int32),
+                test_response_lens_arr.astype(np.int32),
+                test_prompt_lens_arr.astype(np.int32),
+                test_responses_list,
+                test_prompts_list)
+
+    def _predict_loop(self, loss, test_probabilities, test_logits, test_targets):
+        test_loss = 0.0
+        total_size = 0
+        count = 0
+
+        # Variables for storing the batch_ordered data
+        while True:
+            try:
+                batch_eval_loss, \
+                batch_test_probs, \
+                batch_test_logits, \
+                batch_test_targets = self.sess.run([loss,
+                                                    test_probabilities,
+                                                    test_logits,
+                                                    test_targets])
+
+                size = batch_test_probs.shape[0]
+                test_loss += float(size) * batch_eval_loss
+                if count == 0:
+                    test_probs_arr = batch_test_probs  # shape: (num_batches, 1)
+                    test_logits_arr = batch_test_logits  # shape: (num_batches, 2)
+                    test_labels_arr = batch_test_targets[:, np.newaxis]  # becomes shape: (num_batches, 1)
+                else:
+                    test_probs_arr = np.concatenate((test_probs_arr, batch_test_probs), axis=0)
+                    test_logits_arr = np.concatenate((test_logits_arr, batch_test_logits), axis=0)
+                    test_labels_arr = np.concatenate((test_labels_arr, batch_test_targets[:, np.newaxis]), axis=0)
+
+                total_size += size
+                count += 1
+            except:  # todo: tf.errors.OutOfRangeError:
+                break
+
+        test_loss = test_loss / float(total_size)
+
+        return (test_loss,
+                test_probs_arr,
+                test_logits_arr,
+                test_labels_arr.astype(np.int32))
 
     def _parse_func_eval(self, example_proto):
         """Used for data that doesn't come with teacher predictions"""
