@@ -5,15 +5,16 @@ import os
 import numpy as np
 from numpy import ma
 import scipy.stats
-from scipy.stats import loggamma, gamma, digamma
+from scipy.special import digamma, gammaln
 import math
 import matplotlib
 import argparse
 import matplotlib
-import seaborn as sns
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import seaborn as sns
+
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm
 import matplotlib.colors
@@ -26,26 +27,62 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 
 from metrics.seed_spread_confidence import get_label_predictions
+sns.set(style='whitegrid')
 
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
-parser.add_argument('model_parent_dir', type=str, help='Path to model directory')
+parser.add_argument('models_parent_dir', type=str, help='Path to directory with models')
+parser.add_argument('--model_base_name', type=str, default='atm_prior_net_stats')
 parser.add_argument('--save_dir', type=str, default='.',
                     help='Path to directory where to save the plots')
 parser.add_argument('--unseen_eval_dir', type=str, default='linsk_ALL_naive')
 parser.add_argument('--seen_eval_dir', type=str, default='eval4_naive')
+parser.add_argument('--which_single_model', type=int, default=1,
+                    help='For the plots that only use a single model, which model to use.')
+parser.add_argument('--num_trained_models', type=int, default=10)
 
 matplotlib.rcParams['savefig.dpi'] = 200
 
 
-def calc_diff_entropy(logits):
-    alpha_1, alpha_2 = np.exp(logits[:, 0]), np.exp(logits[:, 1])
-    alpha_0 = alpha_1 + alpha_2
-    # with np.errstate(divide='ignore', invalid='ignore'):
-    diff_entropy = loggamma(alpha_1) + loggamma(alpha_2) - np.log(gamma(alpha_0)) - (alpha_1 - 1) * (
-        digamma(alpha_1) - digamma(alpha_0)) - (alpha_2 - 1) * (digamma(alpha_2) - digamma(alpha_0))
-        # diff_entropy[~ np.isfinite(diff_entropy)] = 0.
+class ModelEvaluationStats(object):
+    def __init__(self, model_dir_path, eval_dir='eval4_CDE'):
+        self.model_dir_path = model_dir_path
+        self.eval_dir = eval_dir
+        self.eval_dir_path = os.path.join(model_dir_path, eval_dir)
 
+        # Get the evaluation outputs
+        self.labels, self.logits, self.preds = get_labels_logits_predictions(self.eval_dir_path)
+        self.alphas = np.exp(self.logits)
+
+        # Calculate the measures of uncertainty
+        self.diff_entropy = calc_dirich_diff_entropy(self.alphas)
+        self.mutual_info = calc_dirich_mutual_info(self.alphas)
+
+        self.size = len(self.labels)
+
+    def __len__(self):
+        return self.size
+
+
+def calc_dirich_diff_entropy(alphas):
+    # alpha_1, alpha_2 = np.exp(logits[:, 0]), np.exp(logits[:, 1])
+    # alpha_0 = alpha_1 + alpha_2
+    # # with np.errstate(divide='ignore', invalid='ignore'):
+    # diff_entropy = loggamma(alpha_1) + loggamma(alpha_2) - np.log(gamma(alpha_0)) - (alpha_1 - 1) * (
+    #     digamma(alpha_1) - digamma(alpha_0)) - (alpha_2 - 1) * (digamma(alpha_2) - digamma(alpha_0))
+
+    alpha_0 = np.sum(alphas, axis=1, keepdims=True)
+    diff_entropy = np.sum(gammaln(alphas), axis=1) - np.squeeze(gammaln(alpha_0)) - np.sum(
+        (alphas - 1.) * (digamma(alphas) - digamma(alpha_0)), axis=1)
     return diff_entropy
+
+
+def calc_dirich_mutual_info(alphas):
+    alpha_0 = np.sum(alphas, axis=1, keepdims=True)
+    class_probs = alphas / alpha_0
+    mutual_info = -1 * np.sum(class_probs * (np.log(class_probs) - digamma(alphas + 1.) + digamma(alpha_0 + 1.)),
+                              axis=1)
+
+    return mutual_info
 
 
 def get_labels_logits_predictions(eval_dir):
@@ -74,9 +111,11 @@ def get_labels_logits_predictions(eval_dir):
     return labels_array, logits_array, preds_array
 
 
-def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resolution=100, sort_by_name='std'):
+def plot_auc_vs_percentage_included_single(labels, predictions, sort_by_array, resolution=100, color='black',
+                                           sort_by_name='std'):
     """
-    Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
+    Plot the ROC AUC score vs. the percentage of examples included for a single model
+    where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
     curve would show the performance on the subset of the examples given by thresholding the spread.
     :param labels: target label array
@@ -85,6 +124,16 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     :param resolution: Number of points to plot
     :return:
     """
+    proportions_included, roc_auc_scores, _ = _get_cum_roc_auc_with_sort(labels, predictions, sort_by_array,
+                                                                         resolution=resolution)
+
+    plt.plot(proportions_included, roc_auc_scores, color=color)
+    plt.xlabel("Percentage examples included as sorted by " + sort_by_name + " of Prior Net output.")
+    plt.ylabel("ROC AUC score on the subset examples included")
+    return
+
+
+def _get_cum_roc_auc_with_sort(labels, predictions, sort_by_array, resolution=100):
     num_examples = len(labels)
 
     sorted_order = np.argsort(sort_by_array)
@@ -100,62 +149,117 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
         labels_subset = labels_sorted[:last_idx]
         predictions_subset = predictions_sorted[:last_idx]
 
-        # print(len(labels_subset), len(predictions_subset))
-        # print(labels_subset[max(0, last_idx-5): last_idx])
         try:
             roc_auc_scores[i] = roc_auc_score(labels_subset, predictions_subset)
         except ValueError:
             roc_auc_scores[i] = np.nan
+    return proportions_included, roc_auc_scores, sorted_order
 
-    plt.plot(proportions_included, roc_auc_scores, color=(.2, .2, .6))
+
+def plot_auc_vs_percentage_included_with_proportions(labels_seen, labels_unseen, predictions_seen, predictions_unseen,
+                                    sort_by_array_seen, sort_by_array_unseen, resolution=100, sort_by_name='std',
+                                    bg_alpha=0.25):
+    """
+    Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
+    sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
+    curve would show the performance on the subset of the examples given by thresholding the spread.
+    """
+    labels = np.hstack((labels_seen, labels_unseen))
+    predictions = np.hstack((predictions_seen, predictions_unseen))
+    sort_by_array = np.hstack((sort_by_array_seen, sort_by_array_unseen))
+
+    num_examples = len(labels)
+
+    # Array with ones if the example is seen-seen and zero otherwise
+    is_seen = np.hstack((np.ones_like(labels_seen), np.zeros_like(labels_unseen)))
+
+    proportions_included, roc_auc_scores, sorted_order = _get_cum_roc_auc_with_sort(labels, predictions, sort_by_array,
+                                                                         resolution=resolution)
+
+    is_seen_sorted = is_seen[sorted_order]
+    percentage_seen = np.cumsum(is_seen_sorted, dtype=np.float32) / np.arange(num_examples, dtype=np.float32)
+
+    # Plot the ROC_AUC vs. proportions included
+    plt.plot(proportions_included, roc_auc_scores)
+
+    # Plot the proportions included
+    x = np.arange(num_examples, dtype=np.float32) / num_examples
+    clrs = sns.color_palette("husl", 2)
+    plt.fill_between(x, 0., percentage_seen, facecolor=clrs[0], alpha=bg_alpha)
+    plt.fill_between(x, percentage_seen, 1., facecolor=clrs[1], alpha=bg_alpha)
+    plt.xlim(0, 1)
+    plt.ylim(0, 1)
     plt.xlabel("Percentage examples included as sorted by " + sort_by_name + " of Prior Net output.")
-    plt.ylabel("ROC AUC score on the subset examples included")
+    # plt.ylabel("ROC AUC score on the subset examples included")
     return
 
 
 def main(args):
-    labels_seen, logits_seen, preds_seen = get_labels_logits_predictions(os.path.join(args.model_parent_dir, args.seen_eval_dir))
-    labels_unseen, logits_unseen, preds_unseen = get_labels_logits_predictions(os.path.join(args.model_parent_dir, args.unseen_eval_dir))
+    # Create save directory if doesn't exist:
+    if not os.path.isdir(args.save_dir):
+        os.makedirs(args.save_dir)
 
-    diff_entropy_seen = calc_diff_entropy(logits_seen)
-    diff_entropy_unseen = calc_diff_entropy(logits_unseen)
+    # Load the data for all the N models trained (for plots where variation across students is shown)
+    ensemble_models_paths = [os.path.join(args.models_parent_dir, args.model_base_name + str(i + 1)) for i in
+                             range(args.num_trained_models)]
+    all_evaluation_stats_seen = [ModelEvaluationStats(model_path, eval_dir=args.seen_eval_dir) for model_path in
+                                 ensemble_models_paths]
+    all_evaluation_stats_unseen = [ModelEvaluationStats(model_path, eval_dir=args.unseen_eval_dir) for model_path in
+                                   ensemble_models_paths]
 
 
-    #   AUC vs. CUMULATIVE INCLUDED
-    # Make AUC vs. cumulative samples included
-    plot_auc_vs_percentage_included(labels_seen, preds_seen, diff_entropy_seen, resolution=200, sort_by_name='diff. entropy')
-    plt.savefig(os.path.join(args.save_dir, 'auc_vs_cumulative_samples_included_diff_entropy_seen.png'), bbox_inches='tight')
+    # Load the data for a single model of choice (normally the best model on the seen-seen data)
+    single_evaluation_stats_seen = all_evaluation_stats_seen[args.which_single_model - 1]
+    single_evaluation_stats_unseen = all_evaluation_stats_unseen[args.which_single_model - 1]
+
+
+    # Make AUC vs. cumulative samples included for N models - DIFF. ENTROPY
+    # Seen-seen
+    for i in range(args.num_trained_models):
+        eval_stats = all_evaluation_stats_seen[i]
+        plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.diff_entropy,
+                                               resolution=200, sort_by_name='diff. entropy')
+    plt.savefig(
+        os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_seen_{}.png'.format(args.model_base_name)),
+        bbox_inches='tight')
     plt.clf()
 
-    plot_auc_vs_percentage_included(labels_unseen, preds_unseen, diff_entropy_unseen, resolution=200, sort_by_name='diff. entropy')
-    plt.savefig(os.path.join(args.save_dir, 'auc_vs_cumulative_samples_included_diff_entropy_unseen.png'), bbox_inches='tight')
+    # unseen-unseen
+    for i in range(args.num_trained_models):
+        eval_stats = all_evaluation_stats_unseen[i]
+        plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.diff_entropy,
+                                               resolution=200, sort_by_name='diff. entropy')
+    plt.savefig(
+        os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_unseen_{}.png'.format(args.model_base_name)),
+        bbox_inches='tight')
     plt.clf()
 
-    # mean_target_deviation = np.abs(labels - avg_predictions)
-    # # print("mean_target_deviation\n", mean_target_deviation.shape, "\n", mean_target_deviation[:5])
-    #
-    # correct = mean_target_deviation < 0.5
-    # incorrect = np.invert(correct)
-    #
-    # # Calculate the true_positives, true_negatives .. e.t.c.
-    # # Define POSITIVE as OFF TOPIC
-    # tp = np.logical_and(correct, avg_predictions < 0.5)
-    # tn = np.logical_and(correct, avg_predictions >= 0.5)
-    # fp = np.logical_and(incorrect, avg_predictions < 0.5)
-    # fn = np.logical_and(incorrect, avg_predictions >= 0.5)
-    #
-    # print("Metrics calculated")
-    #
-    # # Make the plots:
-    # savedir = args.savedir
-    #
-    # #    RATIOS PLOTS
-    # # Make the std ratios plots
-    # plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=40, y_lim=[0.0, 1.0])
-    # plt.xlabel("Spread (std of ensemble predictions)")
-    # plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
-    # plt.savefig(savedir + '/ratios_std_spread_histogram.png', bbox_inches='tight')
-    # plt.clf()
+    # Make AUC vs. cumulative samples included for N models - MUTUAL INFORMATION
+    # Seen-seen
+    for i in range(args.num_trained_models):
+        eval_stats = all_evaluation_stats_seen[i]
+        plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.mutual_info,
+                                               resolution=200, sort_by_name='mutual information')
+    plt.savefig(
+        os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_seen_{}.png'.format(args.model_base_name)),
+        bbox_inches='tight')
+    plt.clf()
+
+    # unseen-unseen
+    for i in range(args.num_trained_models):
+        eval_stats = all_evaluation_stats_unseen[i]
+        plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.mutual_info,
+                                               resolution=200, sort_by_name='mutual information')
+    plt.savefig(
+        os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_unseen_{}.png'.format(args.model_base_name)),
+        bbox_inches='tight')
+    plt.clf()
+
+
+    # #   AUC seen and unseen combined vs. CUMULATIVE INCLUDED
+    # plt.savefig(os.path.join(args.save_dir, 'auc_vs_cumulative_samples_included_diff_entropy_combined.png'),
+    #             bbox_inches='tight')
+
 
 
 
