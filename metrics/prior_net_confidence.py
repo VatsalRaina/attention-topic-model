@@ -254,11 +254,14 @@ def main(args):
         bbox_inches='tight')
     plt.clf()
 
-
-    mean_diff_entropy_seen = reduce(lambda x, y: np.mean(x.diff_entropy) + np.mean(y.diff_entropy), all_evaluation_stats_seen) / args.num_trained_models
-    mean_diff_entropy_unseen = reduce(lambda x, y: np.mean(x.diff_entropy) + np.mean(y.diff_entropy), all_evaluation_stats_unseen) / args.num_trained_models
-    mean_mutual_info_seen = reduce(lambda x, y: np.mean(x.mutual_info) + np.mean(y.mutual_info), all_evaluation_stats_seen) / args.num_trained_models
-    mean_mutual_info_unseen = reduce(lambda x, y: np.mean(x.mutual_info) + np.mean(y.mutual_info), all_evaluation_stats_unseen) / args.num_trained_models
+    mean_diff_entropy_seen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.diff_entropy),
+                                                            all_evaluation_stats_seen)) / args.num_trained_models
+    mean_diff_entropy_unseen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.diff_entropy),
+                                                              all_evaluation_stats_unseen)) / args.num_trained_models
+    mean_mutual_info_seen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.mutual_info),
+                                                           all_evaluation_stats_seen)) / args.num_trained_models
+    mean_mutual_info_unseen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.mutual_info),
+                                                             all_evaluation_stats_unseen)) / args.num_trained_models
     print("Mean Diff. entropy seen: {}, unseen: {}".format(mean_diff_entropy_seen, mean_diff_entropy_unseen))
     print("Mean mutual information seen: {}, unseen: {}".format(mean_mutual_info_seen, mean_mutual_info_unseen))
     # #   AUC seen and unseen combined vs. CUMULATIVE INCLUDED
