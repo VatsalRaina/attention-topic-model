@@ -76,6 +76,7 @@ def main(args):
     if args.save_reordered_input:
         test_loss, \
         test_probs_arr, \
+        test_logits_arr, \
         test_labels_arr, \
         test_response_lens_arr, \
         test_prompt_lens_arr, \
@@ -84,6 +85,7 @@ def main(args):
     else:
         test_loss, \
         test_probs_arr, \
+        test_logits_arr, \
         test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False, apply_bucketing=apply_bucketing)
 
     end_time = time.time()
@@ -94,6 +96,7 @@ def main(args):
     np.savetxt(os.path.join(args.output_dir, 'labels-probs.txt'), data)
     np.savetxt(os.path.join(args.output_dir, 'labels.txt'), test_labels_arr)
     np.savetxt(os.path.join(args.output_dir, 'predictions.txt'), test_probs_arr)
+    np.savetxt(os.path.join(args.output_dir, 'logits.txt'), test_logits_arr)
 
     if args.save_reordered_input:
         np.savetxt(os.path.join(args.output_dir, 'response_lengths.txt'), test_response_lens_arr)
