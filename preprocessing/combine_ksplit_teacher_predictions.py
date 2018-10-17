@@ -9,9 +9,9 @@ import context
 from sklearn.metrics import roc_auc_score
 
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
-parser.add_argument('models_parent_dir', type=str, help='Path to ensemble directory')
-parser.add_argument('--savedir', type=str, default='./',
-                    help='Path to directory where to save the plots')
+parser.add_argument('--ksplit_teacher_ensembles_dir', type=str, default='/home/alta/BLTSpeaking/top-bkm28/models/ksplit_ensembles_CDE', help='Path to teacher ensembles directory')
+parser.add_argument('--save_dir', type=str, default='/home/alta/BLTSpeaking/top-bkm28/data/BLTSgrp24_CDE_ksplit_teacher',
+                    help='Path to directory where to save generated epochs')
 parser.add_argument('--num_epochs_to_gen', type=int, default=6,
                     help='Number of epochs of training data to generate')
 
@@ -206,12 +206,14 @@ def save_to_txt(path, examples_set):
         f.write(speakers_str)
 
 def main(args):
+
+    all_ensembles_dir_path = args.ksplit_teacher_ensembles_dir
+
     for generated_epoch_num in range(1, args.num_epochs_to_gen + 1):
         print('\t>  Generating epoch number: {}  <\n'.format(generated_epoch_num))
 
         # Get the teacher predictions for each epoch set
         teacher_predictions = []
-        all_ensembles_dir_path = '/home/alta/BLTSpeaking/top-bkm28/models/ksplit_ensembles_CDE'
         eval_name = 'eval_grp24_epoch' + str(generated_epoch_num)
         for ensemble_num in range(1, 11):
             ensemble_dir_path = os.path.join(all_ensembles_dir_path, 'ensemble_' + str(ensemble_num))
@@ -276,7 +278,10 @@ def main(args):
 
 
         # Save everything to a new set:
-        save_dir = '/home/alta/BLTSpeaking/top-bkm28/data/BLTSgrp24_CDE_ksplit_teacher/epoch' + str(generated_epoch_num)
+        save_dir = os.path.join(args.save_dir, 'epoch' + str(generated_epoch_num))
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
         combined_ex_set_shuffled_list = combined_ex_set_shuffled.to_list()
         save_to_txt(save_dir, combined_ex_set_shuffled_list)
 
