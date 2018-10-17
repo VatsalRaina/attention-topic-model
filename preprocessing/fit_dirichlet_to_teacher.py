@@ -82,7 +82,6 @@ def main(args):
         if i % 100 == 0:
             print('Step {} out of {}'.format(i, num_examples))
     alphas = np.exp(log_alphas).astype(np.float32)
-    return alphas
 
     # Save the results
     save_path = os.path.join(args.data_dir, args.output_filename)
