@@ -5,11 +5,12 @@ import os
 import numpy as np
 from numpy import ma
 import scipy.stats
-from scipy.special import gamma, digamma
+from scipy.stats import loggamma, gamma, digamma
 import math
 import matplotlib
 import argparse
 import matplotlib
+import seaborn as sns
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -37,8 +38,10 @@ matplotlib.rcParams['savefig.dpi'] = 200
 def calc_diff_entropy(logits):
     alpha_1, alpha_2 = np.exp(logits[:, 0]), np.exp(logits[:, 1])
     alpha_0 = alpha_1 + alpha_2
-    diff_entropy = np.log(gamma(alpha_1)) + np.log(gamma(alpha_2)) - np.log(gamma(alpha_0)) - (alpha_1 - 1) * (
-    digamma(alpha_1) - digamma(alpha_0)) - (alpha_2 - 1) * (digamma(alpha_2) - digamma(alpha_0))
+    # with np.errstate(divide='ignore', invalid='ignore'):
+    diff_entropy = loggamma(alpha_1) + loggamma(alpha_2) - np.log(gamma(alpha_0)) - (alpha_1 - 1) * (
+        digamma(alpha_1) - digamma(alpha_0)) - (alpha_2 - 1) * (digamma(alpha_2) - digamma(alpha_0))
+        # diff_entropy[~ np.isfinite(diff_entropy)] = 0.
 
     return diff_entropy
 
