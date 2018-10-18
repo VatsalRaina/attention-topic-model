@@ -568,7 +568,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
 
         # Variables for storing the batch_ordered data
         while True:
-            #try:
+            try:
                 batch_eval_loss, \
                 batch_test_probs, \
                 batch_test_attention, \
@@ -579,7 +579,6 @@ class HierarchicialAttentionTopicModel(BaseModel):
 
                 size = batch_test_probs.shape[0]
                 test_loss += float(size) * batch_eval_loss
-                print batch_test_attention.shape
                 if count == 0:
                     test_probs_arr = batch_test_probs  # shape: (num_batches, 1)
                     test_attention_arr = batch_test_attention
@@ -591,8 +590,8 @@ class HierarchicialAttentionTopicModel(BaseModel):
 
                 total_size += size
                 count += 1
-            #except:  # todo: tf.errors.OutOfRangeError:
-            #    break
+            except:  # todo: tf.errors.OutOfRangeError:
+                break
 
         test_loss = test_loss / float(total_size)
 
