@@ -4,7 +4,7 @@ Just a one-off script for comparing the seed spread versus confidence
 """
 from __future__ import print_function, division
 import matplotlib
-matplotlib.use('agg')
+matplotlib.use('Agg')
 import sys
 import os
 import numpy as np

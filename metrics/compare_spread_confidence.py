@@ -13,7 +13,7 @@ import sys
 import numpy as np
 
 import matplotlib
-matplotlib.use('agg')
+matplotlib.use('Agg')
 
 from numpy import ma
 import scipy.stats
