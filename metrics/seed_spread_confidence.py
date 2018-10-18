@@ -489,31 +489,37 @@ def main():
 
     #   SCATTER Plots
     # Make std_spread vs mean deviation plot
-    marker_size = 0.01
-    # Positive examples
+    # All  examples
     #sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, shade=True)
-    sns.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
-                np.extract(labels.astype(np.bool), mean_target_deviation), cmap="Blues", shade=True, shade_lowest=False, alpha=0.8)
-    # Negative examples
-    sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cmap="Reds", shade=True, shade_lowest=False, alpha=0.8)
-    plt.legend(['On-Topic', 'Off-Topic'])
-    plt.xlabel("Mutual Information)")
+
+    sns.kdeplot(mutual_information, mean_target_deviation, cmap='Purple', shade=True)
+    plt.ylim(0.0,1.0)
+    plt.xlim(0.0,0.6)
+    plt.xlabel("Mutual Information")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/mutual_information_vs_mean_density.png', bbox_inches='tight')
     plt.clf()
 
-    plt.scatter(np.extract(labels.astype(np.bool), mutual_information),
-                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.5, marker='o',
-                s=marker_size)
-    # Negative examples
-    plt.scatter(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.5,  marker='x',
-                s=marker_size)
-    plt.xlabel("Spread (std of ensemble predictions)")
+    # On-Topic
+    plt.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
+                np.extract(labels.astype(np.bool), mean_target_deviation), cmap='Blues', shade=True)
+    plt.ylim(0.0,1.0)
+    plt.xlim(0.0,0.6)
+    plt.xlabel("Mutual Information")
     plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + '/mutual_information_vs_mean_chart.png', bbox_inches='tight')
+    plt.savefig(savedir + '/mutual_information_vs_mean_density_positive.png', bbox_inches='tight')
     plt.clf()
+
+    # Off-Topic
+    sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cmap="Reds", shade=True,)
+    plt.ylim(0.0,1.0)
+    plt.xlim(0.0,0.6)
+    plt.xlabel("Mutual Information")
+    plt.ylabel("Deviation of average ensemble prediction from label")
+    plt.savefig(savedir + '/mutual_information_vs_mean_density_negative.png', bbox_inches='tight')
+    plt.clf()
+
 
     # Split positive and negative examples into separate plots as well:
     # Positive examples
