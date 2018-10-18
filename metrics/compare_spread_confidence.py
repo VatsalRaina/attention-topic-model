@@ -10,7 +10,6 @@ from numpy import ma
 import scipy.stats
 import math
 import time
-import matplotlib
 import argparse
 import matplotlib
 
@@ -28,6 +27,8 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import recall_score
 from sklearn.metrics import precision_score
+import seaborn as sns
+sns.set()
 
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
 parser.add_argument('models_parent_dir', type=str, help='Path to ensemble directory')
