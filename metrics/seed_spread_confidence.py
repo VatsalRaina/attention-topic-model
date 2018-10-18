@@ -491,8 +491,14 @@ def main():
     # Make std_spread vs mean deviation plot
     marker_size = 0.01
     # Positive examples
-    sns.kdeplot(mutual_information, mean_target_deviation, shade=True)
-    plt.xlabel("Spread (std of ensemble predictions)")
+    #sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, shade=True)
+    sns.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
+                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, shade=True)
+    # Negative examples
+    sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, shade=True)
+    plt.legend(['On-Topic', 'Off-Topic'])
+    plt.xlabel("Mutual Information)")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/mutual_information_vs_mean_density.png', bbox_inches='tight')
     plt.clf()
