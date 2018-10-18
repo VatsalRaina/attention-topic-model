@@ -113,10 +113,11 @@ def plot_spread_histogram(correct, incorrect, spread, n_bins=20, ax=None, spread
     spread_incorrect = np.extract(incorrect, spread)
     ax.hist((spread_correct, spread_incorrect), n_bins, density=True,
             histtype='bar', stacked=True, color=['green', 'red'])
-    ax.hist((spread_correct, spread_incorrect), n_bins, density=True, fill=False,
-            histtype='step', stacked=True, color=['white', 'white'])
+    #ax.hist((spread_correct, spread_incorrect), n_bins, density=True, fill=False,
+    #        histtype='step', stacked=True, color=['white', 'white'])
     plt.xlabel("Spread (" + spread_name + " of ensemble predictions)")
     plt.ylabel("Example Count")
+    plt.legend(['On-Topic','Off-Topic'])
     return ax
 
 
