@@ -11,7 +11,6 @@ import scipy.stats
 import math
 import matplotlib
 import argparse
-import matplotlib
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -33,6 +32,9 @@ parser.add_argument('--savedir', type=str, default='./',
 parser.add_argument('--rel_labels_path', type=str, default='eval4_naive/labels-probs.txt')
 
 matplotlib.rcParams['savefig.dpi'] = 200
+import seaborn as sns
+sns.set()
+
 # Specify the colours
 green = (0.3, 0.9, 0.3)
 dark_green = (0.1, 0.7, 0.3)
