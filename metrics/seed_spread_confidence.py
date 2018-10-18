@@ -493,10 +493,10 @@ def main():
     # Positive examples
     #sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, shade=True)
     sns.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
-                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, shade=True)
+                np.extract(labels.astype(np.bool), mean_target_deviation), shade=True, shade_lowest=False)
     # Negative examples
     sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, shade=True)
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), shade=True, shade_lowest=False)
     plt.legend(['On-Topic', 'Off-Topic'])
     plt.xlabel("Mutual Information)")
     plt.ylabel("Deviation of average ensemble prediction from label")
