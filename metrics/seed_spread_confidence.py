@@ -491,7 +491,7 @@ def main():
     # Make std_spread vs mean deviation plot
     marker_size = 0.01
     # Positive examples
-    sns.jointplot(mutual_information, mean_target_deviation, kind='kde')
+    sns.kdeplot(mutual_information, mean_target_deviation, shade=True)
     plt.xlabel("Spread (std of ensemble predictions)")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/mutual_information_vs_mean_density.png', bbox_inches='tight')
