@@ -579,6 +579,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
 
                 size = batch_test_probs.shape[0]
                 test_loss += float(size) * batch_eval_loss
+                print batch_test_attention.shape
                 if count == 0:
                     test_probs_arr = batch_test_probs  # shape: (num_batches, 1)
                     test_attention_arr = batch_test_attention
