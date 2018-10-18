@@ -380,7 +380,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 loss = 0.0
                 batch_time = time.time()
                 for batch in xrange(n_batches):
-                    if epoch <= 4:
+                    if epoch <= 3:
                         _, loss_value = self.sess.run([train_op_new, trn_cost], feed_dict={self.dropout: dropout})
                     else:
                         _, loss_value = self.sess.run([train_op_all, trn_cost], feed_dict={self.dropout: dropout})
