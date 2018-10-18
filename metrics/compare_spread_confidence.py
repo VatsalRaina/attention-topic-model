@@ -102,8 +102,8 @@ def plot_cum_density_family(predictions, labels, spread, spread_thresholds):
         plt.plot(x, cum_dens_off_topic, color=colours_off_topic[i], linewidth=0.6, alpha=0.5,
                  label='{0:.2f} off-topic'.format(threshold))
 
-    plt.xlim(0, 1)
-    plt.ylim(0, 1)
+    plt.xlim(0.0, 1.0)
+    plt.ylim(0.0, 1.0)
     plt.xlabel("Expected probability of off-topic as predicted by ensemble.")
     plt.ylabel("Cumulative Density")
     # Sort the legend first by on vs. off topic, than by threshold
@@ -160,8 +160,8 @@ def plot_cum_density_family_true(predictions, labels, spread, spread_thresholds)
         plt.plot(x, cum_dens_off_topic, color=colours_off_topic[i], linewidth=0.6, alpha=0.5,
                  label='{0:.2f} off-topic'.format(threshold))
 
-    plt.xlim(0, 1)
-    plt.ylim(0, 1)
+    plt.xlim(0.0, 1.0)
+    plt.ylim(0.0, 1.0)
     plt.xlabel("Expected probability of off-topic as predicted by ensemble.")
     plt.ylabel("Cumulative Density")
     # Sort the legend first by on vs. off topic, than by threshold
