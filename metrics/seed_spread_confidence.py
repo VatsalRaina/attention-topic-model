@@ -492,7 +492,7 @@ def main():
     # All  examples
     #sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, shade=True)
 
-    sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, cmap='Purples', shade=True)
+    sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, cmap='Purples', shade_lowest=False, shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,0.6)
     plt.xlabel("Mutual Information")
@@ -502,7 +502,7 @@ def main():
 
     # On-Topic
     sns.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
-                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, cmap='Blues', shade=True)
+                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, shade_lowest=False, cmap='Blues', shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,0.6)
     plt.xlabel("Mutual Information")
@@ -512,7 +512,7 @@ def main():
 
     # Off-Topic
     sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, cmap="Reds", shade=True)
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, shade_lowest=False, cmap="Reds", shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,0.6)
     plt.xlabel("Mutual Information")
