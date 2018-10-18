@@ -34,7 +34,7 @@ def main(argv=None):
         print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
 
 
-    prompts, prompt_lens = text_to_array(args.topic_path, args.wlist_path, strip_start_end=args.strip_start_end)
+    prompts, prompt_lens = text_to_array(args.prompt_path, args.wlist_path, strip_start_end=args.strip_start_end)
     # Initialize and Run the Model
     atm = AttentionTopicModel(network_architecture=None,
                               load_path=args.load_path,
