@@ -3,17 +3,17 @@ Just a one-off script for comparing the seed spread versus confidence
 """
 #! /usr/bin/env python
 from __future__ import print_function, division
-
+import matplotlib
+matplotlib.use('agg')
 import sys
 import os
 import numpy as np
 from numpy import ma
 import scipy.stats
 import math
-import matplotlib
 import argparse
 
-matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm
