@@ -336,7 +336,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                             global_step=global_step,
                                             clip_gradient_norm=10.0,
                                             summarize_gradients=False)
-            train_op_all = util.create_train_op(total_loss=total_loss,
+            train_op_atn = util.create_train_op(total_loss=total_loss,
                                             learning_rate=learning_rate,
                                             optimizer=optimizer,
                                             optimizer_params=optimizer_params,
@@ -347,6 +347,17 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                             global_step=global_step,
                                             clip_gradient_norm=10.0,
                                             summarize_gradients=False)
+            train_op_all = util.create_train_op(total_loss=total_loss,
+                                            learning_rate=learning_rate,
+                                            optimizer=optimizer,
+                                            optimizer_params=optimizer_params,
+                                            n_examples=n_examples,
+                                            batch_size=batch_size,
+                                            learning_rate_decay=lr_decay,
+                                            global_step=global_step,
+                                            clip_gradient_norm=10.0,
+                                            summarize_gradients=False)
+
 
             # Intialize only newly created variables, as opposed to reused - allows for finetuning and transfer learning :)
             init = tf.variables_initializer(set(tf.global_variables()) - temp)
@@ -380,8 +391,10 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 loss = 0.0
                 batch_time = time.time()
                 for batch in xrange(n_batches):
-                    if epoch <= 3:
+                    if epoch <= 2:
                         _, loss_value = self.sess.run([train_op_new, trn_cost], feed_dict={self.dropout: dropout})
+                    elif epoch == 3:
+                        _, loss_value = self.sess.run([train_op_atn, trn_cost], feed_dict={self.dropout: dropout})
                     else:
                         _, loss_value = self.sess.run([train_op_all, trn_cost], feed_dict={self.dropout: dropout})
                     assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
