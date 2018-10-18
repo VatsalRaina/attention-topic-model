@@ -112,7 +112,7 @@ def plot_spread_histogram(correct, incorrect, spread, n_bins=20, ax=None, spread
     spread_correct = np.extract(correct, spread)
     spread_incorrect = np.extract(incorrect, spread)
     ax.hist((spread_correct, spread_incorrect), n_bins, density=True,
-            histtype='bar', stacked=True, color=['green', 'red'])
+            histtype='bar', stacked=True)
     #ax.hist((spread_correct, spread_incorrect), n_bins, density=True, fill=False,
     #        histtype='step', stacked=True, color=['white', 'white'])
     plt.xlabel("Spread (" + spread_name + " of ensemble predictions)")
@@ -491,17 +491,17 @@ def main():
     # Make std_spread vs mean deviation plot
     marker_size = 0.01
     # Positive examples
-    #plt.scatter(np.extract(labels.astype(np.bool), std_spread),
-    #            np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.15, color=green, marker='o',
-    #            s=marker_size)
+    plt.scatter(np.extract(labels.astype(np.bool), mutual_information),
+                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.15, marker='o',
+                s=marker_size)
     # Negative examples
-    #plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
-    #            np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.15, color=red, marker='x',
-    #            s=marker_size)
-    #plt.xlabel("Spread (std of ensemble predictions)")
-    #plt.ylabel("Deviation of average ensemble prediction from label")
-    #plt.savefig(savedir + '/std_spread_vs_mean_chart.png', bbox_inches='tight')
-    #plt.clf()
+    plt.scatter(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.15,  marker='x',
+                s=marker_size)
+    plt.xlabel("Spread (std of ensemble predictions)")
+    plt.ylabel("Deviation of average ensemble prediction from label")
+    plt.savefig(savedir + '/mutual_information_vs_mean_chart.png', bbox_inches='tight')
+    plt.clf()
 
     # Split positive and negative examples into separate plots as well:
     # Positive examples
