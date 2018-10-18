@@ -31,6 +31,9 @@ parser.add_argument('models_parent_dir', type=str, help='Path to ensemble direct
 parser.add_argument('--savedir', type=str, default='./',
                     help='Path to directory where to save the plots')
 parser.add_argument('--rel_labels_path', type=str, default='eval4_naive/labels-probs.txt')
+parser.add_argument('--rel_attention_path', type=str, default='eval4_naive/prompt_attention.txt')
+parser.add_argument('--hatm', action='store_true', help='Whether to analyse ATM or HATM ensemble')
+
 
 matplotlib.rcParams['savefig.dpi'] = 200
 import seaborn as sns
@@ -65,6 +68,30 @@ def get_ensemble_predictions(model_dirs, rel_labels_filepath='eval4_naive/labels
     # print("shape of 1 pred", all_predictions[0].shape)  # todo:
     all_predictions = np.stack(all_predictions, axis=1)
     return labels, all_predictions
+
+def get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath='eval4_naive/prompt_attention.txt'):
+    """
+    Get measures of uncertainty from prompt attention mechanism of an HATM
+    :param model_dirs: list of paths to model directories
+    :param rel_labels_filepath: path to where the prompt attention file is located within each model directory
+    :return: ndarray arrays of entropies of the mean attention, mean entopies of the attention and mutual information for each input - shape [num_examples]
+    """
+    attention_files = map(lambda model_dir: os.path.join(model_dir, rel_labels_filepath), model_dirs)
+
+    # List to store predictions from all the models considered
+    attention_arrays = []
+    for attention_filepath in attention_files:
+        # Get the predictions from each of the models
+        attention = np.loadtxt(attention_filepath)
+        attention_arrays.append(attention)
+    attention = np.stack(attention_arrays, axis=2)
+
+    mean_attention = np.mean(attention, axis=2)
+    prompt_entropy_mean = - np.sum(mean_attention*np.log(mean_attention),axis=1)
+    prompt_mean_entropy = - np.mean(np.sum(attention*np.log(attention),axis=1),axis=1)
+    prompt_mutual_information = prompt_entropy_mean - prompt_mean_entropy
+
+    return prompt_entropy_mean, prompt_mean_entropy, prompt_mutual_information
 
 
 def get_label_predictions(labels_filepath):
@@ -411,9 +438,17 @@ def test_plot_auc_vs_percentage_included():
 def main():
     args = parser.parse_args()
 
-    model_dirs = [os.path.join(args.models_parent_dir, "atm_seed_{}".format(int(i))) for i in range(1, 11)]
+    if args.hatm:
+        model_dirs = [os.path.join(args.models_parent_dir, "hatm_seed_{}".format(int(i))) for i in range(1, 11)]
+    else:
+        model_dirs = [os.path.join(args.models_parent_dir, "atm_seed_{}".format(int(i))) for i in range(1, 11)]
 
     labels, ensemble_predictions = get_ensemble_predictions(model_dirs, rel_labels_filepath=args.rel_labels_path)
+
+    if args.hatm:
+        prompt_entropy_mean, \
+        prompt_mean_entropy, \
+        prompt_mutual_information = get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath=args.rel_labels_path)
 
     avg_predictions = calc_avg_predictions(ensemble_predictions)
 

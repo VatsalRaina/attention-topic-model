@@ -92,11 +92,11 @@ def main(argv=None):
     print("Time taken for evaluating the dataset: {} minutes".format((end_time - start_time) / 60.0))
 
     # Save the numerical output data
-    print test_attention_arr.shape, test_probs_arr.shape
     data = np.concatenate((test_labels_arr, test_probs_arr), axis=1)
     np.savetxt(os.path.join(args.output_dir, 'labels-probs.txt'), data)
     np.savetxt(os.path.join(args.output_dir, 'labels.txt'), test_labels_arr)
     np.savetxt(os.path.join(args.output_dir, 'predictions.txt'), test_probs_arr)
+    np.savetxt(os.path.join(args.output_dir, 'prompt_attention.txt'), test_attention_arr)
 
     if args.save_reordered_input:
         np.savetxt(os.path.join(args.output_dir, 'response_lengths.txt'), test_response_lens_arr)
