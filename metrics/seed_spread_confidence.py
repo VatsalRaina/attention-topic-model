@@ -492,7 +492,7 @@ def main():
     # All  examples
     #sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, shade=True)
 
-    sns.kdeplot(mutual_information, mean_target_deviation, cmap='Purple', shade=True)
+    sns.kdeplot(mutual_information, mean_target_deviation, cmap='Purples', shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,0.6)
     plt.xlabel("Mutual Information")
