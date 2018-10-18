@@ -158,8 +158,8 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                 tf.ones(shape=[batch_size * (n_samples + 1), self.network_architecture['n_topics']], dtype=tf.float32))
                 a = a * mask
 
-            attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
-            attended_prompt_embedding = tf.matmul(attention, prompt_embeddings)
+            prompt_attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
+            attended_prompt_embedding = tf.matmul(prompt_attention, prompt_embeddings)
 
 
         # Response Encoder RNN
@@ -199,7 +199,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
             probabilities = self.network_architecture['output_fn'](logits)
             predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
 
-        return predictions, probabilities, logits, attention
+        return predictions, probabilities, logits, prompt_attention
 
     def fit(self,
             train_data,
