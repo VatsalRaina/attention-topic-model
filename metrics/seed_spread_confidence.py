@@ -587,10 +587,11 @@ def main():
                              pos_labels=0)
     plt.savefig(savedir + '/ensemble_family_pr_curve_mutual_info.png', bbox_inches='tight')
     plt.clf()
+
+    test_ratio_bar_chart(savedir=args.savedir)
     return
 
 
 if __name__ == "__main__":
     main()
-    test_ratio_bar_chart(savedir="/home/alta/WebDir/ind_reports/bkm28")
     # test_plot_auc_vs_percentage_included()
