@@ -324,7 +324,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
 
             variables1 =tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='.*((PROMPT_ATN)|(RNN_KEY)).*')
             variables2 = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                                           scope='.*((PROMPT_ATN)|(RNN_KEY)|(Grader_Attention)).*')
+                                           scope='.*((PROMPT_ATN)|(RNN_KEY)|(Attention)).*')
             for val in variables2:
                 print val.name
             train_op_new = util.create_train_op(total_loss=total_loss,
