@@ -112,7 +112,7 @@ def plot_spread_histogram(correct, incorrect, spread, n_bins=20, ax=None, spread
     spread_correct = np.extract(correct, spread)
     spread_incorrect = np.extract(incorrect, spread)
     ax.hist((spread_correct, spread_incorrect), n_bins, density=True,
-            histtype='bar', stacked=True)
+            histtype='bar', stacked=True, alpha=0.5)
     #ax.hist((spread_correct, spread_incorrect), n_bins, density=True, fill=False,
     #        histtype='step', stacked=True, color=['white', 'white'])
     plt.xlabel("Spread (" + spread_name + " of ensemble predictions)")
@@ -492,11 +492,11 @@ def main():
     marker_size = 0.01
     # Positive examples
     plt.scatter(np.extract(labels.astype(np.bool), mutual_information),
-                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.15, marker='o',
+                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.5, marker='o',
                 s=marker_size)
     # Negative examples
     plt.scatter(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.15,  marker='x',
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.5,  marker='x',
                 s=marker_size)
     plt.xlabel("Spread (std of ensemble predictions)")
     plt.ylabel("Deviation of average ensemble prediction from label")
