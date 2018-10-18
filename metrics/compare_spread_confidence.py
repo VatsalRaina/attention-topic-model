@@ -1,6 +1,7 @@
 """
 Just a one-off script for comparing the seed spread versus confidence
 """
+#! /usr/bin/env python
 from __future__ import print_function, division
 
 import sys
