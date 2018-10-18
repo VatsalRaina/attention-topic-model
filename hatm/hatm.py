@@ -596,6 +596,6 @@ class HierarchicialAttentionTopicModel(BaseModel):
         test_loss = test_loss / float(total_size)
 
         return (test_loss,
-                test_attention_arr,
                 test_probs_arr,
+                test_attention_arr,
                 test_labels_arr.astype(np.int32))
