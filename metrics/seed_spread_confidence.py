@@ -444,18 +444,18 @@ def main():
 
     #    RATIOS PLOTS
     # Make the std ratios plots
-    plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=40, y_lim=[0.0, 1.0])
-    plt.xlabel("Spread (std of ensemble predictions)")
-    plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
-    plt.savefig(savedir + '/ratios_std_spread_histogram.png', bbox_inches='tight')
-    plt.clf()
+    #plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=40, y_lim=[0.0, 1.0])
+    #plt.xlabel("Spread (std of ensemble predictions)")
+    #plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
+    #plt.savefig(savedir + '/ratios_std_spread_histogram.png', bbox_inches='tight')
+    #plt.clf()
 
     # Make the range ratios plots
-    plot_ratio_bar_chart(correct, incorrect, range_spread, n_bins=40, y_lim=[0.0, 1.0])
-    plt.xlabel("Spread (range of ensemble predictions)")
-    plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
-    plt.savefig(savedir + '/ratios_range_spread_histogram.png', bbox_inches='tight')
-    plt.clf()
+    #plot_ratio_bar_chart(correct, incorrect, range_spread, n_bins=40, y_lim=[0.0, 1.0])
+    #plt.xlabel("Spread (range of ensemble predictions)")
+    #plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
+    #plt.savefig(savedir + '/ratios_range_spread_histogram.png', bbox_inches='tight')
+    #plt.clf()
 
     # Make the mutual information ratios plots
     plot_ratio_bar_chart(correct, incorrect, mutual_information, n_bins=40, y_lim=[0.0, 1.0])
@@ -473,9 +473,9 @@ def main():
 
     #     HISTOGRAM PLOTS
     # Make std_spread histogram plot:
-    plot_spread_histogram(correct, incorrect, std_spread, n_bins=40, spread_name='std')
-    plt.savefig(savedir + '/std_spread_histogram.png', bbox_inches='tight')
-    plt.clf()
+    #plot_spread_histogram(correct, incorrect, std_spread, n_bins=40, spread_name='std')
+    #plt.savefig(savedir + '/std_spread_histogram.png', bbox_inches='tight')
+    #plt.clf()
 
     # # Make range_spread histogram plot:
     # plot_spread_histogram(correct, incorrect, range_spread, n_bins=40, spread_name='range')
@@ -491,55 +491,55 @@ def main():
     # Make std_spread vs mean deviation plot
     marker_size = 0.01
     # Positive examples
-    plt.scatter(np.extract(labels.astype(np.bool), std_spread),
-                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.15, color=green, marker='o',
-                s=marker_size)
+    #plt.scatter(np.extract(labels.astype(np.bool), std_spread),
+    #            np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.15, color=green, marker='o',
+    #            s=marker_size)
     # Negative examples
-    plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.15, color=red, marker='x',
-                s=marker_size)
-    plt.xlabel("Spread (std of ensemble predictions)")
-    plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + '/std_spread_vs_mean_chart.png', bbox_inches='tight')
-    plt.clf()
+    #plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
+    #            np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.15, color=red, marker='x',
+    #            s=marker_size)
+    #plt.xlabel("Spread (std of ensemble predictions)")
+    #plt.ylabel("Deviation of average ensemble prediction from label")
+    #plt.savefig(savedir + '/std_spread_vs_mean_chart.png', bbox_inches='tight')
+    #plt.clf()
 
     # Split positive and negative examples into separate plots as well:
     # Positive examples
-    plt.scatter(np.extract(labels.astype(np.bool), std_spread),
-                1 - np.extract(labels.astype(np.bool), avg_predictions), alpha=0.15, color=green, marker='o',
-                s=marker_size)
-    plt.xlabel("Spread (std of ensemble predictions)")
-    plt.ylabel("Ensemble Prediction (1 = off-topic)")
-    plt.savefig(savedir + '/std_spread_vs_prediction_on_topic.png', bbox_inches='tight')
-    plt.clf()
+    #plt.scatter(np.extract(labels.astype(np.bool), std_spread),
+    #            1 - np.extract(labels.astype(np.bool), avg_predictions), alpha=0.15, color=green, marker='o',
+    #            s=marker_size)
+    #plt.xlabel("Spread (std of ensemble predictions)")
+    #plt.ylabel("Ensemble Prediction (1 = off-topic)")
+    #plt.savefig(savedir + '/std_spread_vs_prediction_on_topic.png', bbox_inches='tight')
+    #plt.clf()
     # Negative examples
-    plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
-                1 - np.extract(np.invert(labels.astype(np.bool)), avg_predictions), alpha=0.15, color=red, marker='x',
-                s=marker_size)
-    plt.xlabel("Spread (std of ensemble predictions)")
-    plt.ylabel("Ensemble Prediction (1 = off-topic)")
-    plt.savefig(savedir + '/std_spread_vs_prediction_off_topic.png', bbox_inches='tight')
-    plt.clf()
+    #plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
+    #            1 - np.extract(np.invert(labels.astype(np.bool)), avg_predictions), alpha=0.15, color=red, marker='x',
+    #            s=marker_size)
+    #plt.xlabel("Spread (std of ensemble predictions)")
+    #plt.ylabel("Ensemble Prediction (1 = off-topic)")
+    #plt.savefig(savedir + '/std_spread_vs_prediction_off_topic.png', bbox_inches='tight')
+    #plt.clf()
 
     # Make range vs mean deviation plot
     # Positive examples
-    plt.scatter(np.extract(labels.astype(np.bool), std_spread),
-                np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.15, color=green, marker='o',
-                s=marker_size)
+    #plt.scatter(np.extract(labels.astype(np.bool), std_spread),
+    #            np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.15, color=green, marker='o',
+    #            s=marker_size)
     # Negative examples
-    plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.15, color=red, marker='x',
-                s=marker_size)
-    plt.xlabel("Spread (range of ensemble predictions)")
-    plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + '/range_spread_vs_mean_chart.png', bbox_inches='tight')
-    plt.clf()
+    #plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
+    #            np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.15, color=red, marker='x',
+    #            s=marker_size)
+    #plt.xlabel("Spread (range of ensemble predictions)")
+    #plt.ylabel("Deviation of average ensemble prediction from label")
+    #plt.savefig(savedir + '/range_spread_vs_mean_chart.png', bbox_inches='tight')
+    #plt.clf()
 
     #   AUC vs. CUMULATIVE INCLUDED
     # Make AUC vs. cumulative samples included by std spread
-    plot_auc_vs_percentage_included(labels, avg_predictions, std_spread, resolution=200, sort_by_name='std')
-    plt.savefig(savedir + '/auc_vs_cumulative_samples_included_std.png', bbox_inches='tight')
-    plt.clf()
+    #plot_auc_vs_percentage_included(labels, avg_predictions, std_spread, resolution=200, sort_by_name='std')
+    #plt.savefig(savedir + '/auc_vs_cumulative_samples_included_std.png', bbox_inches='tight')
+    #plt.clf()
 
     # # Make AUC vs. cumulative samples included by range spread
     # plot_auc_vs_percentage_included(labels, avg_predictions, range_spread, resolution=200, sort_by_name='range')
@@ -567,9 +567,9 @@ def main():
 
     # PR 3D PLOTS
     # Make precision recall 3D plot vs std
-    plot_pr_spread_mesh(labels, avg_predictions, std_spread, pos_labels=0)
-    plt.savefig(savedir + '/ensemble_3d_pr_curve_std.png')
-    plt.clf()
+    #plot_pr_spread_mesh(labels, avg_predictions, std_spread, pos_labels=0)
+    #plt.savefig(savedir + '/ensemble_3d_pr_curve_std.png')
+    #plt.clf()
 
     # Make precision recall 3D plot vs mutual information
     plot_pr_spread_mesh(labels, avg_predictions, mutual_information, pos_labels=0)
@@ -577,10 +577,10 @@ def main():
     plt.clf()
 
     # Make family of curves precision recall plot vs. std
-    plot_family_of_curves_pr(labels, avg_predictions, std_spread, proportions_included=[0.05, 0.1, 0.2, 0.4, 0.6, 1.0],
-                             pos_labels=0)
-    plt.savefig(savedir + '/ensemble_family_pr_curve_std.png', bbox_inches='tight')
-    plt.clf()
+    #plot_family_of_curves_pr(labels, avg_predictions, std_spread, proportions_included=[0.05, 0.1, 0.2, 0.4, 0.6, 1.0],
+    #                         pos_labels=0)
+    #plt.savefig(savedir + '/ensemble_family_pr_curve_std.png', bbox_inches='tight')
+    #plt.clf()
 
     # Make family of curves precision recall plot vs. std
     plot_family_of_curves_pr(labels, avg_predictions, mutual_information,
