@@ -501,7 +501,7 @@ def main():
     plt.clf()
 
     # On-Topic
-    plt.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
+    sns.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
                 np.extract(labels.astype(np.bool), mean_target_deviation), cmap='Blues', shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,0.6)
