@@ -67,6 +67,75 @@ class HierarchicialAttentionTopicModel(BaseModel):
         elif load_path != None:
             self.load(load_path=load_path, step=epoch)
 
+    def _construct_prompt_encoder(self, p_input, p_seqlens, batch_size):
+        """ Construct RNNLM network
+        Args:
+          ?
+        Returns:
+          predictions, probabilities, logits, attention
+        """
+
+        L2 = self.network_architecture['L2']
+        initializer = self.network_architecture['initializer']
+
+        # Question Encoder RNN
+        with tf.variable_scope('Embeddings', initializer=initializer(self._seed)) as scope:
+            embedding = slim.model_variable('word_embedding',
+                                            trainable=False,
+                                            shape=[self.network_architecture['n_in'],
+                                                   self.network_architecture['n_ehid']],
+                                            initializer=tf.truncated_normal_initializer(stddev=0.1),
+                                            regularizer=slim.l2_regularizer(L2),
+                                            device='/GPU:0')
+
+            p_inputs = tf.nn.embedding_lookup(embedding, p_input, name='embedded_data')
+
+            p_inputs_fw = tf.transpose(p_inputs, [1, 0, 2])
+            p_inputs_bw = tf.transpose(tf.reverse_sequence(p_inputs, seq_lengths=p_seqlens, seq_axis=1, batch_axis=0),
+                                       [1, 0, 2])
+
+
+        prompt_embeddings = self.prompt_embeddings
+
+        with tf.variable_scope('RNN_KEY_FW', initializer=initializer(self._seed)) as scope:
+            rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            _, state_fw = rnn_fw(p_inputs_fw, sequence_length=p_seqlens, dtype=tf.float32)
+        with tf.variable_scope('RNN_KEY_BW', initializer=initializer(self._seed)) as scope:
+            rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            _, state_bw = rnn_bw(p_inputs_bw, sequence_length=p_seqlens, dtype=tf.float32)
+
+
+        keys = tf.concat([state_fw[1], state_bw[1]], axis=1)
+
+        with tf.variable_scope('PROMPT_ATN', initializer=initializer(self._seed)) as scope:
+            # Compute Attention over known questions
+            mems = slim.fully_connected(prompt_embeddings,
+                                        2 * self.network_architecture['n_phid'],
+                                        activation_fn=None,
+                                        weights_regularizer=slim.l2_regularizer(L2),
+                                        scope="mem")
+            mems = tf.expand_dims(mems, axis=0, name='expanded_mems')
+            tkeys = slim.fully_connected(keys,
+                                         2 * self.network_architecture['n_phid'],
+                                         activation_fn=None,
+                                         weights_regularizer=slim.l2_regularizer(L2),
+                                         scope="tkeys")
+            tkeys = tf.expand_dims(tkeys, axis=1, name='expanded_mems')
+            v = slim.model_variable('v',
+                                    shape=[2 * self.network_architecture['n_phid'], 1],
+                                    regularizer=slim.l2_regularizer(L2),
+                                    device='/GPU:0')
+
+            tmp = tf.nn.tanh(mems + tkeys)
+            tmp = tf.reshape(tmp, shape=[-1, 2 *self.network_architecture['n_phid']])
+            a = tf.exp(tf.reshape(tf.matmul(tmp, v), [batch_size, -1]))
+
+            prompt_attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
+            attended_prompt_embedding = tf.matmul(prompt_attention, prompt_embeddings)
+
+            return attended_prompt_embedding, prompt_attention
+
+
     def _construct_network(self, a_input, a_seqlens, n_samples, p_input, p_seqlens, maxlen, p_ids, batch_size, is_training=False, run_prompt_encoder=False, keep_prob=1.0):
         """ Construct RNNLM network
         Args:
@@ -599,3 +668,20 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 test_probs_arr,
                 test_attention_arr,
                 test_labels_arr.astype(np.int32))
+
+    def get_prompt_embeddings(self, prompts, prompt_lens, save_path):
+        with self._graph.as_default():
+            batch_size = prompts.shape[0]
+            prompts = tf.convert_to_tensor(prompts, dtype=tf.int32)
+            prompt_lens = tf.convert_to_tensor(prompt_lens, dtype=tf.int32)
+
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                prompt_embeddings, prompt_attention = self._construct_prompt_encoder(p_input=prompts, p_seqlens=prompt_lens, batch_size=batch_size)
+
+            embeddings, attention = self.sess.run(prompt_embeddings)
+
+            path = os.path.join(save_path, 'prompt_embeddings.txt')
+            np.savetxt(path, embeddings)
+
+            path = os.path.join(save_path, 'prompt_attention.txt')
+            np.savetxt(path, attention)
