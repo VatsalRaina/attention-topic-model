@@ -587,7 +587,7 @@ def main():
 
     sns.kdeplot(entropy_of_avg, mean_target_deviation, cbar=True, n_levels=20, cmap='Purples', shade_lowest=False, shade=True)
     plt.ylim(0.0,1.0)
-    plt.xlim(0.0,0.6)
+    plt.xlim(0.0,1.0)
     plt.xlabel("Entropy of Mean Prediction")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/entropy_vs_mean_density.png', bbox_inches='tight')
@@ -597,17 +597,17 @@ def main():
     sns.kdeplot(np.extract(labels.astype(np.bool), entropy_of_avg),
                 np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=20, shade_lowest=False, cmap='Blues', shade=True)
     plt.ylim(0.0,1.0)
-    plt.xlim(0.0,0.6)
+    plt.xlim(0.0,1.0)
     plt.xlabel("Entropy of Mean Prediction")
     plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + '/mutual_information_vs_mean_density_positive.png', bbox_inches='tight')
+    plt.savefig(savedir + '/entropy_vs_mean_density_positive.png', bbox_inches='tight')
     plt.clf()
 
     # Off-Topic
     sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), entropy_of_avg),
                 np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=20, shade_lowest=False, cmap="Reds", shade=True)
     plt.ylim(0.0,1.0)
-    plt.xlim(0.0,0.6)
+    plt.xlim(0.0,1.0)
     plt.xlabel("Entropy of Mean Prediction")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + 'entropy_vs_mean_density_negative.png', bbox_inches='tight')
