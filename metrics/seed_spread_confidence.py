@@ -526,6 +526,10 @@ def main():
     plt.savefig(savedir + '/mutual_info_histogram.png', bbox_inches='tight')
     plt.clf()
 
+    plot_spread_histogram(correct, incorrect, entropy_of_avg, n_bins=40, spread_name='mutual information')
+    plt.savefig(savedir + '/entropy_histogram.png', bbox_inches='tight')
+    plt.clf()
+
     # Make mutual_infromation histogram plot:
     if args.hatm:
         plot_spread_histogram(correct, incorrect, prompt_mutual_information, n_bins=40, spread_name='prompt_mutual information')
@@ -573,6 +577,36 @@ def main():
     plt.xlabel("Mutual Information")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/mutual_information_vs_mean_density_negative.png', bbox_inches='tight')
+    plt.clf()
+
+
+
+    sns.kdeplot(entropy_of_avg, mean_target_deviation, cbar=True, n_levels=20, cmap='Purples', shade_lowest=False, shade=True)
+    plt.ylim(0.0,1.0)
+    plt.xlim(0.0,0.6)
+    plt.xlabel("Entropy of Mean Prediction")
+    plt.ylabel("Deviation of average ensemble prediction from label")
+    plt.savefig(savedir + '/entropy_vs_mean_density.png', bbox_inches='tight')
+    plt.clf()
+
+    # On-Topic
+    sns.kdeplot(np.extract(labels.astype(np.bool), entropy_of_avg),
+                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=20, shade_lowest=False, cmap='Blues', shade=True)
+    plt.ylim(0.0,1.0)
+    plt.xlim(0.0,0.6)
+    plt.xlabel("Entropy of Mean Prediction")
+    plt.ylabel("Deviation of average ensemble prediction from label")
+    plt.savefig(savedir + '/mutual_information_vs_mean_density_positive.png', bbox_inches='tight')
+    plt.clf()
+
+    # Off-Topic
+    sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), entropy_of_avg),
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=20, shade_lowest=False, cmap="Reds", shade=True)
+    plt.ylim(0.0,1.0)
+    plt.xlim(0.0,0.6)
+    plt.xlabel("Entropy of Mean Prediction")
+    plt.ylabel("Deviation of average ensemble prediction from label")
+    plt.savefig(savedir + 'entropy_vs_mean_density_negative.png', bbox_inches='tight')
     plt.clf()
 
     if args.hatm:
@@ -655,6 +689,11 @@ def main():
     plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
                                     sort_by_name='mutual information')
     plt.savefig(savedir + '/auc_vs_cumulative_samples_included_mutual_info.png', bbox_inches='tight')
+    plt.clf()
+
+    plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
+                                    sort_by_name='mutual information')
+    plt.savefig(savedir + '/auc_vs_cumulative_samples_included_entropy.png', bbox_inches='tight')
     plt.clf()
 
     if args.hatm:
