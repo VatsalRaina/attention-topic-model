@@ -614,37 +614,36 @@ def main():
     plt.clf()
 
     if args.hatm:
-        for key in uncertainties.keys():
-            sns.kdeplot(uncertainties[key], mean_target_deviation, cbar=True, n_levels=20, cmap='Purples',
-                        shade_lowest=False, shade=True)
-            plt.ylim(0.0, 1.0)
-            plt.xlim(0.0, 0.6)
-            plt.xlabel(key)
-            plt.ylabel("Deviation of average ensemble prediction from label")
-            plt.savefig(savedir + '/'+key+'_vs_mean_density.png', bbox_inches='tight')
-            plt.clf()
+        sns.kdeplot(prompt_entropy_mean, mean_target_deviation, cbar=True, n_levels=20, cmap='Purples',
+                    shade_lowest=False, shade=True)
+        plt.ylim(0.0, 1.0)
+        plt.xlim(0.0, 0.6)
+        plt.xlabel('Prompt Entropy')
+        plt.ylabel("Deviation of average ensemble prediction from label")
+        plt.savefig(savedir + '/prompt_entropy_vs_mean_density.png', bbox_inches='tight')
+        plt.clf()
 
-            # On-Topic
-            sns.kdeplot(np.extract(labels.astype(np.bool), uncertainties[key]),
-                        np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=20,
-                        shade_lowest=False, cmap='Blues', shade=True)
-            plt.ylim(0.0, 1.0)
-            plt.xlim(0.0, 0.6)
-            plt.xlabel(key)
-            plt.ylabel("Deviation of average ensemble prediction from label")
-            plt.savefig(savedir + '/'+key+'_vs_mean_density_positive.png', bbox_inches='tight')
-            plt.clf()
+        # On-Topic
+        sns.kdeplot(np.extract(labels.astype(np.bool), prompt_entropy_mean),
+                    np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=20,
+                    shade_lowest=False, cmap='Blues', shade=True)
+        plt.ylim(0.0, 1.0)
+        plt.xlim(0.0, 0.6)
+        plt.xlabel('Prompt Entropy')
+        plt.ylabel("Deviation of average ensemble prediction from label")
+        plt.savefig(savedir + '/prompt_entropy_vs_mean_density_positive.png', bbox_inches='tight')
+        plt.clf()
 
-            # Off-Topic
-            sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), uncertainties[key]),
-                        np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=20,
-                        shade_lowest=False, cmap="Reds", shade=True)
-            plt.ylim(0.0, 1.0)
-            plt.xlim(0.0, 0.6)
-            plt.xlabel(key)
-            plt.ylabel("Deviation of average ensemble prediction from label")
-            plt.savefig(savedir + '/'+key+'_vs_mean_density_negative.png', bbox_inches='tight')
-            plt.clf()
+        # Off-Topic
+        sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), prompt_entropy_mean),
+                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=20,
+                    shade_lowest=False, cmap="Reds", shade=True)
+        plt.ylim(0.0, 1.0)
+        plt.xlim(0.0, 0.6)
+        plt.xlabel('Prompt Entropy')
+        plt.ylabel("Deviation of average ensemble prediction from label")
+        plt.savefig(savedir + '/prompt_entropy_vs_mean_density_negative.png', bbox_inches='tight')
+        plt.clf()
 
     # Split positive and negative examples into separate plots as well:
     # Positive examples
