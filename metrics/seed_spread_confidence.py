@@ -144,7 +144,7 @@ def plot_spread_histogram(correct, incorrect, spread, n_bins=20, ax=None, spread
     #        histtype='step', stacked=True, color=['white', 'white'])
     plt.xlabel("Spread (" + spread_name + " of ensemble predictions)")
     plt.ylabel("Example Count")
-    plt.legend(['On-Topic','Off-Topic'])
+    plt.legend(['Correct','In-Correct'])
     return ax
 
 
@@ -307,8 +307,10 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
             roc_auc_scores[i] = np.nan
 
     plt.plot(proportions_included, roc_auc_scores, color=(.2, .2, .6))
-    plt.xlabel("Percentage examples included as sorted by " + sort_by_name + " of ensemble predictions.")
+    plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
+    plt.xlim(0.0,1.0)
+    plt.ylim(roc_auc_scores[-1], 1.0)
     return
 
 
@@ -526,7 +528,7 @@ def main():
     plt.savefig(savedir + '/mutual_info_histogram.png', bbox_inches='tight')
     plt.clf()
 
-    plot_spread_histogram(correct, incorrect, entropy_of_avg, n_bins=40, spread_name='mutual information')
+    plot_spread_histogram(correct, incorrect, entropy_of_avg, n_bins=40, spread_name='entropy')
     plt.savefig(savedir + '/entropy_histogram.png', bbox_inches='tight')
     plt.clf()
 
@@ -688,20 +690,19 @@ def main():
     # Make AUC vs. cumulative samples included by range spread
     plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
                                     sort_by_name='mutual information')
-    plt.savefig(savedir + '/auc_vs_cumulative_samples_included_mutual_info.png', bbox_inches='tight')
-    plt.clf()
-
     plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
-                                    sort_by_name='mutual information')
-    plt.savefig(savedir + '/auc_vs_cumulative_samples_included_entropy.png', bbox_inches='tight')
-    plt.clf()
-
+                                    sort_by_name='entropy')
     if args.hatm:
         for key in uncertainties.keys():
             plot_auc_vs_percentage_included(labels, avg_predictions, uncertainties[key], resolution=200,
                                             sort_by_name=key)
-            plt.savefig(savedir + '/auc_vs_cumulative_samples_included_'+key+'.png', bbox_inches='tight')
-            plt.clf()
+
+    if args.hatm:
+        plt.legend(['Mutual Info', 'Entropy'])
+    else:
+        plt.legend(['Mutual Info', 'Entropy', 'Prompt Entropy']+uncertainties.keys())
+    plt.savefig(savedir + '/auc_vs_cumulative_samples.png', bbox_inches='tight')
+    plt.clf()
 
     # Make precision recall curve for average of predictions
     for i in range(10):
