@@ -450,6 +450,10 @@ def main():
         prompt_mean_entropy, \
         prompt_mutual_information = get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath=args.rel_labels_path)
 
+        uncertainties = {'Mutual_Information_of_Prompt_Attention' : prompt_mutual_information,
+                         'Mean_Entropy_of_Prompt_Attention' : prompt_mean_entropy,
+                         'Entropy_of_Mean_Prompt_Attention' : prompt_entropy_mean}
+
     avg_predictions = calc_avg_predictions(ensemble_predictions)
 
     std_spread = np.std(ensemble_predictions, axis=1)
@@ -522,6 +526,22 @@ def main():
     plt.savefig(savedir + '/mutual_info_histogram.png', bbox_inches='tight')
     plt.clf()
 
+    # Make mutual_infromation histogram plot:
+    if args.hatm:
+        plot_spread_histogram(correct, incorrect, prompt_mutual_information, n_bins=40, spread_name='prompt_mutual information')
+        plt.savefig(savedir + '/prompt_mutual_info_histogram.png', bbox_inches='tight')
+        plt.clf()
+
+        plot_spread_histogram(correct, incorrect, prompt_entropy_mean, n_bins=40,
+                              spread_name='prompt_entropy_mean')
+        plt.savefig(savedir + '/prompt_entropy_mean.png', bbox_inches='tight')
+        plt.clf()
+
+        plot_spread_histogram(correct, incorrect, prompt_mean_entropy, n_bins=40,
+                              spread_name='prompt_mean_entropy')
+        plt.savefig(savedir + '/prompt_mean_entropy.png', bbox_inches='tight')
+        plt.clf()
+
     #   SCATTER Plots
     # Make std_spread vs mean deviation plot
     # All  examples
@@ -555,6 +575,38 @@ def main():
     plt.savefig(savedir + '/mutual_information_vs_mean_density_negative.png', bbox_inches='tight')
     plt.clf()
 
+    if args.hatm:
+        for key in uncertainties.keys():
+            sns.kdeplot(uncertainties[key], mean_target_deviation, cbar=True, n_levels=20, cmap='Purples',
+                        shade_lowest=False, shade=True)
+            plt.ylim(0.0, 1.0)
+            plt.xlim(0.0, 0.6)
+            plt.xlabel(key)
+            plt.ylabel("Deviation of average ensemble prediction from label")
+            plt.savefig(savedir + '/'+key+'_vs_mean_density.png', bbox_inches='tight')
+            plt.clf()
+
+            # On-Topic
+            sns.kdeplot(np.extract(labels.astype(np.bool), uncertainties[key]),
+                        np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=20,
+                        shade_lowest=False, cmap='Blues', shade=True)
+            plt.ylim(0.0, 1.0)
+            plt.xlim(0.0, 0.6)
+            plt.xlabel(key)
+            plt.ylabel("Deviation of average ensemble prediction from label")
+            plt.savefig(savedir + '/'+key+'_vs_mean_density_positive.png', bbox_inches='tight')
+            plt.clf()
+
+            # Off-Topic
+            sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), uncertainties[key]),
+                        np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=20,
+                        shade_lowest=False, cmap="Reds", shade=True)
+            plt.ylim(0.0, 1.0)
+            plt.xlim(0.0, 0.6)
+            plt.xlabel(key)
+            plt.ylabel("Deviation of average ensemble prediction from label")
+            plt.savefig(savedir + '/'+key+'_vs_mean_density_negative.png', bbox_inches='tight')
+            plt.clf()
 
     # Split positive and negative examples into separate plots as well:
     # Positive examples
@@ -604,6 +656,13 @@ def main():
                                     sort_by_name='mutual information')
     plt.savefig(savedir + '/auc_vs_cumulative_samples_included_mutual_info.png', bbox_inches='tight')
     plt.clf()
+
+    if args.hatm:
+        for key in uncertainties.keys():
+            plot_auc_vs_percentage_included(labels, avg_predictions, uncertainties[key], resolution=200,
+                                            sort_by_name=key)
+            plt.savefig(savedir + '/auc_vs_cumulative_samples_included_'+key+'.png', bbox_inches='tight')
+            plt.clf()
 
     # Make precision recall curve for average of predictions
     for i in range(10):
