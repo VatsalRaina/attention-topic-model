@@ -311,6 +311,7 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0,1.0)
     plt.ylim(roc_auc_scores[-1], 1.0)
+    print('ROC AUC of Ensemble is: ', roc_auc_scores[-1])
     return
 
 
@@ -693,14 +694,13 @@ def main():
     plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
                                     sort_by_name='entropy')
     if args.hatm:
-        for key in uncertainties.keys():
-            plot_auc_vs_percentage_included(labels, avg_predictions, uncertainties[key], resolution=200,
-                                            sort_by_name=key)
+        plot_auc_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200,
+                                        sort_by_name='prompt_entropy')
 
     if args.hatm:
-        plt.legend(['Mutual Info', 'Entropy'] + uncertainties.keys())
+        plt.legend(['Mutual Information', 'Entropy', 'Prompt Entropy'])
     else:
-        plt.legend(['Mutual Info', 'Entropy'])
+        plt.legend(['Mutual Information', 'Entropy'])
     plt.savefig(savedir + '/auc_vs_cumulative_samples.png', bbox_inches='tight')
     plt.clf()
 
