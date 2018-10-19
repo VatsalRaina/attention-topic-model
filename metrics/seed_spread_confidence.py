@@ -698,7 +698,7 @@ def main():
                                             sort_by_name=key)
 
     if args.hatm:
-        plt.legend(['Mutual Info', 'Entropy', 'Prompt Entropy'] + uncertainties.keys())
+        plt.legend(['Mutual Info', 'Entropy'] + uncertainties.keys())
     else:
         plt.legend(['Mutual Info', 'Entropy'])
     plt.savefig(savedir + '/auc_vs_cumulative_samples.png', bbox_inches='tight')
