@@ -691,12 +691,12 @@ def main():
 
     # Make AUC vs. cumulative samples included by range spread
     plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
-                                    sort_by_name='mutual information')
+                                    sort_by_name='mutual information', savedir=args.savedir)
     plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
-                                    sort_by_name='entropy')
+                                    sort_by_name='entropy', savedir=args.savedir)
     if args.hatm:
         plot_auc_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200,
-                                        sort_by_name='prompt_entropy')
+                                        sort_by_name='prompt_entropy', savedir=args.savedir)
 
     if args.hatm:
         plt.legend(['Mutual Information', 'Entropy', 'Prompt Entropy'])
