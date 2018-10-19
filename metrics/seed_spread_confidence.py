@@ -306,7 +306,7 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
         except ValueError:
             roc_auc_scores[i] = np.nan
 
-    plt.plot(proportions_included, roc_auc_scores, color=(.2, .2, .6))
+    plt.plot(proportions_included, roc_auc_scores)
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0,1.0)
@@ -698,9 +698,9 @@ def main():
                                             sort_by_name=key)
 
     if args.hatm:
-        plt.legend(['Mutual Info', 'Entropy'])
+        plt.legend(['Mutual Info', 'Entropy', 'Prompt Entropy'] + uncertainties.keys())
     else:
-        plt.legend(['Mutual Info', 'Entropy', 'Prompt Entropy']+uncertainties.keys())
+        plt.legend(['Mutual Info', 'Entropy'])
     plt.savefig(savedir + '/auc_vs_cumulative_samples.png', bbox_inches='tight')
     plt.clf()
 
