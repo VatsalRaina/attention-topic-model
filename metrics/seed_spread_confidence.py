@@ -32,6 +32,7 @@ parser.add_argument('--savedir', type=str, default='./',
                     help='Path to directory where to save the plots')
 parser.add_argument('--rel_labels_path', type=str, default='eval4_naive/labels-probs.txt')
 parser.add_argument('--rel_attention_path', type=str, default='eval4_naive/prompt_attention.txt')
+parser.add_argument('--n_levels', type=int, default=20)
 parser.add_argument('--hatm', action='store_true', help='Whether to analyse ATM or HATM ensemble')
 
 
@@ -555,7 +556,7 @@ def main():
     # All  examples
     #sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, shade=True)
 
-    sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, n_levels=20, cmap='Purples', shade_lowest=False, shade=True)
+    sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples', shade_lowest=False, shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,0.6)
     plt.xlabel("Mutual Information")
@@ -565,7 +566,7 @@ def main():
 
     # On-Topic
     sns.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
-                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=20, shade_lowest=False, cmap='Blues', shade=True)
+                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels, shade_lowest=False, cmap='Blues', shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,0.6)
     plt.xlabel("Mutual Information")
@@ -575,7 +576,7 @@ def main():
 
     # Off-Topic
     sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=20, shade_lowest=False, cmap="Reds", shade=True)
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels, shade_lowest=False, cmap="Reds", shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,0.6)
     plt.xlabel("Mutual Information")
@@ -585,7 +586,7 @@ def main():
 
 
 
-    sns.kdeplot(entropy_of_avg, mean_target_deviation, cbar=True, n_levels=20, cmap='Purples', shade_lowest=False, shade=True)
+    sns.kdeplot(entropy_of_avg, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples', shade_lowest=False, shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,1.0)
     plt.xlabel("Entropy of Mean Prediction")
@@ -595,7 +596,7 @@ def main():
 
     # On-Topic
     sns.kdeplot(np.extract(labels.astype(np.bool), entropy_of_avg),
-                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=20, shade_lowest=False, cmap='Blues', shade=True)
+                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels, shade_lowest=False, cmap='Blues', shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,1.0)
     plt.xlabel("Entropy of Mean Prediction")
@@ -605,7 +606,7 @@ def main():
 
     # Off-Topic
     sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), entropy_of_avg),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=20, shade_lowest=False, cmap="Reds", shade=True)
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels, shade_lowest=False, cmap="Reds", shade=True)
     plt.ylim(0.0,1.0)
     plt.xlim(0.0,1.0)
     plt.xlabel("Entropy of Mean Prediction")
@@ -614,7 +615,7 @@ def main():
     plt.clf()
 
     if args.hatm:
-        sns.kdeplot(prompt_entropy_mean, mean_target_deviation, cbar=True, n_levels=20, cmap='Purples',
+        sns.kdeplot(prompt_entropy_mean, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
                     shade_lowest=False, shade=True)
         plt.ylim(0.0, 1.0)
         plt.xlim(0.0, 0.6)
@@ -625,7 +626,7 @@ def main():
 
         # On-Topic
         sns.kdeplot(np.extract(labels.astype(np.bool), prompt_entropy_mean),
-                    np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=20,
+                    np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
                     shade_lowest=False, cmap='Blues', shade=True)
         plt.ylim(0.0, 1.0)
         plt.xlim(0.0, 0.6)
@@ -636,7 +637,7 @@ def main():
 
         # Off-Topic
         sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), prompt_entropy_mean),
-                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=20,
+                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels,
                     shade_lowest=False, cmap="Reds", shade=True)
         plt.ylim(0.0, 1.0)
         plt.xlim(0.0, 0.6)
@@ -645,7 +646,7 @@ def main():
         plt.savefig(savedir + '/prompt_entropy_vs_mean_density_negative.png', bbox_inches='tight')
         plt.clf()
 
-        sns.kdeplot(prompt_mutual_information, mean_target_deviation, cbar=True, n_levels=20, cmap='Purples',
+        sns.kdeplot(prompt_mutual_information, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
                     shade_lowest=False, shade=True)
         plt.ylim(0.0, 1.0)
         plt.xlim(0.0, 0.1)
@@ -656,7 +657,7 @@ def main():
 
         # On-Topic
         sns.kdeplot(np.extract(labels.astype(np.bool), prompt_mutual_information),
-                    np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=20,
+                    np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
                     shade_lowest=False, cmap='Blues', shade=True)
         plt.ylim(0.0, 1.0)
         plt.xlim(0.0, 0.1)
@@ -667,7 +668,7 @@ def main():
 
         # Off-Topic
         sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), prompt_mutual_information),
-                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=20,
+                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels,
                     shade_lowest=False, cmap="Reds", shade=True)
         plt.ylim(0.0, 1.0)
         plt.xlim(0.0, 0.1)
