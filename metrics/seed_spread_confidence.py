@@ -82,7 +82,7 @@ def get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath='eval4_naive/p
     attention_arrays = []
     for attention_filepath in attention_files:
         # Get the predictions from each of the models
-        attention = np.loadtxt(attention_filepath)
+        attention = np.loadtxt(attention_filepath, dtype=np.float64)+1e-10
         attention_arrays.append(attention)
     attention = np.stack(attention_arrays, axis=2)
 
