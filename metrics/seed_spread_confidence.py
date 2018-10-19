@@ -273,7 +273,7 @@ def plot_confusion_matrix_ratio_chart(tp, fp, tn, fn, spread, n_bins=20, ax=None
     return ax
 
 
-def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resolution=100, sort_by_name='std'):
+def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resolution=100, sort_by_name='std', savedir=None):
     """
     Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -311,7 +311,8 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0,1.0)
     plt.ylim(roc_auc_scores[-1], 1.0)
-    print('ROC AUC of Ensemble is: ', roc_auc_scores[-1])
+    with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
+        f.write('ROC AUC of Ensemble is: '+str(roc_auc_scores[-1])+'\n')
     return
 
 
