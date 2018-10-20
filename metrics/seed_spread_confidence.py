@@ -362,10 +362,10 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
 
             # print(len(labels_subset), len(predictions_subset))
             # print(labels_subset[max(0, last_idx-5): last_idx])
-            #try:
-            roc_auc_scores[i,fold] = roc_auc_score(labels_subset, predictions_subset)
-            #except ValueError:
-            #    roc_auc_scores[i,fold] = np.nan
+            try:
+                roc_auc_scores[i,fold] = roc_auc_score(labels_subset, predictions_subset)
+            except ValueError:
+                roc_auc_scores[i,fold] = 1.0
 
     mean_roc = np.mean(roc_auc_scores,axis=1)
     std_roc = np.std(roc_auc_scores, axis=1)
