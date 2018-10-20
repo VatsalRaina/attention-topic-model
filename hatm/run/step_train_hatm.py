@@ -35,7 +35,7 @@ commandLineParser.add_argument('--load_path', type=str, default='./',
 commandLineParser.add_argument('--init', type=str, default=None,
                                help='Specify path to from which to initialize model')
 commandLineParser.add_argument('--distortion', type=float, default=1.0,
-                               help='Specify whether to use uniform negative sampliong')
+                               help='Specify whether to use uniform negative sampling')
 commandLineParser.add_argument('--epoch', type=str, default=None,
                                help='which should be loaded')
 commandLineParser.add_argument('train_data', type=str,
