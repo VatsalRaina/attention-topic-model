@@ -545,7 +545,7 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
     std_accuract = np.std(accuracies)
 
     auc_array_entropy=[]
-    for i in xrange(predictions.shape[-1]):
+    for i in range(predictions.shape[-1]):
         auc = run_misclassification_detection(misclassification[:,i], entropies[:,i])
         auc_array_entropy.append(auc)
 
@@ -554,7 +554,7 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
 
     if prompt_entopies:
         auc_array_pentropy = []
-        for i in xrange(predictions.shape[-1]):
+        for i in range(predictions.shape[-1]):
             auc = run_misclassification_detection(misclassification[:, i],prompt_entopies[:, i])
             auc_array_pentropy.append(auc)
             auc_pentropy= np.stack(auc_array_pentropy, axis=0)
