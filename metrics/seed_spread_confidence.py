@@ -325,8 +325,8 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(roc_auc_scores[-1], 1.0)
-    with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
+    plt.ylim(np.min(roc_auc_scores), 1.0)
+    with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('ROC AUC of Ensemble is: ' + str(roc_auc_scores[-1]) + '\n')
     return
 
@@ -374,7 +374,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
     plt.ylim(np.min(mean_roc-std_roc), 1.0)
-    with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
+    with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('ROC AUC of Ensemble is: ' + str(mean_roc[-1]) + '\n')
     return
 
@@ -420,8 +420,8 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
     plt.xlabel("Percentage examples included")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(aupr_scores[-1], 1.0)
-    with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
+    plt.ylim(np.min(aupr_scores), 1.0)
+    with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(aupr_scores[-1]) + '\n')
     return
 
@@ -441,8 +441,10 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     num_examples = len(labels)
     proportions_included = np.linspace(0, 1, num=resolution)
 
+    print(predictions.shape)
     aupr_scores = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
 
+    print(sort_by_array[:,0])
     for fold in range(predictions.shape[-1]):
         sorted_order = np.argsort(sort_by_array[:,fold])
 
@@ -473,7 +475,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
     plt.ylim(np.min(mean_roc-std_roc), 1.0)
-    with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
+    with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(mean_roc[-1]) + '+\-' + str(std_roc[-1])+'\n')
     return
 
@@ -970,7 +972,7 @@ def main():
         for i in range(2):
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
                                                       pos_label=i, savedir=args.savedir)
-            plt.legend(['Entropy', 'Prompt Entropy'])
+            plt.legend(['Entropy'])
             plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label' + str(i) + '.png', bbox_inches='tight')
             plt.clf()
 
