@@ -441,10 +441,10 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     num_examples = len(labels)
     proportions_included = np.linspace(0, 1, num=resolution)
 
-    print(predictions.shape)
+    print('Prediction shape: ', predictions.shape)
     aupr_scores = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
 
-    print(sort_by_array[:,0])
+    print('Sort_by_array: ', sort_by_array[:,0])
     for fold in range(predictions.shape[-1]):
         sorted_order = np.argsort(sort_by_array[:,fold])
 
@@ -469,7 +469,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
 
     mean_roc = np.mean(aupr_scores,axis=1)
     std_roc = np.std(aupr_scores, axis=1)
-    print(mean_roc)
+    print('mean roc: ', mean_roc)
     plt.plot(proportions_included, mean_roc)
     plt.fill_between(proportions_included, mean_roc - std_roc, mean_roc + std_roc, alpha=.2)
     plt.xlabel("Percentage examples included")
@@ -636,10 +636,8 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
 
     predictions = np.argmax(probabilities, axis=1)
 
-    print(labels.shape)
     misclassification = np.asarray(labels[:,np.newaxis] != predictions, dtype= np.int32)
     correct = np.asarray(labels[:,np.newaxis] == predictions, dtype= np.float32)
-    print(correct.shape)
     accuracies= np.mean(correct,axis=0)
     m_accuracy = np.mean(accuracies)
     std_accuract = np.std(accuracies)
