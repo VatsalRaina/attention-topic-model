@@ -552,7 +552,7 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
     auc_entropy= np.stack(auc_array_entropy, axis=0)
     auc_entropy_mean, auc_entropy_std = np.mean(auc_entropy, axis=0), np.std(auc_entropy, axis=0)
 
-    if prompt_entopies:
+    if prompt_entopies != None:
         auc_array_pentropy = []
         for i in range(predictions.shape[-1]):
             auc = run_misclassification_detection(misclassification[:, i],prompt_entopies[:, i])
@@ -567,7 +567,7 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
             f.write('entropy AUPR POS: '+str(auc_entropy_mean[1])+ '+/-' + str(auc_entropy_std[1])+ '\n')
             f.write('entropy AUPR NEG: '+str(auc_entropy_mean[2])+ '+/-' + str(auc_entropy_std[2])+ '\n')
 
-            if auc_pentropy:
+            if prompt_entopies != None:
                 f.write('prompt entropy ROC AUC: ' + str(auc_pentropy_mean[0]) + '+/-' + str(auc_pentropy_std[0]) + '\n')
                 f.write('prompt entropy AUPR POS: ' + str(auc_pentropy_mean[1]) + '+/-' + str(auc_pentropy_std[1]) + '\n')
                 f.write('prompt entropy AUPR NEG: ' + str(auc_pentropy_mean[2]) + '+/-' + str(auc_pentropy_std[2]) + '\n')
