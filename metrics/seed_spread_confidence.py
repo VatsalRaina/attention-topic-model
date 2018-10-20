@@ -355,7 +355,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
         sorted_order = np.argsort(sort_by_array[:,fold])
 
         labels_sorted = labels[sorted_order]
-        predictions_sorted = predictions[sorted_order]
+        predictions_sorted = predictions[sorted_order, fold]
         print(sorted_order.shape,labels_sorted.shape, predictions_sorted.shape)
         for i in range(resolution):
             proportion = proportions_included[i]
