@@ -325,7 +325,7 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(np.min(roc_auc_scores[~np.isnan(roc_auc_scores)]), 1.0)
+    plt.ylim(0.5, 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('ROC AUC of Ensemble is: ' + str(roc_auc_scores[-1]) + '\n')
     return
@@ -373,7 +373,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(np.min(mean_roc[~np.isnan(mean_roc)]-std_roc[~np.isnan(mean_roc)]), 1.0)
+    plt.ylim(0.5, 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('ROC AUC of Ensemble is: ' + str(mean_roc[-1]) + '\n')
     return
@@ -420,7 +420,7 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
     plt.xlabel("Percentage examples included")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(np.min(aupr_scores[~np.isnan(aupr_scores)]), 1.0)
+    plt.ylim(0.0, 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(aupr_scores[-1]) + '\n')
     return
@@ -474,7 +474,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     plt.xlabel("Percentage examples included")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(np.min(mean_roc[~np.isnan(mean_roc)]-std_roc[~np.isnan(mean_roc)]), 1.0)
+    plt.ylim(0.0, 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(mean_roc[-1]) + '+\-' + str(std_roc[-1])+'\n')
     return

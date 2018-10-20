@@ -18,6 +18,8 @@ commandLineParser.add_argument('prompt_path', type=str,
                                help='which should be loaded')
 commandLineParser.add_argument('wlist_path', type=str,
                                help='which should be loaded')
+commandLineParser.add_argument('save_path', type=str,
+                               help='which should be loaded')
 commandLineParser.add_argument('--strip_start_end', action='store_true', help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt file (used for legacy sorted_topics.txt formatting')
 
 
@@ -39,7 +41,7 @@ def main(argv=None):
                               debug_mode=args.debug,
                               epoch=args.epoch)
 
-    atm.get_prompt_embeddings(prompts, prompt_lens, os.path.join(args.load_path, 'model'))
+    atm.get_prompt_embeddings(prompts, prompt_lens, args.save_path)
 
 if __name__ == '__main__':
     main()
