@@ -563,14 +563,14 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
     if savedir:
         with open(os.path.join(savedir, 'misclassification_detect_individual.txt'), 'w') as f:
             f.write('Mean Accuracy = ' +str(m_accuracy) +'+/-' + str(std_accuract)+'\n')
-            f.write('entropy ROC AUC: '+str(auc_entropy_mean[0])+ '+/-' + str(auc_entropy_std[0])+ '\n')
-            f.write('entropy AUPR POS: '+str(auc_entropy_mean[1])+ '+/-' + str(auc_entropy_std[1])+ '\n')
-            f.write('entropy AUPR NEG: '+str(auc_entropy_mean[2])+ '+/-' + str(auc_entropy_std[2])+ '\n')
+            f.write('entropy ROC AUC: '+str(auc_entropy_mean[0])+ ' +/- ' + str(auc_entropy_std[0])+ '\n')
+            f.write('entropy AUPR POS: '+str(auc_entropy_mean[1])+ ' +/- ' + str(auc_entropy_std[1])+ '\n')
+            f.write('entropy AUPR NEG: '+str(auc_entropy_mean[2])+ ' +/- ' + str(auc_entropy_std[2])+ '\n')
 
             if prompt_entopies is not None:
-                f.write('prompt entropy ROC AUC: ' + str(auc_pentropy_mean[0]) + '+/-' + str(auc_pentropy_std[0]) + '\n')
-                f.write('prompt entropy AUPR POS: ' + str(auc_pentropy_mean[1]) + '+/-' + str(auc_pentropy_std[1]) + '\n')
-                f.write('prompt entropy AUPR NEG: ' + str(auc_pentropy_mean[2]) + '+/-' + str(auc_pentropy_std[2]) + '\n')
+                f.write('prompt entropy ROC AUC: ' + str(auc_pentropy_mean[0]) + ' +/- ' + str(auc_pentropy_std[0]) + '\n')
+                f.write('prompt entropy AUPR POS: ' + str(auc_pentropy_mean[1]) + ' +/ -' + str(auc_pentropy_std[1]) + '\n')
+                f.write('prompt entropy AUPR NEG: ' + str(auc_pentropy_mean[2]) + ' +/ -' + str(auc_pentropy_std[2]) + '\n')
 
 
 def main():
@@ -600,6 +600,42 @@ def main():
     mutual_information, entropy_of_avg = calc_mutual_information(ensemble_predictions)
 
     assert np.all(mutual_information >= 0.)
+
+    probilities = add_off_topic_probability(avg_predictions)
+
+    predicted_labels = np.argmax(probilities, axis=1)
+
+    misclassification = np.asarray(labels != predicted_labels, dtype= np.int32)
+    correct = np.asarray(labels == predicted_labels, dtype= np.float32)
+
+    accuracy = np.mean(correct)
+    aucs_entropy = run_misclassification_detection(misclassification, entropy_of_avg)
+    aucs_mi = run_misclassification_detection(misclassification, mutual_information)
+    with open(os.path.join(args.savedir, 'misclassification_detect_ensemble.txt'), 'w') as f:
+        f.write('Mean Accuracy = ' + str(accuracy) +'\n')
+        f.write('entropy ROC AUC: ' + str(aucs_entropy[0]) + '\n')
+        f.write('entropy AUPR POS: ' + str(aucs_entropy[1]) + '\n')
+        f.write('entropy AUPR NEG: ' + str(aucs_entropy[2]) + '\n')
+
+        f.write('mutual information ROC AUC: ' + str(aucs_mi[0]) + '\n')
+        f.write('mutual information AUPR POS: ' + str(aucs_mi[1]) + '\n')
+        f.write('mutual information AUPR NEG: ' + str(aucs_mi[2]) + '\n')
+
+    if args.hatm:
+        aucs_pentropy = run_misclassification_detection(misclassification, prompt_entropy_mean)
+        aucs_pmi = run_misclassification_detection(misclassification, prompt_mutual_information)
+
+        f.write('prompt entropy ROC AUC: ' + str(aucs_pentropy[0]) + '\n')
+        f.write('prompt entropy AUPR POS: ' + str(aucs_pentropy[1]) + '\n')
+        f.write('prompt entropy AUPR NEG: ' + str(aucs_pentropy[2]) + '\n')
+
+        f.write('prompt mutual information ROC AUC: ' + str(aucs_pmi[0]) + '\n')
+        f.write('prompt mutual information AUPR POS: ' + str(aucs_pmi[1]) + '\n')
+        f.write('prompt mutual information AUPR NEG: ' + str(aucs_pmi[2]) + '\n')
+
+
+
+
 
     mean_target_deviation = np.abs(labels - avg_predictions)
     # print("mean_target_deviation\n", mean_target_deviation.shape, "\n", mean_target_deviation[:5])
