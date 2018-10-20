@@ -582,12 +582,17 @@ def main():
 
     labels, ensemble_predictions = get_ensemble_predictions(model_dirs, rel_labels_filepath=args.rel_labels_path)
 
+
     if args.hatm:
         prompt_entropy_mean, \
         prompt_mean_entropy, \
         prompt_mutual_information, \
         prompt_entropies = get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath=args.rel_labels_path)
 
+    if args.hatm:
+        run_misclassification_detection_over_ensemble(labels, ensemble_predictions, prompt_entropies, savedir=args.savedir)
+    else:
+        run_misclassification_detection_over_ensemble(labels, ensemble_predictions, savedir=args.savedir)
 
     avg_predictions = calc_avg_predictions(ensemble_predictions)
 
