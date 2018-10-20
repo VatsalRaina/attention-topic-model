@@ -943,7 +943,7 @@ def main():
     plt.clf()
 
     if args.hatm:
-        plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=20,
+        plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=200,
                                                  sort_by_name='prompt_entropy', savedir=args.savedir)
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
