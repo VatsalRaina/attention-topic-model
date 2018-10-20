@@ -466,10 +466,10 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
             except ValueError:
                 aupr_scores[i,fold] =  1.0
 
-    print(mean_roc)
+
     mean_roc = np.mean(aupr_scores,axis=1)
     std_roc = np.std(aupr_scores, axis=1)
-
+    print(mean_roc)
     plt.plot(proportions_included, mean_roc)
     plt.fill_between(proportions_included, mean_roc - std_roc, mean_roc + std_roc, alpha=.2)
     plt.xlabel("Percentage examples included")
