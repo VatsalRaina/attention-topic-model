@@ -373,7 +373,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(mean_roc[-1]-std_roc[-1], 1.0)
+    plt.ylim(np.min(mean_roc-std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
         f.write('ROC AUC of Ensemble is: ' + str(mean_roc[-1]) + '\n')
     return
@@ -668,6 +668,7 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
                 f.write('prompt entropy AUPR POS: ' + str(auc_pentropy_mean[1]) + ' +/ -' + str(auc_pentropy_std[1]) + '\n')
                 f.write('prompt entropy AUPR NEG: ' + str(auc_pentropy_mean[2]) + ' +/ -' + str(auc_pentropy_std[2]) + '\n')
 
+    return entropies
 
 def main():
     args = parser.parse_args()
@@ -687,9 +688,9 @@ def main():
         prompt_entropies = get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath=args.rel_labels_path)
 
     if args.hatm:
-        run_misclassification_detection_over_ensemble(labels, ensemble_predictions, prompt_entropies, savedir=args.savedir)
+        entropies=run_misclassification_detection_over_ensemble(labels, ensemble_predictions, prompt_entropies, savedir=args.savedir)
     else:
-        run_misclassification_detection_over_ensemble(labels, ensemble_predictions, savedir=args.savedir)
+        entropies=run_misclassification_detection_over_ensemble(labels, ensemble_predictions, savedir=args.savedir)
 
     avg_predictions = calc_avg_predictions(ensemble_predictions)
 
@@ -943,8 +944,17 @@ def main():
     plt.clf()
 
     if args.hatm:
-        plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=200,
+        plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
+                                                 sort_by_name='entropy', savedir=args.savedir)
+        plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
                                                  sort_by_name='prompt_entropy', savedir=args.savedir)
+        plt.legend(['Entropy', 'Prompt Entropy'])
+        plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
+        plt.clf()
+    else:
+        plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
+                                                 sort_by_name='entropy', savedir=args.savedir)
+        plt.legend(['Entropy'])
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
 
