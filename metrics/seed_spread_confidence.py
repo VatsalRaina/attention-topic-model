@@ -350,8 +350,8 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
 
     print(sort_by_array.shape)
     for fold in range(predictions.shape[-1]):
-        uncertainty = sort_by_array[:fold]
-        print(uncertainty)
+        uncertainty = sort_by_array[:,fold]
+        print(uncertainty.shape)
         sorted_order = np.argsort(sort_by_array[:,fold])
 
         labels_sorted = labels[sorted_order]
