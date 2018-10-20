@@ -362,19 +362,19 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
 
             # print(len(labels_subset), len(predictions_subset))
             # print(labels_subset[max(0, last_idx-5): last_idx])
-            try:
-                roc_auc_scores[i,fold] = roc_auc_score(labels_subset, predictions_subset)
-            except ValueError:
-                roc_auc_scores[i,fold] = np.nan
+            #try:
+            roc_auc_scores[i,fold] = roc_auc_score(labels_subset, predictions_subset)
+            #except ValueError:
+            #    roc_auc_scores[i,fold] = np.nan
 
     mean_roc = np.mean(roc_auc_scores,axis=1)
     std_roc = np.std(roc_auc_scores, axis=1)
     plt.plot(proportions_included, mean_roc)
-    plt.fill_between(proportions_included, mean_roc - std_roc, mean_roc + std_roc, alpha=.2)
+    #plt.fill_between(proportions_included, mean_roc - std_roc, mean_roc + std_roc, alpha=.2)
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(0.7, 1.0)
+    plt.ylim(0.0, 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
         f.write('ROC AUC of Ensemble is: ' + str(mean_roc[-1]) + '\n')
     return
