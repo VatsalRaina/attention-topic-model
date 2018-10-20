@@ -801,6 +801,21 @@ def main():
     plt.savefig(savedir + '/auc_vs_cumulative_samples.png', bbox_inches='tight')
     plt.clf()
 
+
+    for pos_label in range(2):
+        plot_aupr_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200, pos_label=pos_label,savedir=args.savedir)
+        plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, pos_label=pos_label, savedir=args.savedir)
+        if args.hatm:
+            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200, pos_label=pos_label, savedir=args.savedir)
+        if args.hatm:
+            plt.legend(['Mutual Information', 'Entropy', 'Prompt Entropy'])
+        else:
+            plt.legend(['Mutual Information', 'Entropy'])
+        plt.savefig(savedir + '/aupr_vs_cumulative_samples_pos_label'+str(pos_label)+'.png', bbox_inches='tight')
+        plt.clf()
+
+
+
     # Make precision recall curve for average of predictions
     for i in range(10):
         precision, recall, _ = precision_recall_curve(1 - labels, 1 - ensemble_predictions[:, i])
