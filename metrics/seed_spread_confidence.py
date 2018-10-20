@@ -356,7 +356,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
 
         labels_sorted = labels[sorted_order]
         predictions_sorted = predictions[sorted_order]
-
+        print(sorted_order.shape,labels_sorted.shape, predictions_sorted.shape)
         for i in range(resolution):
             proportion = proportions_included[i]
             last_idx = int(math.floor(num_examples * proportion)) + 1
