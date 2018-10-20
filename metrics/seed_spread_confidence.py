@@ -374,7 +374,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(mean_roc[-1]-std_roc[-1], 1.0)
+    plt.ylim(mean_roc[-1], 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
         f.write('ROC AUC of Ensemble is: ' + str(mean_roc[-1]) + '\n')
     return
