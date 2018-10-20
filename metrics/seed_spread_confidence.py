@@ -539,6 +539,7 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
 
     misclassification = np.asarray(labels != predictions, dtype= np.int32)
     correct = np.asarray(labels == predictions, dtype= np.float32)
+    print correct.shape
     accuracies= np.mean(correct,axis=0)
     m_accuracy = np.mean(accuracies)
     std_accuract = np.std(accuracies)
