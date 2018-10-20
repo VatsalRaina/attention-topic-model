@@ -348,15 +348,11 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     proportions_included = np.linspace(0, 1, num=resolution)
     roc_auc_scores = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
 
-    print(sort_by_array.shape)
     for fold in range(predictions.shape[-1]):
-        uncertainty = sort_by_array[:,fold]
-        print(uncertainty.shape)
         sorted_order = np.argsort(sort_by_array[:,fold])
 
         labels_sorted = labels[sorted_order]
         predictions_sorted = predictions[sorted_order, fold]
-        print(sorted_order.shape,labels_sorted.shape, predictions_sorted.shape)
         for i in range(resolution):
             proportion = proportions_included[i]
             last_idx = int(math.floor(num_examples * proportion)) + 1
@@ -372,14 +368,12 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
 
     mean_roc = np.mean(roc_auc_scores,axis=1)
     std_roc = np.std(roc_auc_scores, axis=1)
-    print(roc_auc_scores)
-    print(mean_roc)
     plt.plot(proportions_included, mean_roc)
     #plt.fill_between(proportions_included, mean_roc - std_roc, mean_roc + std_roc, alpha=.2)
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(0.0, 1.0)
+    plt.ylim(mean_roc[-1]-std_roc[-1], 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
         f.write('ROC AUC of Ensemble is: ' + str(mean_roc[-1]) + '\n')
     return
