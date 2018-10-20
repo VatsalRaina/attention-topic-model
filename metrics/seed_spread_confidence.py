@@ -369,6 +369,8 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
 
     mean_roc = np.mean(roc_auc_scores,axis=1)
     std_roc = np.std(roc_auc_scores, axis=1)
+    print(roc_auc_scores)
+    print(mean_roc)
     plt.plot(proportions_included, mean_roc)
     #plt.fill_between(proportions_included, mean_roc - std_roc, mean_roc + std_roc, alpha=.2)
     plt.xlabel("Percentage examples included")
