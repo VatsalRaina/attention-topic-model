@@ -621,17 +621,17 @@ def main():
         f.write('mutual information AUPR POS: ' + str(aucs_mi[1]) + '\n')
         f.write('mutual information AUPR NEG: ' + str(aucs_mi[2]) + '\n')
 
-    if args.hatm:
-        aucs_pentropy = run_misclassification_detection(misclassification, prompt_entropy_mean)
-        aucs_pmi = run_misclassification_detection(misclassification, prompt_mutual_information)
+        if args.hatm:
+            aucs_pentropy = run_misclassification_detection(misclassification, prompt_entropy_mean)
+            aucs_pmi = run_misclassification_detection(misclassification, prompt_mutual_information)
 
-        f.write('prompt entropy ROC AUC: ' + str(aucs_pentropy[0]) + '\n')
-        f.write('prompt entropy AUPR POS: ' + str(aucs_pentropy[1]) + '\n')
-        f.write('prompt entropy AUPR NEG: ' + str(aucs_pentropy[2]) + '\n')
+            f.write('prompt entropy ROC AUC: ' + str(aucs_pentropy[0]) + '\n')
+            f.write('prompt entropy AUPR POS: ' + str(aucs_pentropy[1]) + '\n')
+            f.write('prompt entropy AUPR NEG: ' + str(aucs_pentropy[2]) + '\n')
 
-        f.write('prompt mutual information ROC AUC: ' + str(aucs_pmi[0]) + '\n')
-        f.write('prompt mutual information AUPR POS: ' + str(aucs_pmi[1]) + '\n')
-        f.write('prompt mutual information AUPR NEG: ' + str(aucs_pmi[2]) + '\n')
+            f.write('prompt mutual information ROC AUC: ' + str(aucs_pmi[0]) + '\n')
+            f.write('prompt mutual information AUPR POS: ' + str(aucs_pmi[1]) + '\n')
+            f.write('prompt mutual information AUPR NEG: ' + str(aucs_pmi[2]) + '\n')
 
 
 
