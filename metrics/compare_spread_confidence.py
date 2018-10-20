@@ -1,20 +1,25 @@
+#! /usr/bin/env python
+
 """
 Just a one-off script for comparing the seed spread versus confidence
 """
 from __future__ import print_function, division
 
-import sys
+import argparse
 import os
+import time
+import sys
+
 import numpy as np
+
+import matplotlib
+matplotlib.use('Agg')
+
 from numpy import ma
 import scipy.stats
 import math
-import time
-import matplotlib
-import argparse
-import matplotlib
 
-matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm
@@ -28,6 +33,8 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import recall_score
 from sklearn.metrics import precision_score
+import seaborn as sns
+sns.set()
 
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
 parser.add_argument('models_parent_dir', type=str, help='Path to ensemble directory')
@@ -95,8 +102,8 @@ def plot_cum_density_family(predictions, labels, spread, spread_thresholds):
         plt.plot(x, cum_dens_off_topic, color=colours_off_topic[i], linewidth=0.6, alpha=0.5,
                  label='{0:.2f} off-topic'.format(threshold))
 
-    plt.xlim(0, 1)
-    plt.ylim(0, 1)
+    plt.xlim(0.0, 1.0)
+    plt.ylim(0.0, 1.0)
     plt.xlabel("Expected probability of off-topic as predicted by ensemble.")
     plt.ylabel("Cumulative Density")
     # Sort the legend first by on vs. off topic, than by threshold
@@ -153,8 +160,8 @@ def plot_cum_density_family_true(predictions, labels, spread, spread_thresholds)
         plt.plot(x, cum_dens_off_topic, color=colours_off_topic[i], linewidth=0.6, alpha=0.5,
                  label='{0:.2f} off-topic'.format(threshold))
 
-    plt.xlim(0, 1)
-    plt.ylim(0, 1)
+    plt.xlim(0.0, 1.0)
+    plt.ylim(0.0, 1.0)
     plt.xlabel("Expected probability of off-topic as predicted by ensemble.")
     plt.ylabel("Cumulative Density")
     # Sort the legend first by on vs. off topic, than by threshold

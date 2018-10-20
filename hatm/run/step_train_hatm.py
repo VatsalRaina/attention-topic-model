@@ -6,7 +6,7 @@ import sys
 
 import tensorflow as tf
 
-from core.utilities.utilities import text_to_array
+from core.utilities.utilities import text_to_array, get_train_size_from_meta
 from hatm.hatm import HierarchicialAttentionTopicModel
 
 commandLineParser = argparse.ArgumentParser(description='Compute features from labels.')
@@ -35,13 +35,13 @@ commandLineParser.add_argument('--load_path', type=str, default='./',
 commandLineParser.add_argument('--init', type=str, default=None,
                                help='Specify path to from which to initialize model')
 commandLineParser.add_argument('--distortion', type=float, default=1.0,
-                               help='Specify whether to use uniform negative sampliong')
+                               help='Specify whether to use uniform negative sampling')
 commandLineParser.add_argument('--epoch', type=str, default=None,
                                help='which should be loaded')
 commandLineParser.add_argument('train_data', type=str,
                                help='which should be loaded')
-commandLineParser.add_argument('train_size', type=int,
-                               help='which should be loaded')
+commandLineParser.add_argument('meta_data_path', type=str,
+                               help='Path to the meta data file (which contains the dataset size and number of topics).')
 commandLineParser.add_argument('valid_data', type=str,
                                help='which should be loaded')
 commandLineParser.add_argument('topic_path', type=str,
@@ -50,6 +50,7 @@ commandLineParser.add_argument('topic_count_path', type=str,
                                help='which should be loaded')
 commandLineParser.add_argument('wlist_path', type=str,
                                help='which should be loaded')
+commandLineParser.add_argument('--strip_start_end', action='store_true', help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt file (used for legacy sorted_topics.txt formatting')
 
 
 
@@ -61,7 +62,11 @@ def main(argv=None):
         f.write(' '.join(sys.argv) + '\n')
         f.write('--------------------------------\n')
 
-    topics, topic_lens = text_to_array(args.topic_path, input_index=args.wlist_path)
+    train_size = get_train_size_from_meta(args.meta_data_path)
+
+    topics, topic_lens = text_to_array(args.topic_path, args.wlist_path, strip_start_end=args.strip_start_end)
+    if args.strip_start_end:
+        print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
 
     atm = HierarchicialAttentionTopicModel(network_architecture=None,
                              seed=args.seed,
@@ -77,7 +82,7 @@ def main(argv=None):
             topics=topics,
             topic_lens=topic_lens,
             unigram_path=args.topic_count_path,
-            train_size=args.train_size,
+            train_size=train_size,
             learning_rate=args.learning_rate,
             lr_decay=args.lr_decay,
             dropout=args.dropout,

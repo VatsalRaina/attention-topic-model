@@ -18,8 +18,7 @@ from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import auc
 sns.set()
 
-import context
-from atm.atm import AttentionTopicModel
+from hatm.hatm import HierarchicialAttentionTopicModel
 from core.utilities.utilities import text_to_array, IdToWordConverter
 
 commandLineParser = argparse.ArgumentParser(description='Compute features from labels.')
@@ -50,7 +49,9 @@ commandLineParser.add_argument('output_dir', type=str, default=None,
 
 
 
-def main(args):
+def main(argv=None):
+    args = commandLineParser.parse_args()
+
     if args.save_reordered_input:
         assert args.wlist_path != None
 
@@ -63,7 +64,7 @@ def main(args):
         os.makedirs(args.output_dir)
 
     # Initialize and Run the Model
-    atm = AttentionTopicModel(network_architecture=None,
+    atm = HierarchicialAttentionTopicModel(network_architecture=None,
                               load_path=args.load_path,
                               debug_mode=args.debug,
                               epoch=args.epoch)
@@ -75,6 +76,7 @@ def main(args):
     if args.save_reordered_input:
         test_loss, \
         test_probs_arr, \
+        test_attention_arr, \
         test_labels_arr, \
         test_response_lens_arr, \
         test_prompt_lens_arr, \
@@ -83,6 +85,7 @@ def main(args):
     else:
         test_loss, \
         test_probs_arr, \
+        test_attention_arr, \
         test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False, apply_bucketing=apply_bucketing)
 
     end_time = time.time()
@@ -93,6 +96,7 @@ def main(args):
     np.savetxt(os.path.join(args.output_dir, 'labels-probs.txt'), data)
     np.savetxt(os.path.join(args.output_dir, 'labels.txt'), test_labels_arr)
     np.savetxt(os.path.join(args.output_dir, 'predictions.txt'), test_probs_arr)
+    np.savetxt(os.path.join(args.output_dir, 'prompt_attention.txt'), test_attention_arr)
 
     if args.save_reordered_input:
         np.savetxt(os.path.join(args.output_dir, 'response_lengths.txt'), test_response_lens_arr)
@@ -168,5 +172,4 @@ def main(args):
         f.write('Cross Entropy:' + str(np.round(test_loss, 3)) + '\n\n')
 
 if __name__ == '__main__':
-    args = commandLineParser.parse_args()
-    main(args)
+    main()

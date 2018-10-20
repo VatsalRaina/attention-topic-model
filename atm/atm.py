@@ -64,115 +64,6 @@ class AttentionTopicModel(BaseModel):
         elif load_path != None:
             self.load(load_path=load_path, step=epoch)
 
-    # def _construct_network(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen,
-    #                        batch_size, keep_prob=1.0):
-    #     """ Construct RNNLM network
-    #     Args:
-    #       ?
-    #     Returns:
-    #       predictions, logits
-    #     """
-    #
-    #     L2 = self.network_architecture['L2']
-    #     initializer = self.network_architecture['initializer']
-    #
-    #     # Question Encoder RNN
-    #     with tf.variable_scope('Embeddings', initializer=initializer(self._seed)) as scope:
-    #         embedding = slim.model_variable('word_embedding',
-    #                                         shape=[self.network_architecture['n_in'],
-    #                                                self.network_architecture['n_ehid']],
-    #                                         initializer=tf.truncated_normal_initializer(stddev=0.1),
-    #                                         regularizer=slim.l2_regularizer(L2),
-    #                                         device='/GPU:0')
-    #         a_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, a_input, name='embedded_data'),
-    #                                  keep_prob=keep_prob, seed=self._seed + 1)
-    #         q_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_input, name='embedded_data'),
-    #                                  keep_prob=keep_prob, seed=self._seed + 2)
-    #
-    #     with tf.variable_scope('RNN_Q', initializer=initializer(self._seed)) as scope:
-    #         cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=self.network_architecture['n_phid'],
-    #                                                forget_bias=1.0,
-    #                                                activation=self.network_architecture['r_activation_fn'],
-    #                                                state_is_tuple=True)
-    #         cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=self.network_architecture['n_phid'],
-    #                                                forget_bias=1.0,
-    #                                                activation=self.network_architecture['r_activation_fn'],
-    #                                                state_is_tuple=True)
-    #
-    #         cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, output_keep_prob=keep_prob)
-    #         cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw, output_keep_prob=keep_prob)
-    #
-    #         initial_state_fw = cell_fw.zero_state(batch_size=batch_size * (n_samples + 1), dtype=tf.float32)
-    #         initial_state_bw = cell_bw.zero_state(batch_size=batch_size * (n_samples + 1), dtype=tf.float32)
-    #
-    #         _, state = tf.nn.bidirectional_dynamic_rnn(cell_fw=cell_fw,
-    #                                                    cell_bw=cell_bw,
-    #                                                    inputs=q_inputs,
-    #                                                    sequence_length=q_seqlens,
-    #                                                    initial_state_fw=initial_state_fw,
-    #                                                    initial_state_bw=initial_state_bw,
-    #                                                    dtype=tf.float32,
-    #                                                    parallel_iterations=32,
-    #                                                    scope=scope)
-    #
-    #         question_embeddings = tf.concat([state[0][1], state[1][1]], axis=1)
-    #         question_embeddings = tf.nn.dropout(question_embeddings, keep_prob=keep_prob, seed=self._seed)
-    #
-    #     # Response Encoder RNN
-    #     with tf.variable_scope('RNN_A', initializer=initializer(self._seed)) as scope:
-    #         cell_fw = tf.contrib.rnn.BasicLSTMCell(num_units=self.network_architecture['n_rhid'],
-    #                                                forget_bias=1.0,
-    #                                                activation=self.network_architecture['r_activation_fn'],
-    #                                                state_is_tuple=True)
-    #         cell_bw = tf.contrib.rnn.BasicLSTMCell(num_units=self.network_architecture['n_rhid'],
-    #                                                forget_bias=1.0,
-    #                                                activation=self.network_architecture['r_activation_fn'],
-    #                                                state_is_tuple=True)
-    #
-    #         initial_state_fw = cell_fw.zero_state(batch_size=batch_size, dtype=tf.float32)
-    #         initial_state_bw = cell_bw.zero_state(batch_size=batch_size, dtype=tf.float32)
-    #
-    #         cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, output_keep_prob=keep_prob)
-    #         cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw, output_keep_prob=keep_prob)
-    #
-    #         outputs, state = tf.nn.bidirectional_dynamic_rnn(cell_fw=cell_fw,
-    #                                                          cell_bw=cell_bw,
-    #                                                          inputs=a_inputs,
-    #                                                          sequence_length=a_seqlens,
-    #                                                          initial_state_fw=initial_state_fw,
-    #                                                          initial_state_bw=initial_state_bw,
-    #                                                          dtype=tf.float32,
-    #                                                          parallel_iterations=32,
-    #                                                          scope=scope)
-    #
-    #         a_seqlens = tf.tile(a_seqlens, [n_samples + 1])
-    #         outputs = tf.concat([outputs[0], outputs[1]], axis=2)
-    #         outputs = tf.tile(outputs, [1 + n_samples, 1, 1])
-    #
-    #     print outputs.get_shape(), a_seqlens.get_shape()
-    #
-    #     hidden, attention = self._bahdanau_attention(memory=outputs, seq_lens=a_seqlens, maxlen=maxlen,
-    #                                                  query=question_embeddings,
-    #                                                  size=2 * self.network_architecture['n_rhid'],
-    #                                                  batch_size=batch_size * (n_samples + 1))
-    #
-    #     with tf.variable_scope('Grader') as scope:
-    #         for layer in xrange(self.network_architecture['n_flayers']):
-    #             hidden = slim.fully_connected(hidden,
-    #                                           self.network_architecture['n_fhid'],
-    #                                           activation_fn=self.network_architecture['f_activation_fn'],
-    #                                           weights_regularizer=slim.l2_regularizer(L2),
-    #                                           scope="hidden_layer_" + str(layer))
-    #             hidden = tf.nn.dropout(hidden, keep_prob=keep_prob, seed=self._seed + layer)
-    #
-    #         logits = slim.fully_connected(hidden,
-    #                                       self.network_architecture['n_out'],
-    #                                       activation_fn=None,
-    #                                       scope="output_layer")
-    #         probabilities = self.network_architecture['output_fn'](logits)
-    #         predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
-    #
-    #     return predictions, probabilities, logits, attention
 
     def _construct_network(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen, batch_size, keep_prob=1.0):
         """ Construct RNNLM network
@@ -256,6 +147,45 @@ class AttentionTopicModel(BaseModel):
             predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
 
         return predictions, probabilities, logits, attention
+
+    def _construct_prompt_encoder(self, p_input, p_seqlens):
+        """ Construct RNNLM network
+        Args:
+          ?
+        Returns:
+          predictions, probabilities, logits, attention
+        """
+
+        L2 = self.network_architecture['L2']
+        initializer = self.network_architecture['initializer']
+
+        # Question Encoder RNN
+        with tf.variable_scope('Embeddings', initializer=initializer(self._seed)) as scope:
+            embedding = slim.model_variable('word_embedding',
+                                            shape=[self.network_architecture['n_in'],
+                                                   self.network_architecture['n_ehid']],
+                                            initializer=tf.truncated_normal_initializer(stddev=0.1),
+                                            regularizer=slim.l2_regularizer(L2),
+                                            device='/GPU:0')
+
+            p_inputs = tf.nn.embedding_lookup(embedding, p_input, name='embedded_data')
+
+            p_inputs_fw = tf.transpose(p_inputs, [1, 0, 2])
+            p_inputs_bw = tf.transpose(tf.reverse_sequence(p_inputs, seq_lengths=p_seqlens, seq_axis=1, batch_axis=0),
+                                       [1, 0, 2])
+
+        # Prompt Encoder RNN
+        with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
+            rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            _, state_fw = rnn_fw(p_inputs_fw, sequence_length=p_seqlens, dtype=tf.float32)
+
+        with tf.variable_scope('RNN_Q_BW', initializer=initializer(self._seed)) as scope:
+            rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            _, state_bw = rnn_bw(p_inputs_bw, sequence_length=p_seqlens, dtype=tf.float32)
+
+            prompt_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
+
+        return prompt_embeddings
 
     def fit(self,
             train_data,
@@ -645,6 +575,21 @@ class AttentionTopicModel(BaseModel):
         #         # plt.show()
         #         plt.savefig('histogram_LINSKneg02.png')
         #         plt.close()
+
+    def get_prompt_embeddings(self, prompts, prompt_lens, save_path):
+        with self._graph.as_default():
+            prompts = tf.convert_to_tensor(prompts, dtype=tf.int32)
+            prompt_lens = tf.convert_to_tensor(prompt_lens, dtype=tf.int32)
+
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                prompt_embeddings = self._construct_prompt_encoder(p_input=prompts, p_seqlens=prompt_lens)
+
+            embeddings = self.sess.run(prompt_embeddings)
+
+            path = os.path.join(save_path, 'prompt_embeddings.txt')
+            np.savetxt(path, embeddings)
+
+
 
 
 class AttentionTopicModelStudent(AttentionTopicModel):

@@ -67,6 +67,75 @@ class HierarchicialAttentionTopicModel(BaseModel):
         elif load_path != None:
             self.load(load_path=load_path, step=epoch)
 
+    def _construct_prompt_encoder(self, p_input, p_seqlens, batch_size):
+        """ Construct RNNLM network
+        Args:
+          ?
+        Returns:
+          predictions, probabilities, logits, attention
+        """
+
+        L2 = self.network_architecture['L2']
+        initializer = self.network_architecture['initializer']
+
+        # Question Encoder RNN
+        with tf.variable_scope('Embeddings', initializer=initializer(self._seed)) as scope:
+            embedding = slim.model_variable('word_embedding',
+                                            trainable=False,
+                                            shape=[self.network_architecture['n_in'],
+                                                   self.network_architecture['n_ehid']],
+                                            initializer=tf.truncated_normal_initializer(stddev=0.1),
+                                            regularizer=slim.l2_regularizer(L2),
+                                            device='/GPU:0')
+
+            p_inputs = tf.nn.embedding_lookup(embedding, p_input, name='embedded_data')
+
+            p_inputs_fw = tf.transpose(p_inputs, [1, 0, 2])
+            p_inputs_bw = tf.transpose(tf.reverse_sequence(p_inputs, seq_lengths=p_seqlens, seq_axis=1, batch_axis=0),
+                                       [1, 0, 2])
+
+
+        prompt_embeddings = self.prompt_embeddings
+
+        with tf.variable_scope('RNN_KEY_FW', initializer=initializer(self._seed)) as scope:
+            rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            _, state_fw = rnn_fw(p_inputs_fw, sequence_length=p_seqlens, dtype=tf.float32)
+        with tf.variable_scope('RNN_KEY_BW', initializer=initializer(self._seed)) as scope:
+            rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            _, state_bw = rnn_bw(p_inputs_bw, sequence_length=p_seqlens, dtype=tf.float32)
+
+
+        keys = tf.concat([state_fw[1], state_bw[1]], axis=1)
+
+        with tf.variable_scope('PROMPT_ATN', initializer=initializer(self._seed)) as scope:
+            # Compute Attention over known questions
+            mems = slim.fully_connected(prompt_embeddings,
+                                        2 * self.network_architecture['n_phid'],
+                                        activation_fn=None,
+                                        weights_regularizer=slim.l2_regularizer(L2),
+                                        scope="mem")
+            mems = tf.expand_dims(mems, axis=0, name='expanded_mems')
+            tkeys = slim.fully_connected(keys,
+                                         2 * self.network_architecture['n_phid'],
+                                         activation_fn=None,
+                                         weights_regularizer=slim.l2_regularizer(L2),
+                                         scope="tkeys")
+            tkeys = tf.expand_dims(tkeys, axis=1, name='expanded_mems')
+            v = slim.model_variable('v',
+                                    shape=[2 * self.network_architecture['n_phid'], 1],
+                                    regularizer=slim.l2_regularizer(L2),
+                                    device='/GPU:0')
+
+            tmp = tf.nn.tanh(mems + tkeys)
+            tmp = tf.reshape(tmp, shape=[-1, 2 *self.network_architecture['n_phid']])
+            a = tf.exp(tf.reshape(tf.matmul(tmp, v), [batch_size, -1]))
+
+            prompt_attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
+            attended_prompt_embedding = tf.matmul(prompt_attention, prompt_embeddings)
+
+            return attended_prompt_embedding, prompt_attention
+
+
     def _construct_network(self, a_input, a_seqlens, n_samples, p_input, p_seqlens, maxlen, p_ids, batch_size, is_training=False, run_prompt_encoder=False, keep_prob=1.0):
         """ Construct RNNLM network
         Args:
@@ -158,8 +227,8 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                 tf.ones(shape=[batch_size * (n_samples + 1), self.network_architecture['n_topics']], dtype=tf.float32))
                 a = a * mask
 
-            attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
-            attended_prompt_embedding = tf.matmul(attention, prompt_embeddings)
+            prompt_attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
+            attended_prompt_embedding = tf.matmul(prompt_attention, prompt_embeddings)
 
 
         # Response Encoder RNN
@@ -199,7 +268,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
             probabilities = self.network_architecture['output_fn'](logits)
             predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
 
-        return predictions, probabilities, logits, attention
+        return predictions, probabilities, logits, prompt_attention
 
     def fit(self,
             train_data,
@@ -324,7 +393,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
 
             variables1 =tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='.*((PROMPT_ATN)|(RNN_KEY)).*')
             variables2 = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
-                                           scope='.*((PROMPT_ATN)|(RNN_KEY)|(Grader_Attention)).*')
+                                           scope='.*((PROMPT_ATN)|(RNN_KEY)|(Attention)).*')
             train_op_new = util.create_train_op(total_loss=total_loss,
                                             learning_rate=learning_rate,
                                             optimizer=optimizer,
@@ -336,7 +405,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                             global_step=global_step,
                                             clip_gradient_norm=10.0,
                                             summarize_gradients=False)
-            train_op_all = util.create_train_op(total_loss=total_loss,
+            train_op_atn = util.create_train_op(total_loss=total_loss,
                                             learning_rate=learning_rate,
                                             optimizer=optimizer,
                                             optimizer_params=optimizer_params,
@@ -347,6 +416,17 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                             global_step=global_step,
                                             clip_gradient_norm=10.0,
                                             summarize_gradients=False)
+            train_op_all = util.create_train_op(total_loss=total_loss,
+                                            learning_rate=learning_rate,
+                                            optimizer=optimizer,
+                                            optimizer_params=optimizer_params,
+                                            n_examples=n_examples,
+                                            batch_size=batch_size,
+                                            learning_rate_decay=lr_decay,
+                                            global_step=global_step,
+                                            clip_gradient_norm=10.0,
+                                            summarize_gradients=False)
+
 
             # Intialize only newly created variables, as opposed to reused - allows for finetuning and transfer learning :)
             init = tf.variables_initializer(set(tf.global_variables()) - temp)
@@ -380,8 +460,10 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 loss = 0.0
                 batch_time = time.time()
                 for batch in xrange(n_batches):
-                    if epoch <= 4:
+                    if epoch <= 2:
                         _, loss_value = self.sess.run([train_op_new, trn_cost], feed_dict={self.dropout: dropout})
+                    elif epoch == 3:
+                        _, loss_value = self.sess.run([train_op_atn, trn_cost], feed_dict={self.dropout: dropout})
                     else:
                         _, loss_value = self.sess.run([train_op_all, trn_cost], feed_dict={self.dropout: dropout})
                     assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
@@ -439,9 +521,13 @@ class HierarchicialAttentionTopicModel(BaseModel):
             print (format_str % (duration))
             self.save()
 
-    def predict(self, test_pattern, batch_size=20):
+    def predict(self, test_pattern, batch_size=20, cache_inputs=False, apply_bucketing=True):
         with self._graph.as_default():
             test_files = tf.gfile.Glob(test_pattern)
+            if apply_bucketing:
+                batching_function = self._batch_func
+            else:
+                batching_function = self._batch_func_without_bucket
             test_iterator = self._construct_dataset_from_tfrecord(test_files,
                                                                   self._parse_func,
                                                                   self._map_func,
@@ -473,30 +559,129 @@ class HierarchicialAttentionTopicModel(BaseModel):
             loss = self._construct_xent_cost(targets=test_targets, logits=tf.squeeze(test_logits), pos_weight=1.0,
                                              is_training=False)
 
-            test_loss = 0.0
-            total_size = 0
+
             self.sess.run(test_iterator.initializer)
-            count = 0
-            while True:
-                try:
-                    batch_eval_loss, \
-                    batch_test_probs, \
-                    batch_test_targets = self.sess.run([loss,
-                                                        test_probabilities,
-                                                        test_targets])
-                    size = batch_test_probs.shape[0]
-                    test_loss += float(size) * batch_eval_loss
-                    if count == 0:
-                        test_probs = batch_test_probs
-                        test_labels = batch_test_targets[:,np.newaxis]
-                    else:
-                        test_probs = np.concatenate((test_probs, batch_test_probs), axis=0)
-                        test_labels = np.concatenate((test_labels, batch_test_targets[:,np.newaxis]), axis=0)
-                    total_size += size
-                    count+=1
-                except:  # tf.errors.OutOfRangeError:
-                    break
+            if cache_inputs:
+                return self._predict_loop_with_caching(loss, test_probabilities, test_attention, test_targets,
+                                                       test_responses, test_response_lengths, test_prompts,
+                                                       test_prompt_lens)
+            else:
+                return self._predict_loop(loss, test_probabilities,  test_attention, test_targets)
 
-            test_loss = test_loss / float(total_size)
+    def _predict_loop_with_caching(self, loss, test_probabilities, test_attention, test_targets, test_responses, test_response_lengths,
+                                   test_prompts, test_prompt_lens):
+        test_loss = 0.0
+        total_size = 0
+        count = 0
 
-        return test_labels, test_probs, test_loss
+        # Variables for storing the batch_ordered data
+        test_responses_list = []
+        test_prompts_list = []
+        while True:
+            try:
+                batch_eval_loss, \
+                batch_test_probs, \
+                batch_test_attention, \
+                batch_test_targets, \
+                batch_responses, \
+                batch_response_lengths, \
+                batch_prompts, \
+                batch_prompt_lens = self.sess.run([loss,
+                                                   test_probabilities,
+                                                   test_attention,
+                                                   test_targets,
+                                                   test_responses,
+                                                   test_response_lengths,
+                                                   test_prompts,
+                                                   test_prompt_lens])
+
+                size = batch_test_probs.shape[0]
+                test_loss += float(size) * batch_eval_loss
+                if count == 0:
+                    test_probs_arr = batch_test_probs  # shape: (num_batches, 1)
+                    test_labels_arr = batch_test_targets[:, np.newaxis]  # becomes shape: (num_batches, 1)
+                    test_attention_arr = batch_test_attention
+                    test_response_lens_arr = batch_response_lengths[:, np.newaxis]  # becomes shape: (num_batches, 1)
+                    test_prompt_lens_arr = batch_prompt_lens[:, np.newaxis]  # becomes shape: (num_batches, 1)
+                else:
+                    test_probs_arr = np.concatenate((test_probs_arr, batch_test_probs), axis=0)
+                    test_labels_arr = np.concatenate((test_labels_arr, batch_test_targets[:, np.newaxis]), axis=0)
+                    test_attention_arr = np.concatenate((test_attention_arr, batch_test_attention), axis=0)
+                    test_response_lens_arr = np.concatenate(
+                        (test_response_lens_arr, batch_response_lengths[:, np.newaxis]), axis=0)
+                    test_prompt_lens_arr = np.concatenate((test_prompt_lens_arr, batch_prompt_lens[:, np.newaxis]),
+                                                          axis=0)
+                test_responses_list.extend(list(batch_responses))  # List of numpy arrays!
+                test_prompts_list.extend(list(batch_prompts))  # List of numpy arrays!
+
+                total_size += size
+                count += 1
+            except:  # todo: tf.errors.OutOfRangeError:
+                break
+
+        test_loss = test_loss / float(total_size)
+
+        return (test_loss,
+                test_probs_arr,
+                test_attention_arr,
+                test_labels_arr.astype(np.int32),
+                test_response_lens_arr.astype(np.int32),
+                test_prompt_lens_arr.astype(np.int32),
+                test_responses_list,
+                test_prompts_list)
+
+    def _predict_loop(self, loss, test_probabilities, test_attention, test_targets):
+        test_loss = 0.0
+        total_size = 0
+        count = 0
+
+        # Variables for storing the batch_ordered data
+        while True:
+            try:
+                batch_eval_loss, \
+                batch_test_probs, \
+                batch_test_attention, \
+                batch_test_targets = self.sess.run([loss,
+                                                    test_probabilities,
+                                                    test_attention,
+                                                    test_targets])
+
+                size = batch_test_probs.shape[0]
+                test_loss += float(size) * batch_eval_loss
+                if count == 0:
+                    test_probs_arr = batch_test_probs  # shape: (num_batches, 1)
+                    test_attention_arr = batch_test_attention
+                    test_labels_arr = batch_test_targets[:, np.newaxis]  # becomes shape: (num_batches, 1)
+                else:
+                    test_probs_arr = np.concatenate((test_probs_arr, batch_test_probs), axis=0)
+                    test_attention_arr = np.concatenate((test_attention_arr, batch_test_attention), axis=0)
+                    test_labels_arr = np.concatenate((test_labels_arr, batch_test_targets[:, np.newaxis]), axis=0)
+
+                total_size += size
+                count += 1
+            except:  # todo: tf.errors.OutOfRangeError:
+                break
+
+        test_loss = test_loss / float(total_size)
+
+        return (test_loss,
+                test_probs_arr,
+                test_attention_arr,
+                test_labels_arr.astype(np.int32))
+
+    def get_prompt_embeddings(self, prompts, prompt_lens, save_path):
+        with self._graph.as_default():
+            batch_size = prompts.shape[0]
+            prompts = tf.convert_to_tensor(prompts, dtype=tf.int32)
+            prompt_lens = tf.convert_to_tensor(prompt_lens, dtype=tf.int32)
+
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                prompt_embeddings, prompt_attention = self._construct_prompt_encoder(p_input=prompts, p_seqlens=prompt_lens, batch_size=batch_size)
+
+            embeddings, attention = self.sess.run(prompt_embeddings)
+
+            path = os.path.join(save_path, 'prompt_embeddings.txt')
+            np.savetxt(path, embeddings)
+
+            path = os.path.join(save_path, 'prompt_attention.txt')
+            np.savetxt(path, attention)
