@@ -341,12 +341,16 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
     :param resolution: Number of points to plot
     :return:
     """
+    assert pos_label == 0 or pos_label ==1
     num_examples = len(labels)
 
     sorted_order = np.argsort(sort_by_array)
 
     labels_sorted = labels[sorted_order]
     predictions_sorted = predictions[sorted_order]
+
+    if pos_label==0:
+        predictions_sorted=1.0-predictions_sorted
 
     proportions_included = np.linspace(0, 1, num=resolution)
 
