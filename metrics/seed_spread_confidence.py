@@ -346,7 +346,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     num_examples = len(labels)
 
     proportions_included = np.linspace(0, 1, num=resolution)
-    roc_auc_scores = np.zeros(shape=[proportions_included.shape, predictions.shape[-1]], dtype=np.float32)
+    roc_auc_scores = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
 
     for fold in range(predictions.shape[-1]):
         sorted_order = np.argsort(sort_by_array[:,fold])
