@@ -539,6 +539,9 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
 
     misclassification = np.asarray(labels != predictions, dtype= np.int32)
     correct = np.asarray(labels == predictions, dtype= np.float32)
+    accuracies= np.mean(correct,axis=0)
+    m_accuracy = np.mean(accuracies)
+    std_accuract = np.std(accuracies)
 
     auc_array_entropy=[]
     for i in xrange(predictions.shape[-1]):
@@ -558,7 +561,7 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
 
     if savedir:
         with open(os.path.join(savedir, 'misclassification_detect_individual.txt'), 'w') as f:
-            f.write('Accuracy = ' +str(np.mean(correct))+'\n')
+            f.write('Mean Accuracy = ' +str(m_accuracy) +'+/-' + str(std_accuract)+'\n')
             f.write('entropy ROC AUC: '+str(auc_entropy_mean[0])+ '+/-' + str(auc_entropy_std[0])+ '\n')
             f.write('entropy AUPR POS: '+str(auc_entropy_mean[1])+ '+/-' + str(auc_entropy_std[1])+ '\n')
             f.write('entropy AUPR NEG: '+str(auc_entropy_mean[2])+ '+/-' + str(auc_entropy_std[2])+ '\n')
