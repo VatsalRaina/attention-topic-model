@@ -3,26 +3,22 @@
 Just a one-off script for comparing the seed spread versus confidence
 """
 from __future__ import print_function, division
+
 import matplotlib
+
 matplotlib.use('Agg')
-import sys
 import os
 import numpy as np
-from numpy import ma
 import scipy.stats
 import math
 import argparse
 
-
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm
 import matplotlib.colors
-from matplotlib.ticker import LinearLocator, FormatStrFormatter
-from matplotlib.collections import LineCollection
-from matplotlib.colors import ListedColormap, BoundaryNorm
 import matplotlib.patches as mpatches
 
+from sklearn.metrics import auc
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 
@@ -35,9 +31,9 @@ parser.add_argument('--rel_attention_path', type=str, default='eval4_naive/promp
 parser.add_argument('--n_levels', type=int, default=20)
 parser.add_argument('--hatm', action='store_true', help='Whether to analyse ATM or HATM ensemble')
 
-
 matplotlib.rcParams['savefig.dpi'] = 200
 import seaborn as sns
+
 sns.set()
 
 # Specify the colours
@@ -46,6 +42,19 @@ dark_green = (0.1, 0.7, 0.3)
 red = (0.9, 0.3, 0.3)
 dark_orange = (0.9, 0.5, 0.2)
 dark_blue = (0.1, 0.15, 0.27)
+
+
+def add_off_topic_probability(predictions):
+    """
+
+    :param predictions: array of prediction of probability of positive class
+    :return: array of shape [batchsize, 2] which probabiltiies of negative class in first index and positive in second
+    """
+
+    p_off_topic = 1.0 - predictions
+    predictions = np.concatenate((p_off_topic[:, np.newaxis], predictions[:, np.newaxis]), axis=1)
+
+    return predictions
 
 
 def get_ensemble_predictions(model_dirs, rel_labels_filepath='eval4_naive/labels-probs.txt'):
@@ -70,6 +79,7 @@ def get_ensemble_predictions(model_dirs, rel_labels_filepath='eval4_naive/labels
     all_predictions = np.stack(all_predictions, axis=1)
     return labels, all_predictions
 
+
 def get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath='eval4_naive/prompt_attention.txt'):
     """
     Get measures of uncertainty from prompt attention mechanism of an HATM
@@ -83,13 +93,13 @@ def get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath='eval4_naive/p
     attention_arrays = []
     for attention_filepath in attention_files:
         # Get the predictions from each of the models
-        attention = np.loadtxt(attention_filepath, dtype=np.float64)+1e-10
+        attention = np.loadtxt(attention_filepath, dtype=np.float64) + 1e-10
         attention_arrays.append(attention)
     attention = np.stack(attention_arrays, axis=2)
 
     mean_attention = np.mean(attention, axis=2)
-    prompt_entropy_mean = - np.sum(mean_attention*np.log(mean_attention),axis=1)
-    prompt_mean_entropy = - np.mean(np.sum(attention*np.log(attention),axis=1),axis=1)
+    prompt_entropy_mean = - np.sum(mean_attention * np.log(mean_attention), axis=1)
+    prompt_mean_entropy = - np.mean(np.sum(attention * np.log(attention), axis=1), axis=1)
     prompt_mutual_information = prompt_entropy_mean - prompt_mean_entropy
 
     return prompt_entropy_mean, prompt_mean_entropy, prompt_mutual_information
@@ -141,11 +151,11 @@ def plot_spread_histogram(correct, incorrect, spread, n_bins=20, ax=None, spread
     spread_incorrect = np.extract(incorrect, spread)
     ax.hist((spread_correct, spread_incorrect), n_bins, density=True,
             histtype='bar', stacked=True, alpha=0.5)
-    #ax.hist((spread_correct, spread_incorrect), n_bins, density=True, fill=False,
+    # ax.hist((spread_correct, spread_incorrect), n_bins, density=True, fill=False,
     #        histtype='step', stacked=True, color=['white', 'white'])
     plt.xlabel("Spread (" + spread_name + " of ensemble predictions)")
     plt.ylabel("Example Count")
-    plt.legend(['Correct','In-Correct'])
+    plt.legend(['Correct', 'In-Correct'])
     return ax
 
 
@@ -252,10 +262,12 @@ def plot_confusion_matrix_ratio_chart(tp, fp, tn, fn, spread, n_bins=20, ax=None
     # Fill the colours:
     for i in range(n_bins):
         if total_binned[i] != 0:
-            ax.fill_between(plot_point_x[i*2:i*2 + 2], 0., plot_point_y_tp[i*2:i*2 + 2], color=green)
-            ax.fill_between(plot_point_x[i*2:i*2 + 2], plot_point_y_tp[i*2:i*2 + 2], plot_point_y_tn[i*2:i*2 + 2], color=dark_green)
-            ax.fill_between(plot_point_x[i*2:i*2 + 2], plot_point_y_tn[i*2:i*2 + 2], plot_point_y_fn[i*2:i*2 + 2], color=dark_orange)
-            ax.fill_between(plot_point_x[i*2:i*2 + 2], plot_point_y_fn[i*2:i*2 + 2], 1., color=red)
+            ax.fill_between(plot_point_x[i * 2:i * 2 + 2], 0., plot_point_y_tp[i * 2:i * 2 + 2], color=green)
+            ax.fill_between(plot_point_x[i * 2:i * 2 + 2], plot_point_y_tp[i * 2:i * 2 + 2],
+                            plot_point_y_tn[i * 2:i * 2 + 2], color=dark_green)
+            ax.fill_between(plot_point_x[i * 2:i * 2 + 2], plot_point_y_tn[i * 2:i * 2 + 2],
+                            plot_point_y_fn[i * 2:i * 2 + 2], color=dark_orange)
+            ax.fill_between(plot_point_x[i * 2:i * 2 + 2], plot_point_y_fn[i * 2:i * 2 + 2], 1., color=red)
 
     # Plot the white contour
     for plot_point_y in [plot_point_y_tp, plot_point_y_tn, plot_point_y_fn]:
@@ -274,7 +286,8 @@ def plot_confusion_matrix_ratio_chart(tp, fp, tn, fn, spread, n_bins=20, ax=None
     return ax
 
 
-def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resolution=100, sort_by_name='std', savedir=None):
+def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resolution=100, sort_by_name='std',
+                                    savedir=None):
     """
     Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -310,10 +323,55 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     plt.plot(proportions_included, roc_auc_scores)
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
-    plt.xlim(0.0,1.0)
+    plt.xlim(0.0, 1.0)
     plt.ylim(roc_auc_scores[-1], 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
-        f.write('ROC AUC of Ensemble is: '+str(roc_auc_scores[-1])+'\n')
+        f.write('ROC AUC of Ensemble is: ' + str(roc_auc_scores[-1]) + '\n')
+    return
+
+def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_label=1, resolution=100,
+                                    savedir=None):
+    """
+    Plot the AUPR score vs. the percentage of examples included where the examples are sorted by the array
+    sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
+    curve would show the performance on the subset of the examples given by thresholding the spread.
+    :param labels: target label array
+    :param predictions: label probabilities as predicted by the model
+    :param pos_label: whether to consider on-topic or off-topic as the positive class
+    :param resolution: Number of points to plot
+    :return:
+    """
+    num_examples = len(labels)
+
+    sorted_order = np.argsort(sort_by_array)
+
+    labels_sorted = labels[sorted_order]
+    predictions_sorted = predictions[sorted_order]
+
+    proportions_included = np.linspace(0, 1, num=resolution)
+
+    aupr_scores = np.zeros_like(proportions_included)
+    for i in range(resolution):
+        proportion = proportions_included[i]
+        last_idx = int(math.floor(num_examples * proportion)) + 1
+        labels_subset = labels_sorted[:last_idx]
+        predictions_subset = predictions_sorted[:last_idx]
+
+        # print(len(labels_subset), len(predictions_subset))
+        # print(labels_subset[max(0, last_idx-5): last_idx])
+        try:
+            precision, recall, _ = precision_recall_curve(labels_subset, predictions_subset, pos_label=pos_label)
+            aupr_scores[i] = auc(recall, precision)
+        except ValueError:
+            aupr_scores[i] = np.nan
+
+    plt.plot(proportions_included, aupr_scores)
+    plt.xlabel("Percentage examples included")
+    plt.ylabel("AUPR score on the subset examples included")
+    plt.xlim(0.0, 1.0)
+    plt.ylim(aupr_scores[-1], 1.0)
+    with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
+        f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(aupr_scores[-1]) + '\n')
     return
 
 
@@ -455,9 +513,9 @@ def main():
         prompt_mean_entropy, \
         prompt_mutual_information = get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath=args.rel_labels_path)
 
-        uncertainties = {'Mutual_Information_of_Prompt_Attention' : prompt_mutual_information,
-                         'Mean_Entropy_of_Prompt_Attention' : prompt_mean_entropy,
-                         'Entropy_of_Mean_Prompt_Attention' : prompt_entropy_mean}
+        uncertainties = {'Mutual_Information_of_Prompt_Attention': prompt_mutual_information,
+                         'Mean_Entropy_of_Prompt_Attention': prompt_mean_entropy,
+                         'Entropy_of_Mean_Prompt_Attention': prompt_entropy_mean}
 
     avg_predictions = calc_avg_predictions(ensemble_predictions)
 
@@ -488,18 +546,18 @@ def main():
 
     #    RATIOS PLOTS
     # Make the std ratios plots
-    #plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=40, y_lim=[0.0, 1.0])
-    #plt.xlabel("Spread (std of ensemble predictions)")
-    #plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
-    #plt.savefig(savedir + '/ratios_std_spread_histogram.png', bbox_inches='tight')
-    #plt.clf()
+    # plot_ratio_bar_chart(correct, incorrect, std_spread, n_bins=40, y_lim=[0.0, 1.0])
+    # plt.xlabel("Spread (std of ensemble predictions)")
+    # plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
+    # plt.savefig(savedir + '/ratios_std_spread_histogram.png', bbox_inches='tight')
+    # plt.clf()
 
     # Make the range ratios plots
-    #plot_ratio_bar_chart(correct, incorrect, range_spread, n_bins=40, y_lim=[0.0, 1.0])
-    #plt.xlabel("Spread (range of ensemble predictions)")
-    #plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
-    #plt.savefig(savedir + '/ratios_range_spread_histogram.png', bbox_inches='tight')
-    #plt.clf()
+    # plot_ratio_bar_chart(correct, incorrect, range_spread, n_bins=40, y_lim=[0.0, 1.0])
+    # plt.xlabel("Spread (range of ensemble predictions)")
+    # plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
+    # plt.savefig(savedir + '/ratios_range_spread_histogram.png', bbox_inches='tight')
+    # plt.clf()
 
     # Make the mutual information ratios plots
     plot_ratio_bar_chart(correct, incorrect, mutual_information, n_bins=40, y_lim=[0.0, 1.0])
@@ -517,9 +575,9 @@ def main():
 
     #     HISTOGRAM PLOTS
     # Make std_spread histogram plot:
-    #plot_spread_histogram(correct, incorrect, std_spread, n_bins=40, spread_name='std')
-    #plt.savefig(savedir + '/std_spread_histogram.png', bbox_inches='tight')
-    #plt.clf()
+    # plot_spread_histogram(correct, incorrect, std_spread, n_bins=40, spread_name='std')
+    # plt.savefig(savedir + '/std_spread_histogram.png', bbox_inches='tight')
+    # plt.clf()
 
     # # Make range_spread histogram plot:
     # plot_spread_histogram(correct, incorrect, range_spread, n_bins=40, spread_name='range')
@@ -537,7 +595,8 @@ def main():
 
     # Make mutual_infromation histogram plot:
     if args.hatm:
-        plot_spread_histogram(correct, incorrect, prompt_mutual_information, n_bins=40, spread_name='prompt_mutual information')
+        plot_spread_histogram(correct, incorrect, prompt_mutual_information, n_bins=40,
+                              spread_name='prompt_mutual information')
         plt.savefig(savedir + '/prompt_mutual_info_histogram.png', bbox_inches='tight')
         plt.clf()
 
@@ -551,14 +610,15 @@ def main():
         plt.savefig(savedir + '/prompt_mean_entropy.png', bbox_inches='tight')
         plt.clf()
 
-    #   SCATTER Plots
+    # SCATTER Plots
     # Make std_spread vs mean deviation plot
     # All  examples
-    #sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, shade=True)
+    # sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, shade=True)
 
-    sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples', shade_lowest=False, shade=True)
-    plt.ylim(0.0,1.0)
-    plt.xlim(0.0,0.6)
+    sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
+                shade_lowest=False, shade=True)
+    plt.ylim(0.0, 1.0)
+    plt.xlim(0.0, 0.6)
     plt.xlabel("Mutual Information")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/mutual_information_vs_mean_density.png', bbox_inches='tight')
@@ -566,9 +626,10 @@ def main():
 
     # On-Topic
     sns.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
-                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels, shade_lowest=False, cmap='Blues', shade=True)
-    plt.ylim(0.0,1.0)
-    plt.xlim(0.0,0.6)
+                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+                shade_lowest=False, cmap='Blues', shade=True)
+    plt.ylim(0.0, 1.0)
+    plt.xlim(0.0, 0.6)
     plt.xlabel("Mutual Information")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/mutual_information_vs_mean_density_positive.png', bbox_inches='tight')
@@ -576,19 +637,19 @@ def main():
 
     # Off-Topic
     sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels, shade_lowest=False, cmap="Reds", shade=True)
-    plt.ylim(0.0,1.0)
-    plt.xlim(0.0,0.6)
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+                shade_lowest=False, cmap="Reds", shade=True)
+    plt.ylim(0.0, 1.0)
+    plt.xlim(0.0, 0.6)
     plt.xlabel("Mutual Information")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/mutual_information_vs_mean_density_negative.png', bbox_inches='tight')
     plt.clf()
 
-
-
-    sns.kdeplot(entropy_of_avg, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples', shade_lowest=False, shade=True)
-    plt.ylim(0.0,1.0)
-    plt.xlim(0.0,1.0)
+    sns.kdeplot(entropy_of_avg, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
+                shade_lowest=False, shade=True)
+    plt.ylim(0.0, 1.0)
+    plt.xlim(0.0, 1.0)
     plt.xlabel("Entropy of Mean Prediction")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/entropy_vs_mean_density.png', bbox_inches='tight')
@@ -596,9 +657,10 @@ def main():
 
     # On-Topic
     sns.kdeplot(np.extract(labels.astype(np.bool), entropy_of_avg),
-                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels, shade_lowest=False, cmap='Blues', shade=True)
-    plt.ylim(0.0,1.0)
-    plt.xlim(0.0,1.0)
+                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+                shade_lowest=False, cmap='Blues', shade=True)
+    plt.ylim(0.0, 1.0)
+    plt.xlim(0.0, 1.0)
     plt.xlabel("Entropy of Mean Prediction")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + '/entropy_vs_mean_density_positive.png', bbox_inches='tight')
@@ -606,9 +668,10 @@ def main():
 
     # Off-Topic
     sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), entropy_of_avg),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels, shade_lowest=False, cmap="Reds", shade=True)
-    plt.ylim(0.0,1.0)
-    plt.xlim(0.0,1.0)
+                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+                shade_lowest=False, cmap="Reds", shade=True)
+    plt.ylim(0.0, 1.0)
+    plt.xlim(0.0, 1.0)
     plt.xlabel("Entropy of Mean Prediction")
     plt.ylabel("Deviation of average ensemble prediction from label")
     plt.savefig(savedir + 'entropy_vs_mean_density_negative.png', bbox_inches='tight')
@@ -637,7 +700,8 @@ def main():
 
         # Off-Topic
         sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), prompt_entropy_mean),
-                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True,
+                    n_levels=args.n_levels,
                     shade_lowest=False, cmap="Reds", shade=True)
         plt.ylim(0.0, 1.0)
         plt.xlim(0.0, 0.6)
@@ -668,7 +732,8 @@ def main():
 
         # Off-Topic
         sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), prompt_mutual_information),
-                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True,
+                    n_levels=args.n_levels,
                     shade_lowest=False, cmap="Reds", shade=True)
         plt.ylim(0.0, 1.0)
         plt.xlim(0.0, 0.2)
@@ -679,41 +744,41 @@ def main():
 
     # Split positive and negative examples into separate plots as well:
     # Positive examples
-    #plt.scatter(np.extract(labels.astype(np.bool), std_spread),
+    # plt.scatter(np.extract(labels.astype(np.bool), std_spread),
     #            1 - np.extract(labels.astype(np.bool), avg_predictions), alpha=0.15, color=green, marker='o',
     #            s=marker_size)
-    #plt.xlabel("Spread (std of ensemble predictions)")
-    #plt.ylabel("Ensemble Prediction (1 = off-topic)")
-    #plt.savefig(savedir + '/std_spread_vs_prediction_on_topic.png', bbox_inches='tight')
-    #plt.clf()
+    # plt.xlabel("Spread (std of ensemble predictions)")
+    # plt.ylabel("Ensemble Prediction (1 = off-topic)")
+    # plt.savefig(savedir + '/std_spread_vs_prediction_on_topic.png', bbox_inches='tight')
+    # plt.clf()
     # Negative examples
-    #plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
+    # plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
     #            1 - np.extract(np.invert(labels.astype(np.bool)), avg_predictions), alpha=0.15, color=red, marker='x',
     #            s=marker_size)
-    #plt.xlabel("Spread (std of ensemble predictions)")
-    #plt.ylabel("Ensemble Prediction (1 = off-topic)")
-    #plt.savefig(savedir + '/std_spread_vs_prediction_off_topic.png', bbox_inches='tight')
-    #plt.clf()
+    # plt.xlabel("Spread (std of ensemble predictions)")
+    # plt.ylabel("Ensemble Prediction (1 = off-topic)")
+    # plt.savefig(savedir + '/std_spread_vs_prediction_off_topic.png', bbox_inches='tight')
+    # plt.clf()
 
     # Make range vs mean deviation plot
     # Positive examples
-    #plt.scatter(np.extract(labels.astype(np.bool), std_spread),
+    # plt.scatter(np.extract(labels.astype(np.bool), std_spread),
     #            np.extract(labels.astype(np.bool), mean_target_deviation), alpha=0.15, color=green, marker='o',
     #            s=marker_size)
     # Negative examples
-    #plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
+    # plt.scatter(np.extract(np.invert(labels.astype(np.bool)), std_spread),
     #            np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), alpha=0.15, color=red, marker='x',
     #            s=marker_size)
-    #plt.xlabel("Spread (range of ensemble predictions)")
-    #plt.ylabel("Deviation of average ensemble prediction from label")
-    #plt.savefig(savedir + '/range_spread_vs_mean_chart.png', bbox_inches='tight')
-    #plt.clf()
+    # plt.xlabel("Spread (range of ensemble predictions)")
+    # plt.ylabel("Deviation of average ensemble prediction from label")
+    # plt.savefig(savedir + '/range_spread_vs_mean_chart.png', bbox_inches='tight')
+    # plt.clf()
 
     #   AUC vs. CUMULATIVE INCLUDED
     # Make AUC vs. cumulative samples included by std spread
-    #plot_auc_vs_percentage_included(labels, avg_predictions, std_spread, resolution=200, sort_by_name='std')
-    #plt.savefig(savedir + '/auc_vs_cumulative_samples_included_std.png', bbox_inches='tight')
-    #plt.clf()
+    # plot_auc_vs_percentage_included(labels, avg_predictions, std_spread, resolution=200, sort_by_name='std')
+    # plt.savefig(savedir + '/auc_vs_cumulative_samples_included_std.png', bbox_inches='tight')
+    # plt.clf()
 
     # # Make AUC vs. cumulative samples included by range spread
     # plot_auc_vs_percentage_included(labels, avg_predictions, range_spread, resolution=200, sort_by_name='range')
@@ -751,9 +816,9 @@ def main():
 
     # PR 3D PLOTS
     # Make precision recall 3D plot vs std
-    #plot_pr_spread_mesh(labels, avg_predictions, std_spread, pos_labels=0)
-    #plt.savefig(savedir + '/ensemble_3d_pr_curve_std.png')
-    #plt.clf()
+    # plot_pr_spread_mesh(labels, avg_predictions, std_spread, pos_labels=0)
+    # plt.savefig(savedir + '/ensemble_3d_pr_curve_std.png')
+    # plt.clf()
 
     # Make precision recall 3D plot vs mutual information
     plot_pr_spread_mesh(labels, avg_predictions, mutual_information, pos_labels=0)
@@ -761,10 +826,10 @@ def main():
     plt.clf()
 
     # Make family of curves precision recall plot vs. std
-    #plot_family_of_curves_pr(labels, avg_predictions, std_spread, proportions_included=[0.05, 0.1, 0.2, 0.4, 0.6, 1.0],
+    # plot_family_of_curves_pr(labels, avg_predictions, std_spread, proportions_included=[0.05, 0.1, 0.2, 0.4, 0.6, 1.0],
     #                         pos_labels=0)
-    #plt.savefig(savedir + '/ensemble_family_pr_curve_std.png', bbox_inches='tight')
-    #plt.clf()
+    # plt.savefig(savedir + '/ensemble_family_pr_curve_std.png', bbox_inches='tight')
+    # plt.clf()
 
     # Make family of curves precision recall plot vs. std
     plot_family_of_curves_pr(labels, avg_predictions, mutual_information,
