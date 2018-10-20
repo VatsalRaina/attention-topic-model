@@ -410,8 +410,6 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
         labels_subset = labels_sorted[:last_idx]
         predictions_subset = predictions_sorted[:last_idx]
 
-        # print(len(labels_subset), len(predictions_subset))
-        # print(labels_subset[max(0, last_idx-5): last_idx])
         try:
             precision, recall, _ = precision_recall_curve(labels_subset, predictions_subset, pos_label=pos_label)
             aupr_scores[i] = auc(recall, precision)
@@ -441,39 +439,42 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     """
     assert pos_label == 0 or pos_label ==1
     num_examples = len(labels)
-
-    sorted_order = np.argsort(sort_by_array)
-
-    labels_sorted = labels[sorted_order]
-    predictions_sorted = predictions[sorted_order]
-
-    if pos_label==0:
-        predictions_sorted=1.0-predictions_sorted
-
     proportions_included = np.linspace(0, 1, num=resolution)
 
-    aupr_scores = np.zeros(proportions_included)
-    for i in range(resolution):
-        proportion = proportions_included[i]
-        last_idx = int(math.floor(num_examples * proportion)) + 1
-        labels_subset = labels_sorted[:last_idx]
-        predictions_subset = predictions_sorted[:last_idx]
+    aupr_scores = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
 
-        # print(len(labels_subset), len(predictions_subset))
-        # print(labels_subset[max(0, last_idx-5): last_idx])
-        try:
-            precision, recall, _ = precision_recall_curve(labels_subset, predictions_subset, pos_label=pos_label)
-            aupr_scores[i] = auc(recall, precision)
-        except ValueError:
-            aupr_scores[i] = np.nan
+    for fold in range(predictions.shape[-1]):
+        sorted_order = np.argsort(sort_by_array[:,fold])
 
-    plt.plot(proportions_included, aupr_scores)
+        labels_sorted = labels[sorted_order]
+        if pos_label == 0:
+            predictions_sorted = 1.0-predictions[sorted_order, fold]
+        else:
+            predictions_sorted = predictions[sorted_order, fold]
+
+        for i in range(resolution):
+            proportion = proportions_included[i]
+            last_idx = int(math.floor(num_examples * proportion)) + 1
+            labels_subset = labels_sorted[:last_idx]
+            predictions_subset = predictions_sorted[:last_idx]
+
+            try:
+                precision, recall, _ = precision_recall_curve(labels_subset, predictions_subset, pos_label=pos_label)
+                aupr_scores[i,fold] = auc(recall, precision)
+            except ValueError:
+                aupr_scores[i,fold] =  1.0
+
+    mean_roc = np.mean(aupr_scores,axis=1)
+    std_roc = np.std(aupr_scores, axis=1)
+
+    plt.plot(proportions_included, mean_roc)
+    plt.fill_between(proportions_included, mean_roc - std_roc, mean_roc + std_roc, alpha=.2)
     plt.xlabel("Percentage examples included")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(aupr_scores[-1], 1.0)
+    plt.ylim(np.min(mean_roc-std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'w') as f:
-        f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(aupr_scores[-1]) + '\n')
+        f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(mean_roc[-1]) + '+\-' + str(std_roc[-1])+'\n')
     return
 
 def plot_pr_spread_mesh(labels, predictions, sort_by_array, pos_labels=1, resolution=40, spread_name='std'):
@@ -951,12 +952,27 @@ def main():
         plt.legend(['Entropy', 'Prompt Entropy'])
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
+
+        for i in range(2):
+            plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
+                                                     pos_label=i, savedir=args.savedir)
+            plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
+                                                    pos_label=i, savedir=args.savedir)
+            plt.legend(['Entropy', 'Prompt Entropy'])
+            plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label'+str(i)+'.png', bbox_inches='tight')
+            plt.clf()
     else:
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
                                                  sort_by_name='entropy', savedir=args.savedir)
         plt.legend(['Entropy'])
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
+        for i in range(2):
+            plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
+                                                      pos_label=i, savedir=args.savedir)
+            plt.legend(['Entropy', 'Prompt Entropy'])
+            plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label' + str(i) + '.png', bbox_inches='tight')
+            plt.clf()
 
 
     # Plot AUC of PR curves
