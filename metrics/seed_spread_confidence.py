@@ -319,7 +319,7 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
         try:
             roc_auc_scores[i] = roc_auc_score(labels_subset, predictions_subset)
         except ValueError:
-            roc_auc_scores[i] = np.nan
+            roc_auc_scores[i] = 1.0
 
     plt.plot(proportions_included, roc_auc_scores)
     plt.xlabel("Percentage examples included")
@@ -414,7 +414,7 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
             precision, recall, _ = precision_recall_curve(labels_subset, predictions_subset, pos_label=pos_label)
             aupr_scores[i] = auc(recall, precision)
         except ValueError:
-            aupr_scores[i] = np.nan
+            aupr_scores[i] = 1.0
 
     plt.plot(proportions_included, aupr_scores)
     plt.xlabel("Percentage examples included")
@@ -466,6 +466,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
             except ValueError:
                 aupr_scores[i,fold] =  1.0
 
+    print(mean_roc)
     mean_roc = np.mean(aupr_scores,axis=1)
     std_roc = np.std(aupr_scores, axis=1)
 
