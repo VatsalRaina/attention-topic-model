@@ -319,9 +319,9 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
         try:
             roc_auc_scores[i] = roc_auc_score(labels_subset, predictions_subset)
         except ValueError:
-            roc_auc_scores[i] = 1.0
+            roc_auc_scores[i] = np.nan
 
-    plt.plot(proportions_included, roc_auc_scores)
+    plt.plot(proportions_included[~np.isnan(roc_auc_scores)], roc_auc_scores[~np.isnan(roc_auc_scores)])
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
@@ -364,12 +364,12 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
             try:
                 roc_auc_scores[i,fold] = roc_auc_score(labels_subset, predictions_subset)
             except ValueError:
-                roc_auc_scores[i,fold] = 1.0
+                roc_auc_scores[i,fold] = np.nan
 
     mean_roc = np.mean(roc_auc_scores,axis=1)
     std_roc = np.std(roc_auc_scores, axis=1)
-    plt.plot(proportions_included, mean_roc)
-    plt.fill_between(proportions_included, mean_roc - std_roc, mean_roc + std_roc, alpha=.2)
+    plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)])
+    plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2)
     plt.xlabel("Percentage examples included")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
@@ -414,9 +414,9 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
             precision, recall, _ = precision_recall_curve(labels_subset, predictions_subset, pos_label=pos_label)
             aupr_scores[i] = auc(recall, precision)
         except ValueError:
-            aupr_scores[i] = 1.0
+            aupr_scores[i] = np.nan
 
-    plt.plot(proportions_included, aupr_scores)
+    plt.plot(proportions_included[~np.isnan(aupr_scores)], aupr_scores[~np.isnan(aupr_scores)])
     plt.xlabel("Percentage examples included")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
@@ -464,14 +464,13 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
                 precision, recall, _ = precision_recall_curve(labels_subset, predictions_subset, pos_label=pos_label)
                 aupr_scores[i,fold] = auc(recall, precision)
             except ValueError:
-                aupr_scores[i,fold] =  1.0
-
+                aupr_scores[i,fold] =  np.nan
 
     mean_roc = np.mean(aupr_scores,axis=1)
     std_roc = np.std(aupr_scores, axis=1)
     print('mean roc: ', mean_roc)
-    plt.plot(proportions_included, mean_roc)
-    plt.fill_between(proportions_included, mean_roc - std_roc, mean_roc + std_roc, alpha=.2)
+    plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)])
+    plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2)
     plt.xlabel("Percentage examples included")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
