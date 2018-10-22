@@ -1034,11 +1034,11 @@ def main():
 
     # Make AUC vs. cumulative samples included by range spread
     plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
-                                    sort_by_name='mutual information', savedir=args.savedir)
+                                    sort_by_name='mutual information', first=True, savedir=args.savedir)
 
     if args.hatm:
         plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
-                                        sort_by_name='entropy', savedir=args.savedir)
+                                        sort_by_name='entropy',  savedir=args.savedir)
         plot_auc_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200,
                                         sort_by_name='prompt_entropy', savedir=args.savedir,last=True)
     else:
@@ -1054,7 +1054,7 @@ def main():
 
     if args.hatm:
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
-                                                 sort_by_name='entropy', savedir=args.savedir)
+                                                 sort_by_name='entropy', first=True, savedir=args.savedir)
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
                                                  sort_by_name='prompt_entropy', savedir=args.savedir, last=True)
         plt.legend(['Entropy', 'Prompt Entropy', 'Random'])
@@ -1063,7 +1063,7 @@ def main():
 
         for i in range(2):
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
-                                                     pos_label=i, savedir=args.savedir)
+                                                     pos_label=i, first=True,  savedir=args.savedir)
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
                                                     pos_label=i, savedir=args.savedir, last=True)
             plt.legend(['Entropy', 'Prompt Entropy','Random'])
@@ -1071,13 +1071,13 @@ def main():
             plt.clf()
     else:
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
-                                                 sort_by_name='entropy', savedir=args.savedir,last=True)
+                                                 sort_by_name='entropy', first=True, savedir=args.savedir,last=True)
         plt.legend(['Entropy','Random'])
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
         for i in range(2):
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
-                                                      pos_label=i, savedir=args.savedir, last=True)
+                                                      pos_label=i, savedir=args.savedir, first=True,  last=True)
             plt.legend(['Entropy','Random'])
             plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label' + str(i) + '.png', bbox_inches='tight')
             plt.clf()
@@ -1085,10 +1085,15 @@ def main():
 
     # Plot AUC of PR curves
     for pos_label in range(2):
-        plot_aupr_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200, pos_label=pos_label,savedir=args.savedir)
-        plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, pos_label=pos_label, savedir=args.savedir)
+        plot_aupr_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200, first=True, pos_label=pos_label,savedir=args.savedir)
+
         if args.hatm:
-            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200, pos_label=pos_label, savedir=args.savedir)
+            plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
+                                             pos_label=pos_label, savedir=args.savedir)
+            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200, pos_label=pos_label, last=True, savedir=args.savedir)
+        else:
+            plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
+                                             pos_label=pos_label, last=True, savedir=args.savedir)
         if args.hatm:
             plt.legend(['Mutual Information', 'Entropy', 'Prompt Entropy'])
         else:
