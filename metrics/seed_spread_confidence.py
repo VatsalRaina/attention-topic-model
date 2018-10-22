@@ -358,7 +358,7 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
         f.write('ROC AUC of Ensemble is: ' + str(roc_auc_scores[-1]) + '\n')
 
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('AUC RR of Ensemble is: ' + str(AUC_RR) + '\n')
+        f.write('ROC AUC AUC RR of Ensemble is: ' + str(AUC_RR) + '\n')
     return
 
 
@@ -451,9 +451,9 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     plt.xlim(0.0, 1.0)
     plt.ylim(min(mean_roc-std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('ROC AUC of Ensemble is: ' + str(mean_roc[-1]) + '\n')
+        f.write('ROC AUC of Individual is: ' + str(mean_roc[-1]) + ' +/- '+str(std_roc[-1])+ '\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('ROC AUC RR of Inidivudal is: ' + str(AUC_RR) + '+/-'+str(std_AUC_RR)+'\n')
+        f.write('ROC AUC RR of Inidivudal is: ' + str(AUC_RR) + ' +/- '+str(std_AUC_RR)+'\n')
     return
 
 def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_label=1, resolution=100,
@@ -533,9 +533,9 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
     plt.xlim(0.0, 1.0)
     plt.ylim(min(aupr_scores), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(aupr_scores[-1]) + '\n')
+        f.write('AUPR with pos label of '+str(pos_label)+ ' of Ensemble is: ' + str(aupr_scores[-1]) + '\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('AUPR AUC RR with pos label of '+str(pos_label)+ 'of  Ensemble is: ' + str(AUC_RR) + '\n')
+        f.write('AUPR AUC RR with pos label of '+str(pos_label)+ ' of  Ensemble is: ' + str(AUC_RR) + '\n')
     return
 
 
@@ -637,9 +637,9 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     plt.xlim(0.0, 1.0)
     plt.ylim(min(mean_roc-std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(mean_roc[-1]) + '+\-' + str(std_roc[-1])+'\n')
+        f.write('AUPR with pos label of '+str(pos_label)+ ' of Individual is: ' + str(mean_roc[-1]) + ' +\- ' + str(std_roc[-1])+'\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('AUPR AUC RR with pos label of ' + str(pos_label) + 'of Individual is: ' + str(AUC_RR) + '+\-' + str(
+        f.write('AUPR AUC RR with pos label of ' + str(pos_label) + ' of Individual is: ' + str(AUC_RR) + ' +\- ' + str(
             std_AUC_RR) + '\n')
     return
 
