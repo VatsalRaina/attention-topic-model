@@ -513,18 +513,14 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     num_examples = len(labels)
     proportions_included = np.linspace(0, 1, num=resolution)
 
-    print('Prediction shape: ', predictions.shape)
     aupr_scores = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
     aupr_scores_oracle = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
-    print('Sort_by_array: ', sort_by_array[:,0])
     for fold in range(predictions.shape[-1]):
         sorted_order = np.argsort(sort_by_array[:,fold])
-
         labels_sorted = labels[sorted_order]
+        predictions_sorted = predictions[sorted_order, fold]
         if pos_label == 0:
-            predictions_sorted = 1.0-predictions[sorted_order, fold]
-        else:
-            predictions_sorted = predictions[sorted_order, fold]
+            predictions_sorted = 1.0-predictions_sorted
 
         if first:
             error = np.abs(labels - predictions[:,fold])
@@ -533,8 +529,6 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
             predictions_oracle_sorted = predictions[error_sort, fold]
             if pos_label == 0:
                 predictions_oracle_sorted = 1.0 - predictions_oracle_sorted
-
-
 
         for i in range(resolution):
             proportion = proportions_included[i]
@@ -571,7 +565,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
 
     print('mean roc: ', mean_roc)
     if first:
-        plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc_oracle[~np.isnan(mean_roc_oracle)])
+        plt.plot(proportions_included[~np.isnan(mean_roc_oracle)], mean_roc_oracle[~np.isnan(mean_roc_oracle)])
         plt.fill_between(proportions_included[~np.isnan(mean_roc_oracle)],
                          mean_roc_oracle[~np.isnan(mean_roc_oracle)] - std_roc_oracle[~np.isnan(mean_roc_oracle)],
                          mean_roc_oracle[~np.isnan(mean_roc_oracle)] + std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
