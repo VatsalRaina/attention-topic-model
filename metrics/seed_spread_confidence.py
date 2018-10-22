@@ -288,7 +288,7 @@ def plot_confusion_matrix_ratio_chart(tp, fp, tn, fn, spread, n_bins=20, ax=None
 
 
 def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resolution=100, sort_by_name='std',
-                                    savedir=None):
+                                    savedir=None, last=False):
     """
     Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -323,7 +323,8 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
             roc_auc_scores[i] = np.nan
 
     plt.plot(proportions_included[~np.isnan(roc_auc_scores)], roc_auc_scores[~np.isnan(roc_auc_scores)][::-1])
-    plt.plot([0.0, 1.0], [min(roc_auc_scores), 1], 'k--', lw=4)
+    if last:
+        plt.plot([0.0, 1.0], [min(roc_auc_scores), 1], 'k--', lw=4)
     plt.xlabel("Percentage examples rejected")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
@@ -334,7 +335,7 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
 
 
 def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array, resolution=100, sort_by_name='std',
-                                    savedir=None):
+                                    savedir=None, last=False):
     """
     Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -373,7 +374,8 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     std_roc = np.std(roc_auc_scores, axis=1)[::-1]
     plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)])
     plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2)
-    plt.plot([0.0, 1.0], [min(mean_roc-std_roc), 1], 'k--', lw=4)
+    if last:
+        plt.plot([0.0, 1.0], [min(mean_roc), 1], 'k--', lw=4)
     plt.xlabel("Percentage examples rejected")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
@@ -383,7 +385,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     return
 
 def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_label=1, resolution=100,
-                                    savedir=None):
+                                    savedir=None, last=False):
     """
     Plot the AUPR score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -424,7 +426,8 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
             aupr_scores[i] = np.nan
 
     plt.plot(proportions_included[~np.isnan(aupr_scores)], aupr_scores[~np.isnan(aupr_scores)][::-1])
-    plt.plot([0.0, 1.0], [min(aupr_scores), 1], 'k--', lw=4)
+    if last:
+        plt.plot([0.0, 1.0], [min(aupr_scores), 1], 'k--', lw=4)
     plt.xlabel("Percentage examples rejected")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
@@ -434,7 +437,7 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
     return
 
 def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array, pos_label=1, resolution=100,
-                                    savedir=None):
+                                    savedir=None, last=False):
     """
     Plot the AUPR score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -482,7 +485,8 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     print('mean roc: ', mean_roc)
     plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)])
     plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2)
-    plt.plot([0.0, 1.0], [min(mean_roc - std_roc), 1], 'k--', lw=4)
+    if last:
+        plt.plot([0.0, 1.0], [min(mean_roc), 1], 'k--', lw=4)
     plt.xlabel("Percentage examples rejected")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
@@ -942,17 +946,20 @@ def main():
     # Make AUC vs. cumulative samples included by range spread
     plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
                                     sort_by_name='mutual information', savedir=args.savedir)
-    plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
-                                    sort_by_name='entropy', savedir=args.savedir)
+
     if args.hatm:
+        plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
+                                        sort_by_name='entropy', savedir=args.savedir)
         plot_auc_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200,
-                                        sort_by_name='prompt_entropy', savedir=args.savedir)
-
+                                        sort_by_name='prompt_entropy', savedir=args.savedir,last=True)
+    else:
+        plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
+                                        sort_by_name='entropy', savedir=args.savedir, last=True)
 
     if args.hatm:
-        plt.legend(['Mutual Information', 'Entropy', 'Prompt Entropy'])
+        plt.legend(['Mutual Information', 'Entropy', 'Prompt Entropy', 'Random'])
     else:
-        plt.legend(['Mutual Information', 'Entropy'])
+        plt.legend(['Mutual Information', 'Entropy','Random'])
     plt.savefig(savedir + '/auc_vs_cumulative_samples.png', bbox_inches='tight')
     plt.clf()
 
@@ -960,8 +967,8 @@ def main():
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
                                                  sort_by_name='entropy', savedir=args.savedir)
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
-                                                 sort_by_name='prompt_entropy', savedir=args.savedir)
-        plt.legend(['Entropy', 'Prompt Entropy'])
+                                                 sort_by_name='prompt_entropy', savedir=args.savedir, last=True)
+        plt.legend(['Entropy', 'Prompt Entropy', 'Random'])
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
 
@@ -969,20 +976,20 @@ def main():
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
                                                      pos_label=i, savedir=args.savedir)
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
-                                                    pos_label=i, savedir=args.savedir)
-            plt.legend(['Entropy', 'Prompt Entropy'])
+                                                    pos_label=i, savedir=args.savedir, last=True)
+            plt.legend(['Entropy', 'Prompt Entropy','Random'])
             plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label'+str(i)+'.png', bbox_inches='tight')
             plt.clf()
     else:
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
-                                                 sort_by_name='entropy', savedir=args.savedir)
-        plt.legend(['Entropy'])
+                                                 sort_by_name='entropy', savedir=args.savedir,last=True)
+        plt.legend(['Entropy','Random'])
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
         for i in range(2):
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
-                                                      pos_label=i, savedir=args.savedir)
-            plt.legend(['Entropy'])
+                                                      pos_label=i, savedir=args.savedir, last=True)
+            plt.legend(['Entropy','Random'])
             plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label' + str(i) + '.png', bbox_inches='tight')
             plt.clf()
 
