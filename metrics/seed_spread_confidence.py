@@ -642,7 +642,6 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
         f.write('AUPR AUC RR with pos label of ' + str(pos_label) + 'of Individual is: ' + str(AUC_RR) + '+\-' + str(
             std_AUC_RR) + '\n')
     return
-    return
 
 def plot_pr_spread_mesh(labels, predictions, sort_by_array, pos_labels=1, resolution=40, spread_name='std'):
     assert pos_labels == 1 or pos_labels == 0
