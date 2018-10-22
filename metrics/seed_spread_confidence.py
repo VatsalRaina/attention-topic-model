@@ -408,8 +408,8 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     if first:
         plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc_oracle[~np.isnan(mean_roc)])
         plt.fill_between(proportions_included[~np.isnan(mean_roc_oracle)],
-                         mean_roc[~np.isnan(mean_roc_oracle)] - std_roc_oracle[~np.isnan(mean_roc_oracle)],
-                         mean_roc[~np.isnan(mean_roc_oracle)] + std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
+                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] - std_roc_oracle[~np.isnan(mean_roc_oracle)],
+                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] + std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
 
     plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)])
     plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2)
@@ -479,7 +479,8 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
                 labels_rest = 1.0 - labels_rest
             predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
             try:
-                aupr_scores_oracle[i] = roc_auc_score(labels_oracle_sorted, predictions_subset)
+                precision, recall, _ = precision_recall_curve(labels_oracle_sorted, predictions_subset, pos_label=pos_label)
+                aupr_scores_oracle[i] = auc(recall, precision)
             except ValueError:
                 aupr_scores_oracle[i] = np.nan
 
@@ -556,7 +557,9 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
                     labels_rest = 1.0 - labels_rest
                 predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
                 try:
-                    aupr_scores_oracle[i,fold] = roc_auc_score(labels_oracle_sorted, predictions_subset)
+                    precision, recall, _ = precision_recall_curve(labels_oracle_sorted, predictions_subset,
+                                                                  pos_label=pos_label)
+                    aupr_scores_oracle[i] = auc(recall, precision)
                 except ValueError:
                     aupr_scores_oracle[i,fold] = np.nan
 
@@ -568,10 +571,10 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
 
     print('mean roc: ', mean_roc)
     if first:
-        plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc_oracle[~np.isnan(mean_roc)])
+        plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc_oracle[~np.isnan(mean_roc_oracle)])
         plt.fill_between(proportions_included[~np.isnan(mean_roc_oracle)],
-                         mean_roc[~np.isnan(mean_roc_oracle)] - std_roc_oracle[~np.isnan(mean_roc_oracle)],
-                         mean_roc[~np.isnan(mean_roc_oracle)] + std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
+                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] - std_roc_oracle[~np.isnan(mean_roc_oracle)],
+                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] + std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
     plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)])
     plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2)
     if last:
@@ -1046,9 +1049,9 @@ def main():
                                         sort_by_name='entropy', savedir=args.savedir, last=True)
 
     if args.hatm:
-        plt.legend(['Mutual Information', 'Entropy', 'Prompt Entropy', 'Random'])
+        plt.legend(['Oracle', 'Mutual Information', 'Entropy', 'Prompt Entropy', 'Random'])
     else:
-        plt.legend(['Mutual Information', 'Entropy','Random'])
+        plt.legend(['Oracle', 'Mutual Information', 'Entropy','Random'])
     plt.savefig(savedir + '/auc_vs_cumulative_samples.png', bbox_inches='tight')
     plt.clf()
 
@@ -1057,7 +1060,7 @@ def main():
                                                  sort_by_name='entropy', first=True, savedir=args.savedir)
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
                                                  sort_by_name='prompt_entropy', savedir=args.savedir, last=True)
-        plt.legend(['Entropy', 'Prompt Entropy', 'Random'])
+        plt.legend(['Oracle', 'Entropy', 'Prompt Entropy', 'Random'])
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
 
@@ -1066,19 +1069,19 @@ def main():
                                                      pos_label=i, first=True,  savedir=args.savedir)
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
                                                     pos_label=i, savedir=args.savedir, last=True)
-            plt.legend(['Entropy', 'Prompt Entropy','Random'])
+            plt.legend(['Oracle', 'Entropy', 'Prompt Entropy','Random'])
             plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label'+str(i)+'.png', bbox_inches='tight')
             plt.clf()
     else:
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
                                                  sort_by_name='entropy', first=True, savedir=args.savedir,last=True)
-        plt.legend(['Entropy','Random'])
+        plt.legend(['Oracle', 'Entropy','Random'])
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
         for i in range(2):
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
                                                       pos_label=i, savedir=args.savedir, first=True,  last=True)
-            plt.legend(['Entropy','Random'])
+            plt.legend(['Oracle', 'Entropy','Random'])
             plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label' + str(i) + '.png', bbox_inches='tight')
             plt.clf()
 
@@ -1095,9 +1098,9 @@ def main():
             plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
                                              pos_label=pos_label, last=True, savedir=args.savedir)
         if args.hatm:
-            plt.legend(['Mutual Information', 'Entropy', 'Prompt Entropy'])
+            plt.legend(['Oracle', 'Mutual Information', 'Entropy', 'Prompt Entropy','Random'])
         else:
-            plt.legend(['Mutual Information', 'Entropy'])
+            plt.legend(['Oracle', 'Mutual Information', 'Entropy',' Random'])
         plt.savefig(savedir + '/aupr_vs_cumulative_samples_pos_label'+str(pos_label)+'.png', bbox_inches='tight')
         plt.clf()
 
