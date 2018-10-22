@@ -143,7 +143,7 @@ def main(args):
 
             # Add the positive examples:
             targets_pos = [str(float(1.0)) for i in range(num_examples)]
-            new_data.extend(zip(responses, confs, prompts, targets_pos, speakers, grades))targets
+            new_data.extend(zip(responses, confs, prompts, targets_pos, speakers, grades))
             # Add the negative examples:
             targets_neg = [str(float(0.0)) for i in range(num_examples)]
             new_data.extend(zip(responses_neg[:num_examples], confs_neg[:num_examples], prompts, targets_neg,
@@ -161,7 +161,7 @@ def main(args):
                                                                                               new_grades])
 
     with open(os.path.join(args.destination_dir, 'grades.txt'), 'w') as g, open(
-            os.path.join(args.destination_dir, 'confidences.txt'), 'w') as c, open(
+        os.path.join(args.destination_dir, 'confidences.txt'), 'w') as c, open(
         os.path.join(args.destination_dir, 'responses.txt'), 'w') as r, open(
         os.path.join(args.destination_dir, 'prompts.txt'), 'w') as p, open(
         os.path.join(args.destination_dir, 'targets.txt'), 'w') as t, open(
