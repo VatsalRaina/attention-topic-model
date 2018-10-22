@@ -288,7 +288,7 @@ def plot_confusion_matrix_ratio_chart(tp, fp, tn, fn, spread, n_bins=20, ax=None
 
 
 def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resolution=100, sort_by_name='std',
-                                    savedir=None, last=False):
+                                    savedir=None, first=Fasle, last=False):
     """
     Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -306,8 +306,16 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     labels_sorted = labels[sorted_order]
     predictions_sorted = predictions[sorted_order]
 
+    if first:
+        error = np.abs(labels - predictions)
+        error_sort = np.argsort(error)
+        labels_oracle_sorted = labels[error_sort]
+        predictions_oracle_sorted = predictions[error_sort]
+
+
     proportions_included = np.linspace(0, 1, num=resolution)
     roc_auc_scores = np.zeros_like(proportions_included)
+    roc_auc_scores_oracle = np.zeros_like(proportions_included)
     for i in range(resolution):
         proportion = proportions_included[i]
         last_idx = int(math.floor(num_examples * proportion)) + 1
@@ -315,13 +323,21 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
         labels_rest = np.asarray(labels_sorted[last_idx:], dtype=np.float32)
         predictions_subset = np.concatenate((predictions_sorted[:last_idx],labels_rest),axis=0)
 
-        # print(len(labels_subset), len(predictions_subset))
-        # print(labels_subset[max(0, last_idx-5): last_idx])
         try:
             roc_auc_scores[i] = roc_auc_score(labels_sorted, predictions_subset)
         except ValueError:
             roc_auc_scores[i] = np.nan
 
+        if first:
+            labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
+            predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
+            try:
+                roc_auc_scores_oracle[i] = roc_auc_score(labels_oracle_sorted, predictions_subset)
+            except ValueError:
+                roc_auc_scores_oracle[i] = np.nan
+
+    if first:
+        plt.plot(proportions_included[~np.isnan(roc_auc_scores)], roc_auc_scores_oracle[~np.isnan(roc_auc_scores_oracle)][::-1])
     plt.plot(proportions_included[~np.isnan(roc_auc_scores)], roc_auc_scores[~np.isnan(roc_auc_scores)][::-1])
     if last:
         plt.plot([0.0, 1.0], [min(roc_auc_scores), 1], 'k--', lw=4)
@@ -335,7 +351,7 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
 
 
 def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array, resolution=100, sort_by_name='std',
-                                    savedir=None, last=False):
+                                    savedir=None, first=False, last=False):
     """
     Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -350,12 +366,19 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
 
     proportions_included = np.linspace(0, 1, num=resolution)
     roc_auc_scores = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
-
+    roc_auc_scores_oracle = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
     for fold in range(predictions.shape[-1]):
         sorted_order = np.argsort(sort_by_array[:,fold])
 
         labels_sorted = labels[sorted_order]
         predictions_sorted = predictions[sorted_order, fold]
+
+        if first:
+            error = np.abs(labels - predictions[:,fold])
+            error_sort = np.argsort(error)
+            labels_oracle_sorted = labels[error_sort]
+            predictions_oracle_sorted = predictions[error_sort, fold]
+
         for i in range(resolution):
             proportion = proportions_included[i]
             last_idx = int(math.floor(num_examples * proportion)) + 1
@@ -363,15 +386,31 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
             labels_rest = np.asarray(labels_sorted[last_idx:], dtype=np.float32)
             predictions_subset = np.concatenate((predictions_sorted[:last_idx], labels_rest), axis=0)
 
-            # print(len(labels_subset), len(predictions_subset))
-            # print(labels_subset[max(0, last_idx-5): last_idx])
             try:
                 roc_auc_scores[i,fold] = roc_auc_score(labels_sorted, predictions_subset)
             except ValueError:
                 roc_auc_scores[i,fold] = np.nan
 
+            if first:
+                labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
+                predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
+                try:
+                    roc_auc_scores_oracle[i, fold] = roc_auc_score(labels_oracle_sorted, predictions_subset)
+                except ValueError:
+                    roc_auc_scores_oracle[i, fold] = np.nan
+
     mean_roc = np.mean(roc_auc_scores,axis=1)[::-1]
     std_roc = np.std(roc_auc_scores, axis=1)[::-1]
+    mean_roc_oracle = np.mean(roc_auc_scores_oracle,_axis=1)[::-1]
+    std_roc_oracle = np.std(roc_auc_scores_oracle, axis=1)[::-1]
+
+    print('mean roc: ', mean_roc)
+    if first:
+        plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc_oracle[~np.isnan(mean_roc)])
+        plt.fill_between(proportions_included[~np.isnan(mean_roc_oracle)],
+                         mean_roc[~np.isnan(mean_roc_oracle)] - std_roc_oracle[~np.isnan(mean_roc_oracle)],
+                         mean_roc[~np.isnan(mean_roc_oracle)] + std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
+
     plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)])
     plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2)
     if last:
@@ -385,7 +424,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     return
 
 def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_label=1, resolution=100,
-                                    savedir=None, last=False):
+                                    savedir=None, first=False, last=False):
     """
     Plot the AUPR score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -407,9 +446,18 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
     if pos_label==0:
         predictions_sorted=1.0-predictions_sorted
 
+    if first:
+        error = np.abs(labels - predictions)
+        error_sort = np.argsort(error)
+        labels_oracle_sorted = labels[error_sort]
+        predictions_oracle_sorted = predictions[error_sort]
+        if pos_label ==0 :
+            predictions_oracle_sorted = 1.0 - predictions_oracle_sorted
+
     proportions_included = np.linspace(0, 1, num=resolution)
 
     aupr_scores = np.zeros_like(proportions_included)
+    aupr_scores_oracle = np.zeros_like(proportions_included)
     for i in range(resolution):
         proportion = proportions_included[i]
         last_idx = int(math.floor(num_examples * proportion)) + 1
@@ -425,6 +473,18 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
         except ValueError:
             aupr_scores[i] = np.nan
 
+        if first:
+            labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
+            if pos_label == 0:
+                labels_rest = 1.0 - labels_rest
+            predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
+            try:
+                aupr_scores_oracle[i] = roc_auc_score(labels_oracle_sorted, predictions_subset)
+            except ValueError:
+                aupr_scores_oracle[i] = np.nan
+
+    if first:
+        plt.plot(proportions_included[~np.isnan(aupr_scores_oracle)], aupr_scores_oracle[~np.isnan(aupr_scores_oracle)][::-1])
     plt.plot(proportions_included[~np.isnan(aupr_scores)], aupr_scores[~np.isnan(aupr_scores)][::-1])
     if last:
         plt.plot([0.0, 1.0], [min(aupr_scores), 1], 'k--', lw=4)
@@ -437,7 +497,7 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
     return
 
 def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array, pos_label=1, resolution=100,
-                                    savedir=None, last=False):
+                                    savedir=None, first=False, last=False):
     """
     Plot the AUPR score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -454,7 +514,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
 
     print('Prediction shape: ', predictions.shape)
     aupr_scores = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
-
+    aupr_scores_oracle = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
     print('Sort_by_array: ', sort_by_array[:,0])
     for fold in range(predictions.shape[-1]):
         sorted_order = np.argsort(sort_by_array[:,fold])
@@ -464,6 +524,16 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
             predictions_sorted = 1.0-predictions[sorted_order, fold]
         else:
             predictions_sorted = predictions[sorted_order, fold]
+
+        if first:
+            error = np.abs(labels - predictions[:,fold])
+            error_sort = np.argsort(error)
+            labels_oracle_sorted = labels[error_sort]
+            predictions_oracle_sorted = predictions[error_sort, fold]
+            if pos_label == 0:
+                predictions_oracle_sorted = 1.0 - predictions_oracle_sorted
+
+
 
         for i in range(resolution):
             proportion = proportions_included[i]
@@ -480,9 +550,28 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
             except ValueError:
                 aupr_scores[i,fold] =  np.nan
 
+            if first:
+                labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
+                if pos_label == 0:
+                    labels_rest = 1.0 - labels_rest
+                predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
+                try:
+                    aupr_scores_oracle[i,fold] = roc_auc_score(labels_oracle_sorted, predictions_subset)
+                except ValueError:
+                    aupr_scores_oracle[i,fold] = np.nan
+
     mean_roc = np.mean(aupr_scores,axis=1)[::-1]
     std_roc = np.std(aupr_scores, axis=1)[::-1]
+
+    mean_roc_oracle = np.mean(aupr_scores_oracle,_axis=1)[::-1]
+    std_roc_oracle = np.std(aupr_scores_oracle, axis=1)[::-1]
+
     print('mean roc: ', mean_roc)
+    if first:
+        plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc_oracle[~np.isnan(mean_roc)])
+        plt.fill_between(proportions_included[~np.isnan(mean_roc_oracle)],
+                         mean_roc[~np.isnan(mean_roc_oracle)] - std_roc_oracle[~np.isnan(mean_roc_oracle)],
+                         mean_roc[~np.isnan(mean_roc_oracle)] + std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
     plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)])
     plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2)
     if last:
