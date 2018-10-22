@@ -559,7 +559,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
                 try:
                     precision, recall, _ = precision_recall_curve(labels_oracle_sorted, predictions_subset,
                                                                   pos_label=pos_label)
-                    aupr_scores_oracle[i] = auc(recall, precision)
+                    aupr_scores_oracle[i,fold] = auc(recall, precision)
                 except ValueError:
                     aupr_scores_oracle[i,fold] = np.nan
 
