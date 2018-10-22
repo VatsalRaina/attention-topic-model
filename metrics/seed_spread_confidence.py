@@ -418,11 +418,10 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
 
     base_aucs = roc_auc_scores[-1,:]
     results_min = np.asarray([base_aucs + (1.0 - base_aucs) * i for i in proportions_included])
-    print('results_min shape:', results_min.shape)
     max_aucs=[]
     uns_aucs=[]
     min_aucs=[]
-    for fold in xrange(1,11):
+    for fold in xrange(predictions.shape[-1]):
         max_aucs.append( auc(proportions_included, [x - base_aucs[fold] for x in roc_auc_scores_oracle[::-1][:,fold]], reorder=True))
         uns_aucs.append(auc(proportions_included, [x - base_aucs[fold] for x in roc_auc_scores[::-1][:,fold]], reorder=True))
         min_aucs.append(auc(proportions_included, [x - base_aucs[fold] for x in results_min[:,fold]], reorder=True))
