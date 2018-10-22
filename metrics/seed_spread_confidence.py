@@ -401,7 +401,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
 
     mean_roc = np.mean(roc_auc_scores,axis=1)[::-1]
     std_roc = np.std(roc_auc_scores, axis=1)[::-1]
-    mean_roc_oracle = np.mean(roc_auc_scores_oracle,_axis=1)[::-1]
+    mean_roc_oracle = np.mean(roc_auc_scores_oracle, axis=1)[::-1]
     std_roc_oracle = np.std(roc_auc_scores_oracle, axis=1)[::-1]
 
     print('mean roc: ', mean_roc)
@@ -563,7 +563,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     mean_roc = np.mean(aupr_scores,axis=1)[::-1]
     std_roc = np.std(aupr_scores, axis=1)[::-1]
 
-    mean_roc_oracle = np.mean(aupr_scores_oracle,_axis=1)[::-1]
+    mean_roc_oracle = np.mean(aupr_scores_oracle, axis=1)[::-1]
     std_roc_oracle = np.std(aupr_scores_oracle, axis=1)[::-1]
 
     print('mean roc: ', mean_roc)
