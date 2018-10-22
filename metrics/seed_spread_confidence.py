@@ -306,14 +306,16 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     labels_sorted = labels[sorted_order]
     predictions_sorted = predictions[sorted_order]
 
-    if first:
-        error = np.abs(labels - predictions)
-        error_sort = np.argsort(error)
-        labels_oracle_sorted = labels[error_sort]
-        predictions_oracle_sorted = predictions[error_sort]
+    error = np.abs(labels - predictions)
+    error_sort = np.argsort(error)
+    labels_oracle_sorted = labels[error_sort]
+    predictions_oracle_sorted = predictions[error_sort]
 
 
     proportions_included = np.linspace(0, 1, num=resolution)
+
+
+
     roc_auc_scores = np.zeros_like(proportions_included)
     roc_auc_scores_oracle = np.zeros_like(proportions_included)
     for i in range(resolution):
@@ -328,13 +330,20 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
         except ValueError:
             roc_auc_scores[i] = np.nan
 
-        if first:
-            labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
-            predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
-            try:
-                roc_auc_scores_oracle[i] = roc_auc_score(labels_oracle_sorted, predictions_subset)
-            except ValueError:
-                roc_auc_scores_oracle[i] = np.nan
+
+        labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
+        predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
+        try:
+            roc_auc_scores_oracle[i] = roc_auc_score(labels_oracle_sorted, predictions_subset)
+        except ValueError:
+            roc_auc_scores_oracle[i] = np.nan
+
+    base_auc = roc_auc_scores[-1]
+    results_min = [base_auc + (1.0 - base_auc) * i for i in proportions_included]
+    max_auc = auc(proportions_included, [x - base_auc for x in roc_auc_scores_oracle[::-1]], reorder=True)
+    uns_auc = auc(proportions_included, [x - base_auc for x in roc_auc_scores[::-1]], reorder=True)
+    min_auc = auc(proportions_included, [x - base_auc for x in results_min], reorder=True)
+    AUC_RR = (uns_auc - min_auc) / (max_auc - min_auc)
 
     if first:
         plt.plot(proportions_included[~np.isnan(roc_auc_scores)], roc_auc_scores_oracle[~np.isnan(roc_auc_scores_oracle)][::-1])
@@ -347,6 +356,9 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     plt.ylim(min(roc_auc_scores), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('ROC AUC of Ensemble is: ' + str(roc_auc_scores[-1]) + '\n')
+
+    with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
+        f.write('AUC RR of Ensemble is: ' + str(AUC_RR) + '\n')
     return
 
 
@@ -373,11 +385,11 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
         labels_sorted = labels[sorted_order]
         predictions_sorted = predictions[sorted_order, fold]
 
-        if first:
-            error = np.abs(labels - predictions[:,fold])
-            error_sort = np.argsort(error)
-            labels_oracle_sorted = labels[error_sort]
-            predictions_oracle_sorted = predictions[error_sort, fold]
+
+        error = np.abs(labels - predictions[:,fold])
+        error_sort = np.argsort(error)
+        labels_oracle_sorted = labels[error_sort]
+        predictions_oracle_sorted = predictions[error_sort, fold]
 
         for i in range(resolution):
             proportion = proportions_included[i]
@@ -391,18 +403,37 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
             except ValueError:
                 roc_auc_scores[i,fold] = np.nan
 
-            if first:
-                labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
-                predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
-                try:
-                    roc_auc_scores_oracle[i, fold] = roc_auc_score(labels_oracle_sorted, predictions_subset)
-                except ValueError:
-                    roc_auc_scores_oracle[i, fold] = np.nan
+            labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
+            predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
+            try:
+                roc_auc_scores_oracle[i, fold] = roc_auc_score(labels_oracle_sorted, predictions_subset)
+            except ValueError:
+                roc_auc_scores_oracle[i, fold] = np.nan
 
     mean_roc = np.mean(roc_auc_scores,axis=1)[::-1]
     std_roc = np.std(roc_auc_scores, axis=1)[::-1]
     mean_roc_oracle = np.mean(roc_auc_scores_oracle, axis=1)[::-1]
     std_roc_oracle = np.std(roc_auc_scores_oracle, axis=1)[::-1]
+
+
+    base_aucs = roc_auc_scores[-1,:]
+    results_min = np.asarray([base_aucs + (1.0 - base_aucs) * i for i in proportions_included])
+    max_aucs=[]
+    uns_aucs=[]
+    min_aucs=[]
+    for fold in xrange(1,11):
+        max_aucs.append( auc(proportions_included, [x - base_aucs for x in roc_auc_scores_oracle[::-1][:,fold]], reorder=True))
+        uns_aucs.append(auc(proportions_included, [x - base_aucs for x in roc_auc_scores[::-1][:,fold]], reorder=True))
+        min_aucs.append(auc(proportions_included, [x - base_aucs for x in results_min[:,fold]], reorder=True))
+
+    max_aucs=np.asarray(max_aucs)
+    min_aucs=np.asarray(min_aucs)
+    uns_aucs=np.asarray(uns_aucs)
+
+    AUC_RRs = (uns_aucs - min_aucs) / (max_aucs - min_aucs)
+
+    AUC_RR=np.mean(AUC_RRs)
+    std_AUC_RR = np.std(AUC_RRs)
 
     print('mean roc: ', mean_roc)
     if first:
@@ -421,6 +452,8 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     plt.ylim(min(mean_roc-std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('ROC AUC of Ensemble is: ' + str(mean_roc[-1]) + '\n')
+    with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
+        f.write('ROC AUC RR of Inidivudal is: ' + str(AUC_RR) + '+/-'+str(std_AUC_RR)+'\n')
     return
 
 def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_label=1, resolution=100,
@@ -443,16 +476,14 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
     labels_sorted = labels[sorted_order]
     predictions_sorted = predictions[sorted_order]
 
-    if pos_label==0:
-        predictions_sorted=1.0-predictions_sorted
+    error = np.abs(labels - predictions)
+    error_sort = np.argsort(error)
+    labels_oracle_sorted = labels[error_sort]
+    predictions_oracle_sorted = predictions[error_sort]
 
-    if first:
-        error = np.abs(labels - predictions)
-        error_sort = np.argsort(error)
-        labels_oracle_sorted = labels[error_sort]
-        predictions_oracle_sorted = predictions[error_sort]
-        if pos_label ==0 :
-            predictions_oracle_sorted = 1.0 - predictions_oracle_sorted
+    if pos_label ==0 :
+        predictions_sorted = 1.0 - predictions_sorted
+        predictions_oracle_sorted = 1.0 - predictions_oracle_sorted
 
     proportions_included = np.linspace(0, 1, num=resolution)
 
@@ -473,16 +504,24 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
         except ValueError:
             aupr_scores[i] = np.nan
 
-        if first:
-            labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
-            if pos_label == 0:
-                labels_rest = 1.0 - labels_rest
-            predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
-            try:
-                precision, recall, _ = precision_recall_curve(labels_oracle_sorted, predictions_subset, pos_label=pos_label)
-                aupr_scores_oracle[i] = auc(recall, precision)
-            except ValueError:
-                aupr_scores_oracle[i] = np.nan
+
+        labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
+        if pos_label == 0:
+            labels_rest = 1.0 - labels_rest
+        predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
+        try:
+            precision, recall, _ = precision_recall_curve(labels_oracle_sorted, predictions_subset, pos_label=pos_label)
+            aupr_scores_oracle[i] = auc(recall, precision)
+        except ValueError:
+            aupr_scores_oracle[i] = np.nan
+
+
+    base_auc = aupr_scores[-1]
+    results_min = [base_auc + (1.0 - base_auc) * i for i in proportions_included]
+    max_auc = auc(proportions_included, [x - base_auc for x in aupr_scores_oracle[::-1]], reorder=True)
+    uns_auc = auc(proportions_included, [x - base_auc for x in aupr_scores[::-1]], reorder=True)
+    min_auc = auc(proportions_included, [x - base_auc for x in results_min], reorder=True)
+    AUC_RR = (uns_auc - min_auc) / (max_auc - min_auc)
 
     if first:
         plt.plot(proportions_included[~np.isnan(aupr_scores_oracle)], aupr_scores_oracle[~np.isnan(aupr_scores_oracle)][::-1])
@@ -495,7 +534,10 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
     plt.ylim(min(aupr_scores), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(aupr_scores[-1]) + '\n')
+    with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
+        f.write('AUPR AUC RR with pos label of '+str(pos_label)+ 'of  Ensemble is: ' + str(AUC_RR) + '\n')
     return
+
 
 def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array, pos_label=1, resolution=100,
                                     savedir=None, first=False, last=False):
@@ -519,16 +561,14 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
         sorted_order = np.argsort(sort_by_array[:,fold])
         labels_sorted = labels[sorted_order]
         predictions_sorted = predictions[sorted_order, fold]
-        if pos_label == 0:
-            predictions_sorted = 1.0-predictions_sorted
 
-        if first:
-            error = np.abs(labels - predictions[:,fold])
-            error_sort = np.argsort(error)
-            labels_oracle_sorted = labels[error_sort]
-            predictions_oracle_sorted = predictions[error_sort, fold]
-            if pos_label == 0:
-                predictions_oracle_sorted = 1.0 - predictions_oracle_sorted
+        error = np.abs(labels - predictions[:,fold])
+        error_sort = np.argsort(error)
+        labels_oracle_sorted = labels[error_sort]
+        predictions_oracle_sorted = predictions[error_sort, fold]
+        if pos_label == 0:
+            predictions_sorted = 1.0 - predictions_sorted
+            predictions_oracle_sorted = 1.0 - predictions_oracle_sorted
 
         for i in range(resolution):
             proportion = proportions_included[i]
@@ -545,23 +585,42 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
             except ValueError:
                 aupr_scores[i,fold] =  np.nan
 
-            if first:
-                labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
-                if pos_label == 0:
-                    labels_rest = 1.0 - labels_rest
-                predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
-                try:
-                    precision, recall, _ = precision_recall_curve(labels_oracle_sorted, predictions_subset,
-                                                                  pos_label=pos_label)
-                    aupr_scores_oracle[i,fold] = auc(recall, precision)
-                except ValueError:
-                    aupr_scores_oracle[i,fold] = np.nan
+
+            labels_rest = np.asarray(labels_oracle_sorted[last_idx:], dtype=np.float32)
+            if pos_label == 0:
+                labels_rest = 1.0 - labels_rest
+            predictions_subset = np.concatenate((predictions_oracle_sorted[:last_idx], labels_rest), axis=0)
+            try:
+                precision, recall, _ = precision_recall_curve(labels_oracle_sorted, predictions_subset,
+                                                              pos_label=pos_label)
+                aupr_scores_oracle[i,fold] = auc(recall, precision)
+            except ValueError:
+                aupr_scores_oracle[i,fold] = np.nan
 
     mean_roc = np.mean(aupr_scores,axis=1)[::-1]
     std_roc = np.std(aupr_scores, axis=1)[::-1]
 
     mean_roc_oracle = np.mean(aupr_scores_oracle, axis=1)[::-1]
     std_roc_oracle = np.std(aupr_scores_oracle, axis=1)[::-1]
+
+    base_aucs = aupr_scores[-1,:]
+    results_min = np.asarray([base_aucs + (1.0 - base_aucs) * i for i in proportions_included])
+    max_aucs=[]
+    uns_aucs=[]
+    min_aucs=[]
+    for fold in xrange(1,11):
+        max_aucs.append( auc(proportions_included, [x - base_aucs for x in aupr_scores_oracle[::-1][:,fold]], reorder=True))
+        uns_aucs.append(auc(proportions_included, [x - base_aucs for x in aupr_scores[::-1][:,fold]], reorder=True))
+        min_aucs.append(auc(proportions_included, [x - base_aucs for x in results_min[:,fold]], reorder=True))
+
+    max_aucs=np.asarray(max_aucs)
+    min_aucs=np.asarray(min_aucs)
+    uns_aucs=np.asarray(uns_aucs)
+
+    AUC_RRs = (uns_aucs - min_aucs) / (max_aucs - min_aucs)
+
+    AUC_RR=np.mean(AUC_RRs)
+    std_AUC_RR = np.std(AUC_RRs)
 
     print('mean roc: ', mean_roc)
     if first:
@@ -579,6 +638,10 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     plt.ylim(min(mean_roc-std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('AUPR with pos label of '+str(pos_label)+ 'of Ensemble is: ' + str(mean_roc[-1]) + '+\-' + str(std_roc[-1])+'\n')
+    with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
+        f.write('AUPR AUC RR with pos label of ' + str(pos_label) + 'of Individual is: ' + str(AUC_RR) + '+\-' + str(
+            std_AUC_RR) + '\n')
+    return
     return
 
 def plot_pr_spread_mesh(labels, predictions, sort_by_array, pos_labels=1, resolution=40, spread_name='std'):
