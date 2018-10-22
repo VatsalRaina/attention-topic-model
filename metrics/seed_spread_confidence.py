@@ -608,10 +608,10 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     max_aucs=[]
     uns_aucs=[]
     min_aucs=[]
-    for fold in xrange(1,11):
-        max_aucs.append( auc(proportions_included, [x - base_aucs for x in aupr_scores_oracle[::-1][:,fold]], reorder=True))
-        uns_aucs.append(auc(proportions_included, [x - base_aucs for x in aupr_scores[::-1][:,fold]], reorder=True))
-        min_aucs.append(auc(proportions_included, [x - base_aucs for x in results_min[:,fold]], reorder=True))
+    for fold in xrange(predictions.shape[-1]):
+        max_aucs.append( auc(proportions_included, [x - base_aucs[fold] for x in aupr_scores_oracle[::-1][:,fold]], reorder=True))
+        uns_aucs.append(auc(proportions_included, [x - base_aucs[fold] for x in aupr_scores[::-1][:,fold]], reorder=True))
+        min_aucs.append(auc(proportions_included, [x - base_aucs[fold] for x in results_min[:,fold]], reorder=True))
 
     max_aucs=np.asarray(max_aucs)
     min_aucs=np.asarray(min_aucs)
