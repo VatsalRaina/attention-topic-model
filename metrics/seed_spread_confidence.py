@@ -318,7 +318,7 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
         # print(len(labels_subset), len(predictions_subset))
         # print(labels_subset[max(0, last_idx-5): last_idx])
         try:
-            roc_auc_scores[i] = roc_auc_score(labels, predictions_subset)
+            roc_auc_scores[i] = roc_auc_score(labels_sorted, predictions_subset)
         except ValueError:
             roc_auc_scores[i] = np.nan
 
@@ -364,7 +364,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
             # print(len(labels_subset), len(predictions_subset))
             # print(labels_subset[max(0, last_idx-5): last_idx])
             try:
-                roc_auc_scores[i,fold] = roc_auc_score(labels, predictions_subset)
+                roc_auc_scores[i,fold] = roc_auc_score(labels_sorted, predictions_subset)
             except ValueError:
                 roc_auc_scores[i,fold] = np.nan
 
@@ -416,7 +416,7 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
         predictions_subset = np.concatenate((predictions_sorted[:last_idx],labels_rest),axis=0)
 
         try:
-            precision, recall, _ = precision_recall_curve(labels, predictions_subset, pos_label=pos_label)
+            precision, recall, _ = precision_recall_curve(labels_sorted, predictions_subset, pos_label=pos_label)
             aupr_scores[i] = auc(recall, precision)
         except ValueError:
             aupr_scores[i] = np.nan
@@ -469,7 +469,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
             predictions_subset = np.concatenate((predictions_sorted[:last_idx], labels_rest), axis=0)
 
             try:
-                precision, recall, _ = precision_recall_curve(labels, predictions_subset, pos_label=pos_label)
+                precision, recall, _ = precision_recall_curve(labels_sorted, predictions_subset, pos_label=pos_label)
                 aupr_scores[i,fold] = auc(recall, precision)
             except ValueError:
                 aupr_scores[i,fold] =  np.nan
