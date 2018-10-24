@@ -143,7 +143,7 @@ def main(args):
 
             # Add the positive examples:
             targets_pos = [str(float(1.0)) for i in range(num_examples)]
-            new_data.extend(zip(responses, confs, prompts, targets_pos, speakers, grades))targets
+            new_data.extend(zip(responses, confs, prompts, targets_pos, speakers, grades))
             # Add the negative examples:
             targets_neg = [str(float(0.0)) for i in range(num_examples)]
             new_data.extend(zip(responses_neg[:num_examples], confs_neg[:num_examples], prompts, targets_neg,
