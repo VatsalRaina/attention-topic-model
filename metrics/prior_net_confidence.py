@@ -110,12 +110,16 @@ def get_labels_logits_predictions(eval_dir):
     return labels_array, logits_array, preds_array
 
 
-def plot_uncertainty_histogram(uncertainty_seen, uncertainty_unseen, num_bins):
-    clrs = sns.color_palette("husl", 2)
-    print(clrs)
+def plot_uncertainty_histogram(uncertainty_seen, uncertainty_unseen, num_bins=50):
+    clrs = sns.xkcd_palette(["windows blue", "amber"])
 
-    plt.hist(uncertainty_seen, bins=num_bins, density=True, label='seen-seen', color=clrs[0], alpha=0.4)
-    plt.hist(uncertainty_unseen, bins=num_bins, density=True, label='unseen-unseen', color=clrs[1], alpha=0.4)
+    # Make the bin divisions
+    upper_edge = max(np.max(uncertainty_seen), np.max(uncertainty_unseen))
+    lower_edge = min(np.min(uncertainty_seen), np.min(uncertainty_unseen))
+    bins = np.linspace(lower_edge, upper_edge, num_bins+1)
+
+    plt.hist(uncertainty_seen, bins=bins, density=True, label='seen-seen', color=clrs[0], alpha=0.5)
+    plt.hist(uncertainty_unseen, bins=bins, density=True, label='unseen-unseen', color=clrs[1], alpha=0.5)
     plt.legend()
     return
 
@@ -136,7 +140,7 @@ def plot_auc_vs_percentage_included_single(labels, predictions, sort_by_array, r
     proportions_included, roc_auc_scores, _ = _get_cum_roc_auc_with_sort(labels, predictions, sort_by_array,
                                                                          resolution=resolution)
 
-    plt.plot(proportions_included, roc_auc_scores, color=color)
+    plt.plot(proportions_included, roc_auc_scores, color=color, alpha=0.75)
     plt.xlabel("Percentage examples included as sorted by " + sort_by_name + " of Prior Net output.")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0, 1)
@@ -168,7 +172,7 @@ def _get_cum_roc_auc_with_sort(labels, predictions, sort_by_array, resolution=10
 
 def plot_auc_vs_percentage_included_with_proportions(labels_seen, labels_unseen, predictions_seen, predictions_unseen,
                                     sort_by_array_seen, sort_by_array_unseen, resolution=100, sort_by_name='std',
-                                    bg_alpha=0.25):
+                                    bg_alpha=0.25, line_color='black', linewidth=1.4):
     """
     Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
     sort_by_array. This array could for instance represent the spread of the ensemble predictions, and hence the
@@ -187,7 +191,7 @@ def plot_auc_vs_percentage_included_with_proportions(labels_seen, labels_unseen,
                                                                                     resolution=resolution)
 
     is_seen_sorted = is_seen[sorted_order]
-    percentage_seen = np.cumsum(is_seen_sorted, dtype=np.float32) / np.arange(num_examples, dtype=np.float32)
+    percentage_seen = np.cumsum(is_seen_sorted, dtype=np.float32) / np.arange(1, num_examples + 1, dtype=np.float32)
 
     # Plot the proportions included
     x = np.arange(num_examples, dtype=np.float32) / num_examples
@@ -196,7 +200,7 @@ def plot_auc_vs_percentage_included_with_proportions(labels_seen, labels_unseen,
     plt.fill_between(x, percentage_seen, 1., facecolor=clrs[1], alpha=bg_alpha)
 
     # Plot the ROC_AUC vs. proportions included
-    plt.plot(proportions_included, roc_auc_scores)
+    plt.plot(proportions_included, roc_auc_scores, color=line_color, linewidth=linewidth, alpha=0.8)
 
     plt.xlim(0, 1)
     plt.ylim(0, 1)
@@ -219,17 +223,17 @@ def plot_auc_vs_percentage_included_seen_vs_unseen(labels_seen, labels_unseen, p
     proportions_included, roc_auc_scores, sorted_order = _get_cum_roc_auc_with_sort(labels, predictions, sort_by_array,
                                                                                     resolution=resolution)
     is_seen_sorted = is_seen[sorted_order]
-    percentage_seen = np.cumsum(is_seen_sorted, dtype=np.float32) / np.arange(num_examples, dtype=np.float32)
+    percentage_seen = np.cumsum(is_seen_sorted, dtype=np.float32) / np.arange(1, num_examples + 1, dtype=np.float32)
 
     clrs = sns.color_palette("husl", 2)
     score_color = clrs[0]
     proportion_color = clrs[1]
 
     # Plot the proportion seen-seen vs. proportions included
-    plt.plot(np.arange(num_examples, dtype=np.float32) / num_examples, percentage_seen, alpha=0.4, linewidth=1.2)
+    plt.plot(np.arange(num_examples, dtype=np.float32) / num_examples, percentage_seen, color=proportion_color, alpha=0.5, linewidth=0.8)
 
     # Plot the ROC_AUC vs. proportions included
-    plt.plot(proportions_included, roc_auc_scores, linewidth=1.6, alpha=0.8)
+    plt.plot(proportions_included, roc_auc_scores, color=score_color, linewidth=1.2, alpha=0.8)
     return
 
 
@@ -260,7 +264,7 @@ def main(args):
         plot_auc_vs_percentage_included_with_proportions(eval_stats_seen.labels, eval_stats_unseen.labels,
                                                          eval_stats_seen.preds, eval_stats_unseen.preds,
                                                          eval_stats_seen.diff_entropy, eval_stats_unseen.diff_entropy,
-                                                         sort_by_name='diff. entropy', bg_alpha=0.06)
+                                                         sort_by_name='diff. entropy', bg_alpha=0.10)
     plt.savefig(
         os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_seen_and_unseen_bg_{}.png'.format(args.model_base_name)),
         bbox_inches='tight')
@@ -274,7 +278,7 @@ def main(args):
         plot_auc_vs_percentage_included_with_proportions(eval_stats_seen.labels, eval_stats_unseen.labels,
                                                          eval_stats_seen.preds, eval_stats_unseen.preds,
                                                          eval_stats_seen.mutual_info, eval_stats_unseen.mutual_info,
-                                                         sort_by_name='mutual information', bg_alpha=0.06)
+                                                         sort_by_name='mutual information', bg_alpha=0.10)
     plt.savefig(
         os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_seen_and_unseen_bg_{}.png'.format(args.model_base_name)),
         bbox_inches='tight')
@@ -317,14 +321,15 @@ def main(args):
 
 
     # MAKE THE AWESOME HISTOGRAMS
-    diff_entropy_seen_combined = reduce(lambda x, y: np.hstack(x, y),
+    diff_entropy_seen_combined = reduce(lambda x, y: np.hstack((x, y)),
                                         map(lambda x: x.diff_entropy, all_evaluation_stats_seen))
-    diff_entropy_unseen_combined = reduce(lambda x, y: np.hstack(x, y),
+    diff_entropy_unseen_combined = reduce(lambda x, y: np.hstack((x, y)),
                                           map(lambda x: x.diff_entropy, all_evaluation_stats_unseen))
-    mutual_info_seen_combined = reduce(lambda x, y: np.hstack(x, y),
-                                       map(lambda x: x.mutual_info, all_evaluation_stats_unseen))
-    mutual_info_unseen_combined = reduce(lambda x, y: np.hstack(x, y),
+    mutual_info_seen_combined = reduce(lambda x, y: np.hstack((x, y)),
+                                       map(lambda x: x.mutual_info, all_evaluation_stats_seen))
+    mutual_info_unseen_combined = reduce(lambda x, y: np.hstack((x, y)),
                                          map(lambda x: x.mutual_info, all_evaluation_stats_unseen))
+
     # Diff. Entropy
     plot_uncertainty_histogram(diff_entropy_seen_combined, diff_entropy_unseen_combined)
     plt.savefig(
@@ -343,12 +348,13 @@ def main(args):
 
 
 
+    clrs = sns.dark_palette("muted purple", n_colors=args.num_trained_models, input="xkcd")
     # Make AUC vs. cumulative samples included for N models - DIFF. ENTROPY
     # Seen-seen
     for i in range(args.num_trained_models):
         eval_stats = all_evaluation_stats_seen[i]
         plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.diff_entropy,
-                                               resolution=200, sort_by_name='diff. entropy')
+                                               resolution=200, sort_by_name='diff. entropy', color=clrs[i])
     plt.savefig(
         os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_seen_{}.png'.format(args.model_base_name)),
         bbox_inches='tight')
@@ -358,7 +364,7 @@ def main(args):
     for i in range(args.num_trained_models):
         eval_stats = all_evaluation_stats_unseen[i]
         plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.diff_entropy,
-                                               resolution=200, sort_by_name='diff. entropy')
+                                               resolution=200, sort_by_name='diff. entropy', color=clrs[i])
     plt.savefig(
         os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_unseen_{}.png'.format(args.model_base_name)),
         bbox_inches='tight')
@@ -369,7 +375,7 @@ def main(args):
     for i in range(args.num_trained_models):
         eval_stats = all_evaluation_stats_seen[i]
         plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.mutual_info,
-                                               resolution=200, sort_by_name='mutual information')
+                                               resolution=200, sort_by_name='mutual information', color=clrs[i])
     plt.savefig(
         os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_seen_{}.png'.format(args.model_base_name)),
         bbox_inches='tight')
@@ -379,7 +385,7 @@ def main(args):
     for i in range(args.num_trained_models):
         eval_stats = all_evaluation_stats_unseen[i]
         plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.mutual_info,
-                                               resolution=200, sort_by_name='mutual information')
+                                               resolution=200, sort_by_name='mutual information', color=clrs[i])
     plt.savefig(
         os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_unseen_{}.png'.format(args.model_base_name)),
         bbox_inches='tight')

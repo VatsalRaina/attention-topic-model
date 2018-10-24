@@ -161,7 +161,7 @@ def main(args):
                                                                                               new_grades])
 
     with open(os.path.join(args.destination_dir, 'grades.txt'), 'w') as g, open(
-            os.path.join(args.destination_dir, 'confidences.txt'), 'w') as c, open(
+        os.path.join(args.destination_dir, 'confidences.txt'), 'w') as c, open(
         os.path.join(args.destination_dir, 'responses.txt'), 'w') as r, open(
         os.path.join(args.destination_dir, 'prompts.txt'), 'w') as p, open(
         os.path.join(args.destination_dir, 'targets.txt'), 'w') as t, open(

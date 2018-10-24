@@ -678,7 +678,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
             with tf.variable_scope(self._model_scope, reuse=True) as scope:
                 prompt_embeddings, prompt_attention = self._construct_prompt_encoder(p_input=prompts, p_seqlens=prompt_lens, batch_size=batch_size)
 
-            embeddings, attention = self.sess.run(prompt_embeddings)
+            embeddings, attention = self.sess.run([prompt_embeddings, prompt_attention])
 
             path = os.path.join(save_path, 'prompt_embeddings.txt')
             np.savetxt(path, embeddings)
