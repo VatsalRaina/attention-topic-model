@@ -10,48 +10,48 @@ import context
 from core.utilities.utilities import text_to_array, get_train_size_from_meta
 from atm.atm import AttentionTopicModel
 
-commandLineParser = argparse.ArgumentParser(description='Compute features from labels.')
-commandLineParser.add_argument('--valid_size', type=int, default=14188,  # 1034,##28375,
+parser = argparse.ArgumentParser(description='Compute features from labels.')
+parser.add_argument('--valid_size', type=int, default=14188,  # 1034,##28375,
                                help='Specify the validation set size')
-commandLineParser.add_argument('--batch_size', type=int, default=100,
+parser.add_argument('--batch_size', type=int, default=100,
                                help='Specify the training batch size')
-commandLineParser.add_argument('--learning_rate', type=float, default=1e-3,
+parser.add_argument('--learning_rate', type=float, default=1e-3,
                                help='Specify the intial learning rate')
-commandLineParser.add_argument('--lr_decay', type=float, default=0.85,
+parser.add_argument('--lr_decay', type=float, default=0.85,
                                help='Specify the learning rate decay rate')
-commandLineParser.add_argument('--dropout', type=float, default=1.0,
+parser.add_argument('--dropout', type=float, default=1.0,
                                help='Specify the dropout keep probability')
-commandLineParser.add_argument('--n_epochs', type=int, default=1,
+parser.add_argument('--n_epochs', type=int, default=1,
                                help='Specify the number of epoch to run training for')
-commandLineParser.add_argument('--n_samples', type=int, default=1,
+parser.add_argument('--n_samples', type=int, default=1,
                                help='Specify the number of negative samples to take')
-commandLineParser.add_argument('--seed', type=int, default=100,
+parser.add_argument('--seed', type=int, default=100,
                                help='Specify the global random seed')
-commandLineParser.add_argument('--name', type=str, default='model',
+parser.add_argument('--name', type=str, default='model',
                                help='Specify the name of the model')
-commandLineParser.add_argument('--debug', type=int, choices=[0, 1, 2], default=0,
+parser.add_argument('--debug', type=int, choices=[0, 1, 2], default=0,
                                help='Specify the debug output level')
-commandLineParser.add_argument('--load_path', type=str, default='./',
+parser.add_argument('--load_path', type=str, default='./',
                                help='Specify path to model which should be loaded')
-commandLineParser.add_argument('--init', type=str, default=None,
+parser.add_argument('--init', type=str, default=None,
                                help='Specify path to from which to initialize model')
-commandLineParser.add_argument('--distortion', type=float, default=1.0,
+parser.add_argument('--distortion', type=float, default=1.0,
                                help='Specify whether to use uniform negative sampliong')
-commandLineParser.add_argument('--epoch', type=str, default=None,
+parser.add_argument('--epoch', type=str, default=None,
                                help='which should be loaded')
-commandLineParser.add_argument('train_data', type=str,
+parser.add_argument('train_data', type=str,
                                help='which should be loaded')
-commandLineParser.add_argument('meta_data_path', type=str,
+parser.add_argument('meta_data_path', type=str,
                                help='Path to the meta data file (which contains the dataset size and number of topics).')
-commandLineParser.add_argument('valid_data', type=str,
+parser.add_argument('valid_data', type=str,
                                help='which should be loaded')
-commandLineParser.add_argument('topic_path', type=str,
+parser.add_argument('topic_path', type=str,
                                help='which should be loaded')
-commandLineParser.add_argument('topic_count_path', type=str,
+parser.add_argument('topic_count_path', type=str,
                                help='which should be loaded')
-commandLineParser.add_argument('wlist_path', type=str,
+parser.add_argument('wlist_path', type=str,
                                help='which should be loaded')
-commandLineParser.add_argument('--strip_start_end', action='store_true', help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt file (used for legacy sorted_topics.txt formatting')
+parser.add_argument('--strip_start_end', action='store_true', help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt file (used for legacy sorted_topics.txt formatting')
 
 
 
@@ -97,5 +97,5 @@ def main(args):
 
 
 if __name__ == '__main__':
-    args = commandLineParser.parse_args()
+    args = parser.parse_args()
     main(args)
