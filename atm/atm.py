@@ -2059,6 +2059,7 @@ class ATMPriorNetwork(AttentionTopicModel):
             prompts = tf.nn.embedding_lookup(topics, q_ids, name=name + '_prompt_loopkup')
             prompt_lenghts = tf.gather(topic_lens, q_ids)
 
+        targets = tf.expand_dims(targets, axis=1)
         targets = tf.concat([targets, 1.0 - targets], axis=1)
 
         return targets, prompts, prompt_lenghts, responses, response_lengths, iterator
