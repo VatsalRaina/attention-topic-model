@@ -1996,7 +1996,7 @@ class ATMPriorNetwork(AttentionTopicModel):
         return kl_divergence
 
     def _construct_inputs(self, data, batch_size, unigram_path, topics, topic_lens, train=True, capacity_mul=800,
-                          num_threads=1, repeat=1, distortion=1.0, name='input'):
+                          num_threads=1, distortion=1.0, name='input'):
         if train:
             targets, \
             q_ids, \
@@ -2085,7 +2085,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                                   unigram_path_in_domain, topics_in_domain,
                                                                   topic_lens_in_domain,
                                                                   train=True, capacity_mul=800,
-                                                                  num_threads=6, repeat=1, distortion=1.0,
+                                                                  num_threads=6, distortion=1.0,
                                                                   name='train_in_domain')
 
                 targets_out_domain, \
@@ -2096,7 +2096,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                                     unigram_path_out_domain, topics_out_domain,
                                                                     topic_lens_out_domain,
                                                                     train=True, capacity_mul=800,
-                                                                    num_threads=6, repeat=out_domain_repeats,
+                                                                    num_threads=6,
                                                                     distortion=1.0, name='train_out_domain')
                 valid_targets, \
                 valid_prompts, \
@@ -2106,7 +2106,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                                              unigram_path_in_domain, topics_in_domain,
                                                                              topic_lens_in_domain,
                                                                              train=False, capacity_mul=100,
-                                                                             num_threads=1, repeat=1, distortion=1.0,
+                                                                             num_threads=1, distortion=1.0,
                                                                              name='valid')
 
             # Pad the values to make sure the two batches match in length todo: this is a hack, make more efficient
