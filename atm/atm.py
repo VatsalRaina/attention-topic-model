@@ -1945,7 +1945,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                      save_path=save_path, load_path=load_path, debug_mode=debug_mode, seed=seed,
                                      epoch=epoch)
 
-    def _construct_contrastive_loss(self, logits_in_domain, logits_out_domain, targets_in_domain,
+    def _construct_contrastive_loss(self, logits_in_domain, logits_out_domain, targets_in_domain, batch_size,
                                     in_domain_precision=20., smoothing_val=1e-4, is_training=False):
         """
         Contrastive Loss as described in the Prior Net Paper
@@ -1964,7 +1964,7 @@ class ATMPriorNetwork(AttentionTopicModel):
 
         # Specify the target alphas and smooth as required
         in_domain_target_alphas = tf.abs(targets_in_domain - smoothing_val) * in_domain_precision
-        out_of_domain_target_alphas = tf.ones([self.batch_size, 2], dtype=tf.float32)
+        out_of_domain_target_alphas = tf.ones([batch_size, 2], dtype=tf.float32)
 
         # The first column (alpha1) corresponds to P_relevant, and the 2nd column (alpha2) corresponds to P_off_topic.
 
@@ -2082,13 +2082,14 @@ class ATMPriorNetwork(AttentionTopicModel):
             optimizer=tf.train.AdamOptimizer,
             optimizer_params={},
             n_epochs=30,
+            n_samples=1,  # Number of negative samples to generate per positive sample
             epoch=1,
             which_trn_cost='contrastive'):
         """Custom fit function for a prior network. """
         with self._graph.as_default():
             # Compute number of training examples and batch size
             n_examples = train_size
-            n_batches = n_examples / batch_size
+            n_batches = n_examples / ((n_samples + 1) * batch_size)
 
             # If some variables have been initialized - get them into a set
             temp = set(tf.global_variables())
@@ -2104,12 +2105,14 @@ class ATMPriorNetwork(AttentionTopicModel):
                 prompts_in_domain, \
                 prompt_lens_in_domain, \
                 responses_in_domain, \
-                response_lens_in_domain, _ = self._construct_inputs(train_data_in_domain, batch_size,
+                response_lens_in_domain, _ = self._construct_inputs(train_data_in_domain,
+                                                                    batch_size,
                                                                     unigram_path=unigram_path_in_domain,
                                                                     topics=topics_in_domain,
                                                                     topic_lens=topic_lens_in_domain,
                                                                     train=True, capacity_mul=1000,
                                                                     num_threads=6, distortion=1.0,
+                                                                    sample=True,
                                                                     name='train_in_domain')
 
                 targets_out_domain, \
@@ -2117,17 +2120,21 @@ class ATMPriorNetwork(AttentionTopicModel):
                 prompt_lens_out_domain, \
                 responses_out_domain, \
                 response_lens_out_domain, _ = self._construct_inputs(train_data_out_domain,
-                                                                     2 * batch_size, # 2x batch size because no sampling
+                                                                     (1 + n_samples) * batch_size,  # 2x batch size because no sampling
                                                                      train=True, capacity_mul=1000,
-                                                                     num_threads=6,
+                                                                     num_threads=6, sample=False,
                                                                      distortion=1.0, name='train_out_domain')
                 valid_targets, \
                 valid_prompts, \
                 valid_prompt_lens, \
                 valid_responses, \
-                valid_response_lens, valid_iterator = self._construct_inputs(valid_data, batch_size,
-                                                                             train=False, capacity_mul=100,
-                                                                             num_threads=1, name='valid')
+                valid_response_lens, valid_iterator = self._construct_inputs(valid_data,
+                                                                             batch_size,
+                                                                             train=False,
+                                                                             capacity_mul=100,
+                                                                             sample=False,
+                                                                             num_threads=1,
+                                                                             name='valid')
 
             # Construct Training & Validation models
             with tf.variable_scope(self._model_scope, reuse=True) as scope:
@@ -2135,7 +2142,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                 train_probabilities, \
                 train_logits_in_domain, _, = self._construct_network(a_input=responses_in_domain,
                                                                      a_seqlens=response_lens_in_domain,
-                                                                     n_samples=0,
+                                                                     n_samples=n_samples,
                                                                      q_input=prompts_in_domain,
                                                                      q_seqlens=prompt_lens_in_domain,
                                                                      maxlen=tf.reduce_max(response_lens_in_domain),
@@ -2149,7 +2156,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                                       q_input=prompts_out_domain,
                                                                       q_seqlens=prompt_lens_out_domain,
                                                                       maxlen=tf.reduce_max(response_lens_out_domain),
-                                                                      batch_size=batch_size,
+                                                                      batch_size=(n_samples + 1) * batch_size,
                                                                       keep_prob=self.dropout)
 
                 valid_predictions, \
