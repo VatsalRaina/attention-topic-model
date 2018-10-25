@@ -2012,20 +2012,21 @@ class ATMPriorNetwork(AttentionTopicModel):
         else:
             return cost
 
-    def _construct_inputs(self, data, batch_size, unigram_path, topics, topic_lens, train=True, capacity_mul=800,
-                          num_threads=1, distortion=1.0, name='input'):
+    def _construct_inputs(self, data, batch_size, unigram_path=None, topics=None, topic_lens=None, train=True,
+                          capacity_mul=800,
+                          num_threads=1, distortion=1.0, name='input', sample=False):
         if train:
             targets, \
             q_ids, \
             responses, \
-            response_lengths, _, _ = self._construct_dataset_from_tfrecord([data],
+            response_lengths, prompts, prompt_lengths = self._construct_dataset_from_tfrecord([data],
                                                                            self._parse_func,
                                                                            self._map_func,
                                                                            self._batch_func,
                                                                            batch_size,
                                                                            train=True,
-                                                                           capacity_mul=800,
-                                                                           num_threads=6)
+                                                                           capacity_mul=capacity_mul,
+                                                                           num_threads=num_threads)
             iterator = None
         else:
             iterator = self._construct_dataset_from_tfrecord([data],
@@ -2034,25 +2035,32 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                              self._batch_func,
                                                              batch_size,
                                                              train=False,
-                                                             capacity_mul=800,
-                                                             num_threads=6)
+                                                             capacity_mul=capacity_mul,
+                                                             num_threads=num_threads)
             targets, \
             q_ids, \
             responses, \
-            response_lengths, _, _ = iterator.get_next(name=name + '_data')
-        targets, q_ids = self._sampling_function(targets=targets,
-                                                 q_ids=q_ids,
-                                                 unigram_path=unigram_path,
-                                                 batch_size=batch_size,
-                                                 n_samples=1,
-                                                 name=name + '_samples',
-                                                 distortion=distortion)
-        targets = tf.concat([targets, 1.0 - targets], axis=1)
-        topics = tf.convert_to_tensor(topics, dtype=tf.int32)
-        topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
+            response_lengths, prompts, prompt_lenghts = iterator.get_next(name=name + '_data')
 
-        prompts = tf.nn.embedding_lookup(topics, q_ids, name=name + '_prompt_loopkup')
-        prompt_lenghts = tf.gather(topic_lens, q_ids)
+        if sample:
+            assert topics is not None
+            assert topic_lens is not None
+            assert unigram_path is not None
+            targets, q_ids = self._sampling_function(targets=targets,
+                                                     q_ids=q_ids,
+                                                     unigram_path=unigram_path,
+                                                     batch_size=batch_size,
+                                                     n_samples=1,
+                                                     name=name + '_samples',
+                                                     distortion=distortion)
+
+            topics = tf.convert_to_tensor(topics, dtype=tf.int32)
+            topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
+            prompts = tf.nn.embedding_lookup(topics, q_ids, name=name + '_prompt_loopkup')
+            prompt_lenghts = tf.gather(topic_lens, q_ids)
+
+        targets = tf.concat([targets, 1.0 - targets], axis=1)
+
         return targets, prompts, prompt_lenghts, responses, response_lengths, iterator
 
     def fit_prior_net(self,
@@ -2061,11 +2069,8 @@ class ATMPriorNetwork(AttentionTopicModel):
             valid_data,
             load_path,
             topics_in_domain,
-            topics_out_domain,
             topic_lens_in_domain,
-            topic_lens_out_domain,
             unigram_path_in_domain,
-            unigram_path_out_domain,
             train_size=100,
             valid_size=100,
             learning_rate=1e-2,
@@ -2099,76 +2104,52 @@ class ATMPriorNetwork(AttentionTopicModel):
                 prompt_lens_in_domain, \
                 responses_in_domain, \
                 response_lens_in_domain, _ = self._construct_inputs(train_data_in_domain, batch_size,
-                                                                  unigram_path_in_domain, topics_in_domain,
-                                                                  topic_lens_in_domain,
-                                                                  train=True, capacity_mul=800,
-                                                                  num_threads=6, distortion=1.0,
-                                                                  name='train_in_domain')
+                                                                    unigram_path=unigram_path_in_domain,
+                                                                    topics=topics_in_domain,
+                                                                    topic_lens=topic_lens_in_domain,
+                                                                    train=True, capacity_mul=1000,
+                                                                    num_threads=6, distortion=1.0,
+                                                                    name='train_in_domain')
 
                 targets_out_domain, \
                 prompts_out_domain, \
                 prompt_lens_out_domain, \
                 responses_out_domain, \
-                response_lens_out_domain, _ = self._construct_inputs(train_data_out_domain, batch_size,
-                                                                    unigram_path_out_domain, topics_out_domain,
-                                                                    topic_lens_out_domain,
-                                                                    train=True, capacity_mul=800,
-                                                                    num_threads=6,
-                                                                    distortion=1.0, name='train_out_domain')
+                response_lens_out_domain, _ = self._construct_inputs(train_data_out_domain,
+                                                                     2 * batch_size, # 2x batch size because no sampling
+                                                                     train=True, capacity_mul=1000,
+                                                                     num_threads=6,
+                                                                     distortion=1.0, name='train_out_domain')
                 valid_targets, \
                 valid_prompts, \
                 valid_prompt_lens, \
                 valid_responses, \
                 valid_response_lens, valid_iterator = self._construct_inputs(valid_data, batch_size,
-                                                                             unigram_path_in_domain, topics_in_domain,
-                                                                             topic_lens_in_domain,
                                                                              train=False, capacity_mul=100,
-                                                                             num_threads=1, distortion=1.0,
-                                                                             name='valid')
-
-            # Pad the values to make sure the two batches match in length todo: this is a hack, make more efficient
-            prompts_in_domain = tf.pad(prompts_in_domain, paddings=[[0, 0],
-                                                                    [0, tf.reduce_max([0, tf.shape(prompts_out_domain)[1] -
-                                                                               tf.shape(prompts_in_domain)[1]])]],
-                                       mode='CONSTANT', constant_values=0.)
-            prompts_out_domain = tf.pad(prompts_out_domain, paddings=[[0, 0],
-                                                                      [0, tf.reduce_max([0, tf.shape(prompts_in_domain)[1] -
-                                                                                 tf.shape(prompts_out_domain)[1]])]],
-                                        mode='CONSTANT', constant_values=0.)
-
-            responses_in_domain = tf.pad(responses_in_domain, paddings=[[0, 0],
-                                                                        [0,
-                                                                         tf.reduce_max([0, tf.shape(responses_out_domain)[1] -
-                                                                                tf.shape(responses_in_domain)[1]])]],
-                                         mode='CONSTANT', constant_values=0.)
-            responses_in_domain = tf.pad(responses_in_domain, paddings=[[0, 0],
-                                                                        [0, tf.reduce_max([0, tf.shape(responses_in_domain)[1] -
-                                                                                   tf.shape(responses_out_domain)[1]])]],
-                                         mode='CONSTANT', constant_values=0.)
-
-            # Concatenate in and out of domain data along the batch direction
-            train_targets, train_prompts, train_prompt_lens, train_responses, train_response_lens = map(
-                lambda (x, y): tf.concat([x, y], axis=0), zip([targets_in_domain, prompts_in_domain,
-                                                             prompt_lens_in_domain, responses_in_domain,
-                                                             response_lens_in_domain],
-                                                            [targets_out_domain, prompts_out_domain,
-                                                             prompt_lens_out_domain, responses_out_domain,
-                                                             response_lens_out_domain])
-            )
-
+                                                                             num_threads=1, name='valid')
 
             # Construct Training & Validation models
             with tf.variable_scope(self._model_scope, reuse=True) as scope:
                 train_predictions, \
                 train_probabilities, \
-                train_logits, _, = self._construct_network(a_input=train_responses,
-                                                                     a_seqlens=train_response_lens,
+                train_logits_in_domain, _, = self._construct_network(a_input=responses_in_domain,
+                                                                     a_seqlens=response_lens_in_domain,
                                                                      n_samples=0,
-                                                                     q_input=train_prompts,
-                                                                     q_seqlens=train_prompt_lens,
-                                                                     maxlen=tf.reduce_max(train_response_lens),
+                                                                     q_input=prompts_in_domain,
+                                                                     q_seqlens=prompt_lens_in_domain,
+                                                                     maxlen=tf.reduce_max(response_lens_in_domain),
                                                                      batch_size=batch_size,
                                                                      keep_prob=self.dropout)
+                train_predictions_out_domain, \
+                train_probabilities_out_domain, \
+                train_logits_out_domain, _, = self._construct_network(a_input=responses_out_domain,
+                                                                      a_seqlens=response_lens_out_domain,
+                                                                      n_samples=0,
+                                                                      q_input=prompts_out_domain,
+                                                                      q_seqlens=prompt_lens_out_domain,
+                                                                      maxlen=tf.reduce_max(response_lens_out_domain),
+                                                                      batch_size=batch_size,
+                                                                      keep_prob=self.dropout)
 
                 valid_predictions, \
                 valid_probabilities, \
@@ -2187,9 +2168,8 @@ class ATMPriorNetwork(AttentionTopicModel):
                 pass
             elif which_trn_cost == 'contrastive':
                 # Construct the conflictive training cost
-                logits_in_domain, logits_out_domain = tf.split(train_logits, num_or_size_splits=2, axis=0)
-                trn_cost, total_loss = self._construct_contrastive_loss(logits_in_domain=logits_in_domain,
-                                                                        logits_out_domain=logits_out_domain,
+                trn_cost, total_loss = self._construct_contrastive_loss(logits_in_domain=train_logits_in_domain,
+                                                                        logits_out_domain=train_logits_out_domain,
                                                                         targets_in_domain=targets_in_domain,
                                                                         is_training=True)
             else:
@@ -2289,211 +2269,3 @@ class ATMPriorNetwork(AttentionTopicModel):
                 f.write('----------------------------------------------------------\n')
             print(format_str % (duration))
             self.save()
-
-    # def fit(self,
-    #         train_data,
-    #         valid_data,
-    #         load_path,
-    #         topics,
-    #         topic_lens,
-    #         unigram_path,
-    #         train_size=100,
-    #         valid_size=100,
-    #         learning_rate=1e-2,
-    #         lr_decay=0.8,
-    #         dropout=1.0,
-    #         batch_size=50,
-    #         distortion=1.0,
-    #         optimizer=tf.train.AdamOptimizer,
-    #         optimizer_params={},
-    #         n_epochs=30,
-    #         n_samples=1,  # Number of negative samples to generate per positive sample
-    #         epoch=1):
-    #     with self._graph.as_default():
-    #         # Compute number of training examples and batch size
-    #         n_examples = train_size * (1 + n_samples)
-    #         n_batches = n_examples / (batch_size * (1 + n_samples))
-    #
-    #         # If some variables have been initialized - get them into a set
-    #         temp = set(tf.global_variables())
-    #
-    #         # Define Global step for training
-    #         global_step = tf.Variable(0, trainable=False, name='global_step')
-    #
-    #         # Set up inputs
-    #         with tf.variable_scope(self._input_scope, reuse=True) as scope:
-    #             # Construct training data queues
-    #             targets, \
-    #             q_ids, \
-    #             responses, \
-    #             response_lengths, _, _ = self._construct_dataset_from_tfrecord([train_data],
-    #                                                                            self._parse_func,
-    #                                                                            self._map_func,
-    #                                                                            self._batch_func,
-    #                                                                            batch_size,
-    #                                                                            train=True,
-    #                                                                            capacity_mul=1000,
-    #                                                                            num_threads=8)
-    #
-    #             valid_iterator = self._construct_dataset_from_tfrecord([valid_data],
-    #                                                                    self._parse_func,
-    #                                                                    self._map_func,
-    #                                                                    self._batch_func,
-    #                                                                    batch_size,
-    #                                                                    train=False,
-    #                                                                    capacity_mul=100,
-    #                                                                    num_threads=1)
-    #             valid_targets, \
-    #             valid_q_ids, \
-    #             valid_responses, \
-    #             valid_response_lengths, _, _ = valid_iterator.get_next(name='valid_data')
-    #
-    #             targets, q_ids = self._sampling_function(targets=targets,
-    #                                                      q_ids=q_ids,
-    #                                                      unigram_path=unigram_path,
-    #                                                      batch_size=batch_size,
-    #                                                      n_samples=n_samples,
-    #                                                      name='train',
-    #                                                      distortion=distortion)
-    #             valid_targets, valid_q_ids = self._sampling_function(targets=valid_targets,
-    #                                                                  q_ids=valid_q_ids,
-    #                                                                  unigram_path=unigram_path,
-    #                                                                  batch_size=batch_size,
-    #                                                                  n_samples=n_samples,
-    #                                                                  name='valid',
-    #                                                                  distortion=1.0)
-    #
-    #         topics = tf.convert_to_tensor(topics, dtype=tf.int32)
-    #         topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
-    #
-    #         prompts = tf.nn.embedding_lookup(topics, q_ids, name='train_prompot_loopkup')
-    #         prompt_lens = tf.gather(topic_lens, q_ids)
-    #
-    #         valid_prompts = tf.nn.embedding_lookup(topics, valid_q_ids, name='valid_prompot_loopkup')
-    #         valid_prompt_lens = tf.gather(topic_lens, valid_q_ids)
-    #
-    #         # Construct Training & Validation models
-    #         with tf.variable_scope(self._model_scope, reuse=True) as scope:
-    #             trn_predictions, \
-    #             trn_probabilities, \
-    #             trn_logits, _, = self._construct_network(a_input=responses,
-    #                                                      a_seqlens=response_lengths,
-    #                                                      n_samples=n_samples,
-    #                                                      q_input=prompts,
-    #                                                      q_seqlens=prompt_lens,
-    #                                                      maxlen=tf.reduce_max(response_lengths),
-    #                                                      batch_size=batch_size,
-    #                                                      keep_prob=self.dropout)
-    #
-    #             valid_predictions, \
-    #             valid_probabilities, \
-    #             valid_logits, \
-    #             valid_attention = self._construct_network(a_input=valid_responses,
-    #                                                       a_seqlens=valid_response_lengths,
-    #                                                       n_samples=n_samples,
-    #                                                       q_input=valid_prompts,
-    #                                                       q_seqlens=valid_prompt_lens,
-    #                                                       maxlen=tf.reduce_max(valid_response_lengths),
-    #                                                       batch_size=batch_size,
-    #                                                       keep_prob=1.0)
-    #
-    #         # Construct XEntropy training costs
-    #         trn_cost, total_loss = self._construct_xent_cost(targets=targets,
-    #                                                          logits=trn_logits,
-    #                                                          pos_weight=float(n_samples),
-    #                                                          is_training=True)
-    #         evl_cost = self._construct_xent_cost(targets=valid_targets,
-    #                                              logits=valid_logits,
-    #                                              pos_weight=float(n_samples),
-    #                                              is_training=False)
-    #
-    #         train_op = util.create_train_op(total_loss=total_loss,
-    #                                         learning_rate=learning_rate,
-    #                                         optimizer=optimizer,
-    #                                         optimizer_params=optimizer_params,
-    #                                         n_examples=n_examples,
-    #                                         batch_size=batch_size,
-    #                                         learning_rate_decay=lr_decay,
-    #                                         global_step=global_step,
-    #                                         clip_gradient_norm=10.0,
-    #                                         summarize_gradients=False)
-    #
-    #         # Intialize only newly created variables, as opposed to reused - allows for finetuning and transfer learning :)
-    #         init = tf.variables_initializer(set(tf.global_variables()) - temp)
-    #         self.sess.run(init)
-    #
-    #         if load_path != None:
-    #             self._load_variables(load_scope='model/Embeddings/word_embedding',
-    #                                  new_scope='atm/Embeddings/word_embedding', load_path=load_path)
-    #
-    #         # Update Log with training details
-    #         with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
-    #             format_str = (
-    #                 'Learning Rate: %f\nLearning Rate Decay: %f\nBatch Size: %d\nValid Size: %d\nOptimizer: %s\nDropout: %f\nSEED: %i\n')
-    #             f.write(format_str % (
-    #                 learning_rate, lr_decay, batch_size, valid_size, str(optimizer), dropout, self._seed) + '\n\n')
-    #
-    #         format_str = (
-    #             'Epoch %d, Train Loss = %.2f, Valid Loss = %.2f, Valid ROC = %.2f, (%.1f examples/sec; %.3f ' 'sec/batch)')
-    #         print("Starting Training!\n-----------------------------")
-    #         start_time = time.time()
-    #         for epoch in xrange(epoch + 1, epoch + n_epochs + 1):
-    #             # Run Training Loop
-    #             loss = 0.0
-    #             batch_time = time.time()
-    #             for batch in xrange(n_batches):
-    #                 _, loss_value = self.sess.run([train_op, trn_cost], feed_dict={self.dropout: dropout})
-    #                 assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
-    #                 loss += loss_value
-    #
-    #             duration = time.time() - batch_time
-    #             loss /= n_batches
-    #             examples_per_sec = batch_size / duration
-    #             sec_per_epoch = float(duration)
-    #
-    #             # Run Validation Loop
-    #             eval_loss = 0.0
-    #             valid_probs = None
-    #             vld_targets = None
-    #             total_size = 0
-    #             self.sess.run(valid_iterator.initializer)
-    #             while True:
-    #                 try:
-    #                     batch_eval_loss, \
-    #                     batch_valid_preds, \
-    #                     batch_valid_probs, \
-    #                     batch_attention, \
-    #                     batch_valid_targets = self.sess.run([evl_cost,
-    #                                                          valid_predictions,
-    #                                                          valid_probabilities,
-    #                                                          valid_attention,
-    #                                                          valid_targets])
-    #                     size = batch_valid_probs.shape[0]
-    #                     eval_loss += float(size) * batch_eval_loss
-    #                     if valid_probs is None:
-    #                         valid_probs = batch_valid_probs
-    #                         vld_targets = batch_valid_targets
-    #                     else:
-    #                         valid_probs = np.concatenate((valid_probs, batch_valid_probs), axis=0)
-    #                         vld_targets = np.concatenate((vld_targets, batch_valid_targets), axis=0)
-    #                     total_size += size
-    #                 except:  # tf.errors.OutOfRangeError:
-    #                     break
-    #
-    #             eval_loss = eval_loss / float(total_size)
-    #             roc_score = roc(np.squeeze(vld_targets), np.squeeze(valid_probs))
-    #
-    #             # Summarize Epoch
-    #             with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
-    #                 f.write(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch) + '\n')
-    #             print(format_str % (epoch, loss, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
-    #             self.save(step=epoch)
-    #
-    #         # Finish Training
-    #         duration = time.time() - start_time
-    #         with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
-    #             format_str = ('Training took %.3f sec')
-    #             f.write('\n' + format_str % (duration) + '\n')
-    #             f.write('----------------------------------------------------------\n')
-    #         print(format_str % (duration))
-    #         self.save()
