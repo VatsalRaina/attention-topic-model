@@ -1995,6 +1995,23 @@ class ATMPriorNetwork(AttentionTopicModel):
             axis=1)
         return kl_divergence
 
+    def _construct_softmax_xent_cost(self, labels, logits, is_training=False):
+        print('Constructing XENT cost')
+        xent_cost = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits, name='total_xentropy')
+        cost = tf.reduce_mean(xent_cost, name='total_xentropy_per_batch')
+
+        if self._debug_mode > 1:
+            tf.scalar_summary('XENT', cost)
+
+        if is_training:
+            tf.add_to_collection('losses', cost)
+            # The total loss is defined as the target loss plus all of the weight
+            # decay terms (L2 loss).
+            total_cost = tf.add_n(tf.get_collection('losses'), name='total_cost')
+            return cost, total_cost
+        else:
+            return cost
+
     def _construct_inputs(self, data, batch_size, unigram_path, topics, topic_lens, train=True, capacity_mul=800,
                           num_threads=1, distortion=1.0, name='input'):
         if train:
@@ -2111,27 +2128,27 @@ class ATMPriorNetwork(AttentionTopicModel):
 
             # Pad the values to make sure the two batches match in length todo: this is a hack, make more efficient
             prompts_in_domain = tf.pad(prompts_in_domain, paddings=[[0, 0],
-                                                                    [0, tf.max(0, tf.shape(prompts_out_domain)[1] -
-                                                                               tf.shape(prompts_in_domain)[1])]],
+                                                                    [0, tf.reduce_max([0, tf.shape(prompts_out_domain)[1] -
+                                                                               tf.shape(prompts_in_domain)[1]])]],
                                        mode='CONSTANT', constant_values=0.)
             prompts_out_domain = tf.pad(prompts_out_domain, paddings=[[0, 0],
-                                                                      [0, tf.max(0, tf.shape(prompts_in_domain)[1] -
-                                                                                 tf.shape(prompts_out_domain)[1])]],
+                                                                      [0, tf.reduce_max([0, tf.shape(prompts_in_domain)[1] -
+                                                                                 tf.shape(prompts_out_domain)[1]])]],
                                         mode='CONSTANT', constant_values=0.)
 
             responses_in_domain = tf.pad(responses_in_domain, paddings=[[0, 0],
                                                                         [0,
-                                                                         tf.max(0, tf.shape(responses_out_domain)[1] -
-                                                                                tf.shape(responses_in_domain)[1])]],
+                                                                         tf.reduce_max([0, tf.shape(responses_out_domain)[1] -
+                                                                                tf.shape(responses_in_domain)[1]])]],
                                          mode='CONSTANT', constant_values=0.)
             responses_in_domain = tf.pad(responses_in_domain, paddings=[[0, 0],
-                                                                        [0, tf.max(0, tf.shape(responses_in_domain)[1] -
-                                                                                   tf.shape(responses_out_domain)[1])]],
+                                                                        [0, tf.reduce_max([0, tf.shape(responses_in_domain)[1] -
+                                                                                   tf.shape(responses_out_domain)[1]])]],
                                          mode='CONSTANT', constant_values=0.)
 
             # Concatenate in and out of domain data along the batch direction
             train_targets, train_prompts, train_prompt_lens, train_responses, train_response_lens = map(
-                lambda x, y: tf.concat([x, y], axis=0), zip([targets_in_domain, prompts_in_domain,
+                lambda (x, y): tf.concat([x, y], axis=0), zip([targets_in_domain, prompts_in_domain,
                                                              prompt_lens_in_domain, responses_in_domain,
                                                              response_lens_in_domain],
                                                             [targets_out_domain, prompts_out_domain,
