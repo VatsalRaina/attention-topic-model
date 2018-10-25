@@ -2058,8 +2058,9 @@ class ATMPriorNetwork(AttentionTopicModel):
             topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
             prompts = tf.nn.embedding_lookup(topics, q_ids, name=name + '_prompt_loopkup')
             prompt_lengths = tf.gather(topic_lens, q_ids)
+        else:
+            targets = tf.expand_dims(targets, axis=1)
 
-        targets = tf.expand_dims(targets, axis=1)
         targets = tf.concat([targets, 1.0 - targets], axis=1)
 
         return targets, prompts, prompt_lengths, responses, response_lengths, iterator
@@ -2179,7 +2180,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                 trn_cost, total_loss = self._construct_contrastive_loss(logits_in_domain=train_logits_in_domain,
                                                                         logits_out_domain=train_logits_out_domain,
                                                                         targets_in_domain=targets_in_domain,
-                                                                        batch_size=batch_size,
+                                                                        batch_size=(1 + n_samples) * batch_size,
                                                                         is_training=True)
             else:
                 raise AttributeError('{} is not a valid training cost for the ATM Prior Network'.format(which_trn_cost))
