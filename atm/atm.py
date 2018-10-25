@@ -1946,7 +1946,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                      epoch=epoch)
 
     def _construct_contrastive_loss(self, logits_in_domain, logits_out_domain, targets_in_domain,
-                                    in_domain_precision=20., smoothing_val=1e-4, is_training=False):
+                                    batch_size, in_domain_precision=20., smoothing_val=1e-4, is_training=False):
         """
         Contrastive Loss as described in the Prior Net Paper
         :param logits_in_domain: logits for the in_domain batch
@@ -1964,7 +1964,7 @@ class ATMPriorNetwork(AttentionTopicModel):
 
         # Specify the target alphas and smooth as required
         in_domain_target_alphas = tf.abs(targets_in_domain - smoothing_val) * in_domain_precision
-        out_of_domain_target_alphas = tf.ones([self.batch_size, 2], dtype=tf.float32)
+        out_of_domain_target_alphas = tf.ones([batch_size, 2], dtype=tf.float32)
 
         # The first column (alpha1) corresponds to P_relevant, and the 2nd column (alpha2) corresponds to P_off_topic.
 
@@ -2040,7 +2040,7 @@ class ATMPriorNetwork(AttentionTopicModel):
             targets, \
             q_ids, \
             responses, \
-            response_lengths, prompts, prompt_lenghts = iterator.get_next(name=name + '_data')
+            response_lengths, prompts, prompt_lengths = iterator.get_next(name=name + '_data')
 
         if sample:
             assert topics is not None
@@ -2057,12 +2057,12 @@ class ATMPriorNetwork(AttentionTopicModel):
             topics = tf.convert_to_tensor(topics, dtype=tf.int32)
             topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
             prompts = tf.nn.embedding_lookup(topics, q_ids, name=name + '_prompt_loopkup')
-            prompt_lenghts = tf.gather(topic_lens, q_ids)
+            prompt_lengths = tf.gather(topic_lens, q_ids)
 
         targets = tf.expand_dims(targets, axis=1)
         targets = tf.concat([targets, 1.0 - targets], axis=1)
 
-        return targets, prompts, prompt_lenghts, responses, response_lengths, iterator
+        return targets, prompts, prompt_lengths, responses, response_lengths, iterator
 
     def fit_prior_net(self,
             train_data_in_domain,
@@ -2172,6 +2172,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                 trn_cost, total_loss = self._construct_contrastive_loss(logits_in_domain=train_logits_in_domain,
                                                                         logits_out_domain=train_logits_out_domain,
                                                                         targets_in_domain=targets_in_domain,
+                                                                        batch_size=batch_size,
                                                                         is_training=True)
             else:
                 raise AttributeError('{} is not a valid training cost for the ATM Prior Network'.format(which_trn_cost))
