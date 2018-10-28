@@ -112,7 +112,7 @@ def main(args):
                       lr_decay=args.lr_decay,
                       dropout=args.dropout,
                       distortion=args.distortion,
-                      presample_batch_size=math.floor(args.batch_size / 2.),
+                      presample_batch_size=int(math.floor(args.batch_size / 2.)),
                       optimizer=tf.train.AdamOptimizer,
                       optimizer_params={},
                       n_epochs=args.n_epochs,
