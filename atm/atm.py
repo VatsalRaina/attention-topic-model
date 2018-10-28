@@ -1799,7 +1799,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                 valid_prompt_lens, \
                 valid_responses, \
                 valid_response_lens, valid_iterator = self._construct_inputs(valid_data,
-                                                                             batch_size,
+                                                                             presample_batch_size,
                                                                              unigram_path=unigram_path_in_domain,
                                                                              topics=topics_in_domain,
                                                                              topic_lens=topic_lens_in_domain,
