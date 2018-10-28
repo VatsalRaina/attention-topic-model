@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+import math
 
 import tensorflow as tf
 
@@ -70,12 +71,10 @@ def main(args):
     tfrecords_dir_out_domain = os.path.join(args.data_dir_out_domain, 'tfrecords')
 
     topic_path_in_domain = os.path.join(tfrecords_dir_in_domain, args.topic_file)
-    # topic_path_out_domain = os.path.join(tfrecords_dir_out_domain, args.topic_file)
 
     wlist_path = os.path.join(tfrecords_dir_in_domain, args.wlist_file)
 
     topic_count_path_in_domain = os.path.join(tfrecords_dir_in_domain, args.topic_count_file)
-    # topic_count_path_out_domain = os.path.join(tfrecords_dir_out_domain, args.topic_count_file)
 
     train_data_in_domain = os.path.join(tfrecords_dir_in_domain, args.train_file)
     train_data_out_domain = os.path.join(tfrecords_dir_out_domain, args.train_file)
@@ -83,15 +82,11 @@ def main(args):
     valid_data = os.path.join(tfrecords_dir_in_domain, args.valid_file)
 
     dataset_meta_path_in_domain = os.path.join(tfrecords_dir_in_domain, args.meta_file)
-    # dataset_meta_path_out_domain = os.path.join(tfrecords_dir_out_domain, args.meta_file)
 
     train_size = get_train_size_from_meta(dataset_meta_path_in_domain)
-    # train_size_out_domain = get_train_size_from_meta(dataset_meta_path_out_domain)
 
     topics_in_domain, topic_lens_in_domain = text_to_array(topic_path_in_domain, wlist_path,
                                                            strip_start_end=args.strip_start_end)
-    # topics_out_domain, topic_lens_out_domain = text_to_array(topic_path_out_domain, wlist_path,
-    #                                                          strip_start_end=args.strip_start_end)
 
 
     if args.strip_start_end: print("Stripping the first and last word (should correspond to <s> and </s> marks) "
@@ -117,7 +112,7 @@ def main(args):
                       lr_decay=args.lr_decay,
                       dropout=args.dropout,
                       distortion=args.distortion,
-                      batch_size=args.batch_size,
+                      presample_batch_size=math.floor(args.batch_size / 2.),
                       optimizer=tf.train.AdamOptimizer,
                       optimizer_params={},
                       n_epochs=args.n_epochs,

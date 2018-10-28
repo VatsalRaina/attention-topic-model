@@ -67,11 +67,18 @@ class AttentionTopicModel(BaseModel):
 
 
     def _construct_network(self, a_input, a_seqlens, n_samples, q_input, q_seqlens, maxlen, batch_size, keep_prob=1.0):
-        """ Construct RNNLM network
-        Args:
-          ?
-        Returns:
-          predictions, probabilities, logits, attention
+        """
+
+        :param a_input:
+        :param a_seqlens:
+        :param n_samples: Number of samples - used to repeat the response encoder output for the resampled prompt
+        examples
+        :param q_input:
+        :param q_seqlens:
+        :param maxlen:
+        :param batch_size: The batch size before sampling!
+        :param keep_prob:
+        :return: predictions, probabilities, logits, attention
         """
 
         L2 = self.network_architecture['L2']
@@ -1607,7 +1614,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                      epoch=epoch)
 
     def _construct_contrastive_loss(self, logits_in_domain, logits_out_domain, targets_in_domain,
-                                    batch_size, in_domain_precision=20., smoothing_val=1e-4, is_training=False):
+                                    batch_size, in_domain_precision=10., smoothing_val=1e-4, is_training=False):
         """
         Contrastive Loss as described in the Prior Net Paper
         :param logits_in_domain: logits for the in_domain batch
@@ -1739,7 +1746,7 @@ class ATMPriorNetwork(AttentionTopicModel):
             learning_rate=1e-2,
             lr_decay=0.8,
             dropout=1.0,
-            batch_size=50,
+            presample_batch_size=50,
             distortion=1.0,
             optimizer=tf.train.AdamOptimizer,
             optimizer_params={},
@@ -1749,9 +1756,10 @@ class ATMPriorNetwork(AttentionTopicModel):
             which_trn_cost='contrastive'):
         """Custom fit function for a prior network. """
         with self._graph.as_default():
+            batch_size = ((n_samples + 1) * presample_batch_size)  # Batch size after sampling
             # Compute number of training examples and batch size
             n_examples = train_size
-            n_batches = n_examples / ((n_samples + 1) * batch_size)
+            n_batches = n_examples / batch_size
 
             # If some variables have been initialized - get them into a set
             temp = set(tf.global_variables())
@@ -1768,7 +1776,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                 prompt_lens_in_domain, \
                 responses_in_domain, \
                 response_lens_in_domain, _ = self._construct_inputs(train_data_in_domain,
-                                                                    batch_size,
+                                                                    presample_batch_size,
                                                                     unigram_path=unigram_path_in_domain,
                                                                     topics=topics_in_domain,
                                                                     topic_lens=topic_lens_in_domain,
@@ -1782,7 +1790,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                 prompt_lens_out_domain, \
                 responses_out_domain, \
                 response_lens_out_domain, _ = self._construct_inputs(train_data_out_domain,
-                                                                     (1 + n_samples) * batch_size,  # 2x batch size because no sampling
+                                                                     batch_size,  # 2x batch size because no sampling
                                                                      train=True, capacity_mul=1000,
                                                                      num_threads=6, sample=False,
                                                                      distortion=1.0, name='train_out_domain')
@@ -1811,7 +1819,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                                      q_input=prompts_in_domain,
                                                                      q_seqlens=prompt_lens_in_domain,
                                                                      maxlen=tf.reduce_max(response_lens_in_domain),
-                                                                     batch_size=batch_size,
+                                                                     batch_size=presample_batch_size,
                                                                      keep_prob=self.dropout)
                 train_predictions_out_domain, \
                 train_probabilities_out_domain, \
@@ -1821,7 +1829,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                                       q_input=prompts_out_domain,
                                                                       q_seqlens=prompt_lens_out_domain,
                                                                       maxlen=tf.reduce_max(response_lens_out_domain),
-                                                                      batch_size=(n_samples + 1) * batch_size,
+                                                                      batch_size=batch_size,
                                                                       keep_prob=self.dropout)
 
                 valid_predictions, \
@@ -1833,7 +1841,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                           q_input=valid_prompts,
                                                           q_seqlens=valid_prompt_lens,
                                                           maxlen=tf.reduce_max(valid_response_lens),
-                                                          batch_size=batch_size,
+                                                          batch_size=presample_batch_size,
                                                           keep_prob=1.0)
 
             if which_trn_cost == 'conflictive':
@@ -1844,7 +1852,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                 trn_cost, total_loss = self._construct_contrastive_loss(logits_in_domain=train_logits_in_domain,
                                                                         logits_out_domain=train_logits_out_domain,
                                                                         targets_in_domain=targets_in_domain,
-                                                                        batch_size=(1 + n_samples) * batch_size,
+                                                                        batch_size=batch_size,
                                                                         is_training=True)
             else:
                 raise AttributeError('{} is not a valid training cost for the ATM Prior Network'.format(which_trn_cost))
@@ -1944,3 +1952,72 @@ class ATMPriorNetwork(AttentionTopicModel):
                 f.write('----------------------------------------------------------\n')
             print(format_str % (duration))
             self.save()
+
+    def predict(self, test_pattern, batch_size=20, apply_bucketing=True):
+        """
+        Custom predict for the prior network. A different predict needed because the prior network outputs two logits
+        corresponding to classes off-topic and on-topic instead of a single probability of relevance.
+
+        Run inference on a trained model on a dataset.
+        :param test_pattern: filepath to dataset to run inference/evaluation on
+        :param batch_size: int
+        :param cache_inputs: Whether to save the response, prompts, response lengths, and prompt lengths in
+        text form together with the predictions. Useful, since bucketing changes the order of the files and this allows
+        to investigate which prediction corresponds to which prompt/response pair
+        :param apply_bucketing: bool, whether to apply bucketing, i.e. group examples by their response length to
+        minimise the overhead associated with zero-padding. If False, the examples will be evaluated in the original
+        order as read from the file.
+
+        :return: Depends on whether the inputs are being cached. If cache_inputs=False:
+        returns test_loss, test_probabilities_array, test_true_labels_array
+        If cache_inputs=True:
+        returns test_loss, test_probabilities_array, test_true_labels_array, test_response_lengths,
+                test_prompt_lengths, test_responses_list, test_prompts_list
+        """
+        with self._graph.as_default():
+            test_files = tf.gfile.Glob(test_pattern)
+            if apply_bucketing:
+                batching_function = self._batch_func
+            else:
+                batching_function = self._batch_func_without_bucket
+            test_iterator = AttentionTopicModel._construct_dataset_from_tfrecord(self,
+                                                                                 test_files,
+                                                                                 self._parse_func,
+                                                                                 self._map_func,
+                                                                                 batching_function,
+                                                                                 batch_size=batch_size,
+                                                                                 train=False,
+                                                                                 capacity_mul=100,
+                                                                                 num_threads=1)
+            test_targets, \
+            test_q_ids, \
+            test_responses, \
+            test_response_lengths, test_prompts, test_prompt_lens = test_iterator.get_next(name='valid_data')
+
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                test_predictions, \
+                test_probabilities, \
+                test_logits, \
+                test_attention = self._construct_network(a_input=test_responses,
+                                                         a_seqlens=test_response_lengths,
+                                                         n_samples=0,
+                                                         q_input=test_prompts,
+                                                         q_seqlens=test_prompt_lens,
+                                                         maxlen=tf.reduce_max(test_response_lengths),
+                                                         batch_size=batch_size,
+                                                         keep_prob=1.0)
+
+                # Convert the logits and probabilities into the old format (1 value instead of two)
+                test_probabilities = test_probabilities[:, 0]
+                test_probabilities = tf.expand_dims(test_probabilities, axis=1)
+
+            # todo: Loss is fairly incorrect
+            loss = self._construct_xent_cost(targets=test_targets, logits=tf.squeeze(test_logits[:, 0]), pos_weight=1.0,
+                                             is_training=False)
+            self.sess.run(test_iterator.initializer)
+
+            # if cache_inputs:  # todo: this won't work yet
+            #     return self._predict_loop_with_caching(loss, test_probabilities, test_logits, test_targets,
+            #                                            test_responses, test_response_lengths, test_prompts,
+            #                                            test_prompt_lens)
+            return self._predict_loop(loss, test_probabilities, test_logits, test_targets)
