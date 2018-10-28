@@ -1829,7 +1829,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                 valid_logits, \
                 valid_attention = self._construct_network(a_input=valid_responses,
                                                           a_seqlens=valid_response_lens,
-                                                          n_samples=0,
+                                                          n_samples=n_samples,
                                                           q_input=valid_prompts,
                                                           q_seqlens=valid_prompt_lens,
                                                           maxlen=tf.reduce_max(valid_response_lens),
@@ -1923,7 +1923,8 @@ class ATMPriorNetwork(AttentionTopicModel):
                             valid_probs = np.concatenate((valid_probs, batch_valid_probs), axis=0)
                             vld_targets = np.concatenate((vld_targets, batch_valid_targets), axis=0)
                         total_size += size
-                    except:  # tf.errors.OutOfRangeError:
+                    except Exception as e:  # tf.errors.OutOfRangeError:
+                        # print(e)
                         break
 
                 eval_loss = eval_loss / float(total_size)
