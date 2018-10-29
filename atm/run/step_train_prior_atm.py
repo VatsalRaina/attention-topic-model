@@ -89,8 +89,9 @@ def main(args):
                                                            strip_start_end=args.strip_start_end)
 
 
-    if args.strip_start_end: print("Stripping the first and last word (should correspond to <s> and </s> marks) "
-                                   "from the input prompts. Should only be used with legacy dataset formatting")
+    if args.strip_start_end:
+        print("Stripping the first and last word (should correspond to <s> and </s> marks) "
+              "from the input prompts. Should only be used with legacy dataset formatting")
 
     atm = ATMPriorNetwork(network_architecture=None,
                           seed=args.seed,
