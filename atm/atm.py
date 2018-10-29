@@ -1932,7 +1932,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                             vld_targets = np.concatenate((vld_targets, batch_valid_targets), axis=0)
                         total_size += size
                     except Exception as e:  # tf.errors.OutOfRangeError:
-                        # print(e)
+                        print("The end of validation loop exception:\n------------------\n", e, "\n--------------")
                         break
 
                 eval_loss = eval_loss / float(total_size)
