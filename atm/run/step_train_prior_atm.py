@@ -58,6 +58,8 @@ parser.add_argument('--distortion', type=float, default=1.0,
 parser.add_argument('--epoch', type=str, default=None,
                                help='which should be loaded')
 parser.add_argument('--strip_start_end', action='store_true', help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt file (used for legacy sorted_topics.txt formatting')
+parser.add_argument('--which_training_cost', type=str, default='contrastive',
+                    choices=['contrastive', 'contrastive_with_nll'])
 
 
 def main(args):
@@ -113,12 +115,12 @@ def main(args):
                       lr_decay=args.lr_decay,
                       dropout=args.dropout,
                       distortion=args.distortion,
-                      presample_batch_size=int(math.floor(args.batch_size / 2.)),
+                      presample_batch_size=batch_size,
                       optimizer=tf.train.AdamOptimizer,
                       optimizer_params={},
                       n_epochs=args.n_epochs,
                       epoch=0,
-                      which_trn_cost='contrastive')
+                      which_trn_cost=args.which_training_cost)
     atm.save()
 
 if __name__ == '__main__':
