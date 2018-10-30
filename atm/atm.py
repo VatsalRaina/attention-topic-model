@@ -1787,26 +1787,27 @@ class ATMPriorNetwork(AttentionTopicModel):
         return targets, prompts, prompt_lengths, responses, response_lengths, iterator
 
     def fit_prior_net(self,
-            train_data_in_domain,
-            train_data_out_domain,
-            valid_data,
-            load_path,
-            topics_in_domain,
-            topic_lens_in_domain,
-            unigram_path_in_domain,
-            train_size=100,
-            valid_size=100,
-            learning_rate=1e-2,
-            lr_decay=0.8,
-            dropout=1.0,
-            presample_batch_size=50,
-            distortion=1.0,
-            optimizer=tf.train.AdamOptimizer,
-            optimizer_params={},
-            n_epochs=30,
-            n_samples=1,  # Number of negative samples to generate per positive sample
-            epoch=1,
-            which_trn_cost='contrastive'):
+                      train_data_in_domain,
+                      train_data_out_domain,
+                      valid_data,
+                      load_path,
+                      topics_in_domain,
+                      topic_lens_in_domain,
+                      unigram_path_in_domain,
+                      train_size=100,
+                      valid_size=100,
+                      learning_rate=1e-2,
+                      lr_decay=0.8,
+                      dropout=1.0,
+                      presample_batch_size=50,
+                      distortion=1.0,
+                      optimizer=tf.train.AdamOptimizer,
+                      optimizer_params={},
+                      n_epochs=30,
+                      n_samples=1,  # Number of negative samples to generate per positive sample
+                      epoch=1,
+                      which_trn_cost='contrastive',
+                      out_of_domain_weight=1.):
         """Custom fit function for a prior network. """
         with self._graph.as_default():
             batch_size = ((n_samples + 1) * presample_batch_size)  # Batch size after sampling
@@ -1906,17 +1907,18 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                                         logits_out_domain=train_logits_out_domain,
                                                                         targets_in_domain=targets_in_domain,
                                                                         batch_size=batch_size,
-                                                                        out_of_domain_weight=1.0,
+                                                                        out_of_domain_weight=out_of_domain_weight,
                                                                         is_training=True)
-            elif which_trn_cost == 'contrastive_with_nll':
-                # Construct the conflictive training cost
-                trn_cost, total_loss = self._construct_contrastive_with_nll_loss(
-                    logits_in_domain=train_logits_in_domain,
-                    logits_out_domain=train_logits_out_domain,
-                    targets_in_domain=targets_in_domain,
-                    batch_size=batch_size,
-                    out_of_domain_weight=1.0,
-                    is_training=True)
+            # elif which_trn_cost == 'contrastive_with_nll':
+            #     # Construct the conflictive training cost
+            #     # todo: wrong implementation atm
+            #     trn_cost, total_loss = self._construct_contrastive_with_nll_loss(
+            #         logits_in_domain=train_logits_in_domain,
+            #         logits_out_domain=train_logits_out_domain,
+            #         targets_in_domain=targets_in_domain,
+            #         batch_size=batch_size,
+            #         out_of_domain_weight=1.0,
+            #         is_training=True)
             else:
                 raise AttributeError('{} is not a valid training cost for the ATM Prior Network'.format(which_trn_cost))
 

@@ -60,6 +60,8 @@ parser.add_argument('--epoch', type=str, default=None,
 parser.add_argument('--strip_start_end', action='store_true', help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt file (used for legacy sorted_topics.txt formatting')
 parser.add_argument('--which_training_cost', type=str, default='contrastive',
                     choices=['contrastive', 'contrastive_with_nll'])
+parser.add_argument('--out_of_domain_weight', type=float, default=1.0,
+                    help='The relative weight assigned to the out of domain loss')
 
 
 def main(args):
@@ -115,12 +117,13 @@ def main(args):
                       lr_decay=args.lr_decay,
                       dropout=args.dropout,
                       distortion=args.distortion,
-                      presample_batch_size=batch_size,
+                      presample_batch_size=args.batch_size,
                       optimizer=tf.train.AdamOptimizer,
                       optimizer_params={},
                       n_epochs=args.n_epochs,
                       epoch=0,
-                      which_trn_cost=args.which_training_cost)
+                      which_trn_cost=args.which_training_cost,
+                      out_of_domain_weight=args.out_of_domain_weight)
     atm.save()
 
 if __name__ == '__main__':
