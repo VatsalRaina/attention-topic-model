@@ -1915,7 +1915,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                     logits_out_domain=train_logits_out_domain,
                     targets_in_domain=targets_in_domain,
                     batch_size=batch_size,
-                    out_of_domain_weight=1.0,
+                    out_of_domain_weight=0.0,
                     is_training=True)
             else:
                 raise AttributeError('{} is not a valid training cost for the ATM Prior Network'.format(which_trn_cost))

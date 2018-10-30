@@ -115,7 +115,7 @@ def main(args):
                       lr_decay=args.lr_decay,
                       dropout=args.dropout,
                       distortion=args.distortion,
-                      presample_batch_size=batch_size,
+                      presample_batch_size=args.batch_size,
                       optimizer=tf.train.AdamOptimizer,
                       optimizer_params={},
                       n_epochs=args.n_epochs,
