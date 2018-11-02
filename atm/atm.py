@@ -1656,6 +1656,55 @@ class ATMPriorNetwork(AttentionTopicModel):
         else:
             return cost
 
+    def _construct_contrastive_with_xe_loss(self, logits_in_domain, logits_out_domain, targets_in_domain,
+                                            batch_size, in_domain_precision=20., is_training=False,
+                                            out_of_domain_kl_weight=1., in_domain_kl_weight=0.5):
+        """
+        Contrastive Loss as described in the Prior Net Paper
+        :param logits_in_domain: logits for the in_domain batch
+        :param logits_out_domain: logits for the out of domain batch
+        :param targets_in_domain: targets for the in domain batch
+        :param in_domain_precision: float
+        :param is_training: bool
+        :return: cost ( cost, total_cost tuple if is_training==True)
+        """
+        print('Constructing contrastive loss with XE in domain')
+
+        model_alphas_in_domain = tf.exp(logits_in_domain)
+        model_alphas_out_domain = tf.exp(logits_out_domain)
+
+        # Specify the target alphas and smooth as required
+        xe_targets = tf.expand_dims(targets_in_domain[:, 0], axis=1)  # Shape should be [batch_size, 1]
+
+        in_domain_target_alphas = tf.ones([batch_size, 2], dtype=tf.float32) * (in_domain_precision / 2.)
+        out_of_domain_target_alphas = tf.ones([batch_size, 2], dtype=tf.float32)
+
+        # The first column (alpha1) corresponds to P_relevant, and the 2nd column (alpha2) corresponds to P_off_topic.
+
+        # Construct the contrastive loss using is_in_domain to mask the appriopriate values
+        contr_loss_in_domain = self.kl_divergence_between_dirchlets(model_alphas_in_domain, in_domain_target_alphas)
+        contr_loss_out_domain = self.kl_divergence_between_dirchlets(model_alphas_out_domain,
+                                                                     out_of_domain_target_alphas)
+
+        xe_in_domain = tf.nn.weighted_cross_entropy_with_logits(logits=logits_in_domain, targets=xe_targets,
+                                                                pos_weight=1., name='total_xentropy_per_batch')
+
+        cost = tf.reduce_mean(
+            xe_in_domain + in_domain_kl_weight * contr_loss_in_domain + out_of_domain_kl_weight * contr_loss_out_domain) / (
+               1. + out_of_domain_kl_weight + in_domain_kl_weight)  # Take mean batch-wise (over the number of examples)
+
+        if self._debug_mode > 1:
+            tf.scalar_summary('cost', cost)
+
+        if is_training:
+            tf.add_to_collection('losses', cost)
+            # The total loss is defined as the target loss plus all of the weight
+            # decay terms (L2 loss).
+            total_cost = tf.add_n(tf.get_collection('losses'), name='total_cost')
+            return cost, total_cost
+        else:
+            return cost
+
     def _construct_contrastive_with_nll_loss(self, logits_in_domain, logits_out_domain, targets_in_domain,
                                              batch_size, in_domain_precision=10.,
                                              is_training=False,
@@ -1909,16 +1958,15 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                                         batch_size=batch_size,
                                                                         out_of_domain_weight=out_of_domain_weight,
                                                                         is_training=True)
-            # elif which_trn_cost == 'contrastive_with_nll':
-            #     # Construct the conflictive training cost
-            #     # todo: wrong implementation atm
-            #     trn_cost, total_loss = self._construct_contrastive_with_nll_loss(
-            #         logits_in_domain=train_logits_in_domain,
-            #         logits_out_domain=train_logits_out_domain,
-            #         targets_in_domain=targets_in_domain,
-            #         batch_size=batch_size,
-            #         out_of_domain_weight=1.0,
-            #         is_training=True)
+            elif which_trn_cost == 'contrastive_with_xe' or which_trn_cost == 'contraceptive':
+                # Construct the contraceptive training cost
+                trn_cost, total_loss = self._construct_contrastive_with_xe_loss(logits_in_domain=train_logits_in_domain,
+                                                                                logits_out_domain=train_logits_out_domain,
+                                                                                targets_in_domain=targets_in_domain,
+                                                                                batch_size=batch_size,
+                                                                                out_of_domain_kl_weight=out_of_domain_weight,
+                                                                                in_domain_kl_weight=0.1,
+                                                                                is_training=True)
             else:
                 raise AttributeError('{} is not a valid training cost for the ATM Prior Network'.format(which_trn_cost))
 
