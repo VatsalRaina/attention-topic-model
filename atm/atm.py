@@ -1674,7 +1674,7 @@ class ATMPriorNetwork(AttentionTopicModel):
         model_alphas_out_domain = tf.exp(logits_out_domain)
 
         # Specify the target alphas and smooth as required
-        xe_targets = tf.expand_dims(targets_in_domain[:, 0], axis=1)  # Shape should be [batch_size, 1]
+        xe_targets = targets_in_domain[:, 0]  # Shape should be [batch_size, 1]
 
         in_domain_target_alphas = tf.ones([batch_size, 2], dtype=tf.float32) * (in_domain_precision / 2.)
         out_of_domain_target_alphas = tf.ones([batch_size, 2], dtype=tf.float32)
@@ -1686,7 +1686,7 @@ class ATMPriorNetwork(AttentionTopicModel):
         contr_loss_out_domain = self.kl_divergence_between_dirchlets(model_alphas_out_domain,
                                                                      out_of_domain_target_alphas)
 
-        xe_in_domain = tf.nn.weighted_cross_entropy_with_logits(logits=logits_in_domain, targets=xe_targets,
+        xe_in_domain = tf.nn.weighted_cross_entropy_with_logits(logits=logits_in_domain[:, 0], targets=xe_targets,
                                                                 pos_weight=1., name='total_xentropy_per_batch')
 
         cost = tf.reduce_mean(

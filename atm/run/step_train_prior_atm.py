@@ -59,7 +59,7 @@ parser.add_argument('--epoch', type=str, default=None,
                                help='which should be loaded')
 parser.add_argument('--strip_start_end', action='store_true', help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt file (used for legacy sorted_topics.txt formatting')
 parser.add_argument('--which_training_cost', type=str, default='contrastive',
-                    choices=['contrastive', 'contrastive_with_nll'])
+                    choices=['contrastive', 'contrastive_with_nll', 'contrastive_with_xe'])
 parser.add_argument('--out_of_domain_weight', type=float, default=1.0,
                     help='The relative weight assigned to the out of domain loss')
 
