@@ -2032,21 +2032,21 @@ class ATMPriorNetwork(AttentionTopicModel):
             for epoch in xrange(epoch + 1, epoch + n_epochs + 1):
                 # Run Training Loop
                 loss_total = 0.
-                logits_id_total = 0.
-                logits_ood_total = 0.
+                precision_id_total = 0.
+                precision_ood_total = 0.
                 batch_time = time.time()
                 for batch in xrange(n_batches):
-                    _, loss_value, logits_id_value, logits_ood_value = self.sess.run([train_op, trn_cost, train_logits_in_domain, train_logits_out_domain],
+                    _, loss_value, precision_id_value, precision_ood_value = self.sess.run([train_op, trn_cost, mean_precision_id, mean_precision_ood],
                                                   feed_dict={self.dropout: dropout})
                     assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
                     loss_total += loss_value
-                    logits_id_total += logits_id_value
-                    logits_ood_total += logits_ood_value
+                    precision_id_total += precision_id_value
+                    precision_ood_total += precision_ood_value
 
                 duration = time.time() - batch_time
                 loss_total /= n_batches
-                logits_id_total /= n_batches
-                logits_ood_total /= n_batches
+                precision_id_total /= n_batches
+                precision_ood_total /= n_batches
                 examples_per_sec = batch_size / duration
                 sec_per_epoch = float(duration)
 
@@ -2085,8 +2085,8 @@ class ATMPriorNetwork(AttentionTopicModel):
 
                 # Summarize Epoch
                 with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
-                    f.write(format_str % (epoch, loss_total, logits_id_total, logits_ood_total, eval_loss, roc_score, examples_per_sec, sec_per_epoch) + '\n')
-                print(format_str % (epoch, loss_total, logits_id_total, logits_ood_total, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
+                    f.write(format_str % (epoch, loss_total, precision_id_total, precision_ood_total, eval_loss, roc_score, examples_per_sec, sec_per_epoch) + '\n')
+                print(format_str % (epoch, loss_total, precision_id_total, precision_ood_total, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
                 self.save(step=epoch)
 
             # Finish Training
