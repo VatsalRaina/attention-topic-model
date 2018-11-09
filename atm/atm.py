@@ -2122,6 +2122,7 @@ class ATMPriorNetwork(AttentionTopicModel):
         """The prior net fit without out of distribution data."""
         with self._graph.as_default():
             batch_size = ((n_samples + 1) * presample_batch_size)  # Batch size after sampling
+            print("Actual batch size used (post-sampling): {}".format(batch_size))
             # Compute number of training examples and batch size
             n_examples = train_size
             n_batches = n_examples / batch_size
@@ -2175,7 +2176,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                          q_input=prompts,
                                                          q_seqlens=prompt_lens,
                                                          maxlen=tf.reduce_max(response_lens),
-                                                         batch_size=batch_size,
+                                                         batch_size=presample_batch_size,
                                                          keep_prob=self.dropout)
 
                 valid_predictions, \
@@ -2187,7 +2188,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                           q_input=valid_prompts,
                                                           q_seqlens=valid_prompt_lens,
                                                           maxlen=tf.reduce_max(valid_response_lens),
-                                                          batch_size=batch_size,
+                                                          batch_size=presample_batch_size,
                                                           keep_prob=1.0)
 
             # Construct XEntropy training costs
