@@ -36,8 +36,6 @@ parser.add_argument('save_dir', type=str, default='.',
 parser.add_argument('--model_base_name', type=str, default='atm_prior_net_stats')
 parser.add_argument('--unseen_eval_dir', type=str, default='eval_linsk_ALL')
 parser.add_argument('--seen_eval_dir', type=str, default='eval4_CDE')
-parser.add_argument('--which_single_model', type=int, default=1,
-                    help='For the plots that only use a single model, which model to use.')
 parser.add_argument('--num_trained_models', type=int, default=10)
 parser.add_argument('--make_plots', action='store_true', help='Whether to make plots, or just get the numerical'
                                                               'results.')
@@ -257,6 +255,7 @@ def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_a
     """
 
     auc_array_uncertainty = []
+    accuracies = []
 
     for eval_stats in eval_stats_list:
         uncertainty = getattr(eval_stats, uncertainty_attr_name)
@@ -276,13 +275,12 @@ def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_a
         misclassification = np.asarray(labels != predictions, dtype=np.int32)
         correct = np.asarray(labels == predictions, dtype=np.float32)
 
-        accuracies = np.mean(correct, axis=0)
-        m_accuracy = np.mean(accuracies)
-        std_accuracy = np.std(accuracies)
+        accuracies.append(np.mean(correct)
 
         auc = run_misclassification_detection(misclassification, uncertainty)
         auc_array_uncertainty.append(auc)
 
+    accuracies = np.asarray(accuracies)
 
     auc_uncertainty = np.stack(auc_array_uncertainty, axis=0)
     auc_uncertainty_mean, auc_uncertainty_std = np.mean(auc_uncertainty, axis=0), np.std(auc_uncertainty, axis=0)
@@ -290,7 +288,7 @@ def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_a
     res_string = evaluation_name + ':\nMean Accuracy = {} +/- {}\nmisclassification ROC AUC: {} +/- {}\n' \
                  'misclassification AUPR POS: {} +/- {}\n' \
                  'misclassification AUPR NEG: {} +/- {}\n'.format(
-        str(m_accuracy), str(std_accuracy), auc_uncertainty_mean[0], auc_uncertainty_std[0], auc_uncertainty_mean[1],
+        str(accuracies.mean()), str(accuracies.std())), auc_uncertainty_mean[0], auc_uncertainty_std[0], auc_uncertainty_mean[1],
         auc_uncertainty_std[1], auc_uncertainty_mean[2], auc_uncertainty_std[2])
     print(res_string)
 
