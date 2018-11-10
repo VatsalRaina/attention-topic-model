@@ -25,19 +25,22 @@ import matplotlib.patches as mpatches
 
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
+from sklearn.metrics import auc
 
 sns.set(style='whitegrid')
 
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
 parser.add_argument('models_parent_dir', type=str, help='Path to directory with models')
-parser.add_argument('--model_base_name', type=str, default='atm_prior_net_stats')
-parser.add_argument('--save_dir', type=str, default='.',
+parser.add_argument('save_dir', type=str, default='.',
                     help='Path to directory where to save the plots')
+parser.add_argument('--model_base_name', type=str, default='atm_prior_net_stats')
 parser.add_argument('--unseen_eval_dir', type=str, default='eval_linsk_ALL')
 parser.add_argument('--seen_eval_dir', type=str, default='eval4_CDE')
 parser.add_argument('--which_single_model', type=int, default=1,
                     help='For the plots that only use a single model, which model to use.')
 parser.add_argument('--num_trained_models', type=int, default=10)
+parser.add_argument('--make_plots', action='store_true', help='Whether to make plots, or just get the numerical'
+                                                              'results.')
 
 matplotlib.rcParams['savefig.dpi'] = 200
 
@@ -63,12 +66,6 @@ class ModelEvaluationStats(object):
 
 
 def calc_dirich_diff_entropy(alphas):
-    # alpha_1, alpha_2 = np.exp(logits[:, 0]), np.exp(logits[:, 1])
-    # alpha_0 = alpha_1 + alpha_2
-    # # with np.errstate(divide='ignore', invalid='ignore'):
-    # diff_entropy = loggamma(alpha_1) + loggamma(alpha_2) - np.log(gamma(alpha_0)) - (alpha_1 - 1) * (
-    #     digamma(alpha_1) - digamma(alpha_0)) - (alpha_2 - 1) * (digamma(alpha_2) - digamma(alpha_0))
-
     alpha_0 = np.sum(alphas, axis=1, keepdims=True)
     diff_entropy = np.sum(gammaln(alphas), axis=1) - np.squeeze(gammaln(alpha_0)) - np.sum(
         (alphas - 1.) * (digamma(alphas) - digamma(alpha_0)), axis=1)
@@ -237,6 +234,94 @@ def plot_auc_vs_percentage_included_seen_vs_unseen(labels_seen, labels_unseen, p
     return
 
 
+def run_misclassification_detection(misclassification_labels, uncertainty):
+    precision, recall, thresholds = precision_recall_curve(misclassification_labels, uncertainty, pos_label=1)
+    aupr_pos = auc(recall, precision)
+
+    precision, recall, thresholds = precision_recall_curve(misclassification_labels, -uncertainty, pos_label=0)
+    aupr_neg = auc(recall, precision)
+
+    roc_auc = roc_auc_score(misclassification_labels, uncertainty)
+
+    return [roc_auc, aupr_pos, aupr_neg]
+
+
+def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_attr_name, evaluation_name, savedir=None):
+    """
+    This functions runs a uncertainty based miclassification detection experiment
+
+    :param labels: Labels on-topic / off-topic
+    :param predictions: array of predictions (probabilities) of [batch_size, size_ensemble]
+    :param prompt_entopies: array of entropies of prompt attention mechanism [batch_size, size_ensemble]
+    :return: None. Saves stuff
+    """
+
+    auc_array_uncertainty = []
+
+    for eval_stats in eval_stats_list:
+        uncertainty = getattr(eval_stats, uncertainty_name)
+        predictions = eval_stats.preds
+        labels = eval_stats.labels
+
+        off_topic_probabilities = 1.0 - predictions
+
+        on_topic_probabilities = np.expand_dims(predictions, axis=1)
+        off_topic_probabilities = np.expand_dims(off_topic_probabilities, axis=1)
+
+        probabilities = np.concatenate([off_topic_probabilities, on_topic_probabilities], axis=1)
+
+        # Threshold the predictions with threshold 0.5 (take prediction to be the class with max prob.)
+        predictions = np.argmax(probabilities, axis=1)  # on-topic is one
+
+        misclassification = np.asarray(labels != predictions, dtype=np.int32)
+        correct = np.asarray(labels == predictions, dtype=np.float32)
+
+        accuracies = np.mean(correct, axis=0)
+        m_accuracy = np.mean(accuracies)
+        std_accuracy = np.std(accuracies)
+
+        auc = run_misclassification_detection(misclassification, uncertainty)
+        auc_array_uncertainty.append(auc)
+
+
+    auc_uncertainty = np.stack(auc_array_uncertainty, axis=0)
+    auc_uncertainty_mean, auc_uncertainty_std = np.mean(auc_uncertainty, axis=0), np.std(auc_uncertainty, axis=0)
+
+    res_string = evaluation_name + ':\nMean Accuracy = {} +/- {}\nmisclassification ROC AUC: {} +/- {}\n' \
+                 'misclassification AUPR POS: {} +/- {}\n' \
+                 'misclassification AUPR NEG: {} +/- {}\n'.format(
+        str(m_accuracy), str(std_accuracy), auc_uncertainty_mean[0], auc_uncertainty_std[0], auc_uncertainty_mean[1],
+        auc_uncertainty_std[1], auc_uncertainty_mean[2], auc_uncertainty_std[2])
+    print(res_string)
+
+    if savedir:
+        with open(os.path.join(savedir, 'misclassification_detect_individual.txt'), 'a+') as f:
+            f.write(res_string)
+    return
+
+
+def run_roc_auc_over_ensemble(eval_stats_list, evaluation_name, savedir=None):
+    roc_auc_list = []
+    for eval_stats in eval_stats_list:
+        predictions = eval_stats.preds
+        labels = eval_stats.labels
+
+        roc_auc = roc_auc_score(labels, predictions)
+        roc_auc_list.append(roc_auc)
+
+
+    roc_auc_array = np.stack(roc_auc_list)
+
+    res_string = evaluation_name + ':\nIndividual ROC-AUC\'s: {}\n' \
+                                   'Mean per model ROC-AUC: {} +/- {}\n'.format(roc_auc_list, roc_auc_array.mean(),
+                                                                                roc_auc_array.std())
+    print(res_string)
+    if savedir:
+        with open(os.path.join(savedir, 'roc_auc_results.txt'), 'a+') as f:
+            f.write(res_string)
+    return
+
+
 def main(args):
     # Create save directory if doesn't exist:
     if not os.path.isdir(args.save_dir):
@@ -251,76 +336,7 @@ def main(args):
                                    ensemble_models_paths]
 
 
-    # Load the data for a single model of choice (normally the best model on the seen-seen data)
-    single_evaluation_stats_seen = all_evaluation_stats_seen[args.which_single_model - 1]
-    single_evaluation_stats_unseen = all_evaluation_stats_unseen[args.which_single_model - 1]
-
-    # MAKE THE PLOTS WITH THE BACKGROUND SHOWING PROPORTIONS INCLUDED
-    # Make AUC vs. cumulative samples included for N models - DIFF. ENTROPY
-    # Seen-seen and unseen-unseen
-    for i in range(args.num_trained_models):
-        eval_stats_seen = all_evaluation_stats_seen[i]
-        eval_stats_unseen = all_evaluation_stats_unseen[i]
-        plot_auc_vs_percentage_included_with_proportions(eval_stats_seen.labels, eval_stats_unseen.labels,
-                                                         eval_stats_seen.preds, eval_stats_unseen.preds,
-                                                         eval_stats_seen.diff_entropy, eval_stats_unseen.diff_entropy,
-                                                         sort_by_name='diff. entropy', bg_alpha=0.10)
-    plt.savefig(
-        os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_seen_and_unseen_bg_{}.png'.format(args.model_base_name)),
-        bbox_inches='tight')
-    plt.clf()
-
-    # Make AUC vs. cumulative samples included for N models - MUTUAL INFO
-    # Seen-seen and unseen-unseen
-    for i in range(args.num_trained_models):
-        eval_stats_seen = all_evaluation_stats_seen[i]
-        eval_stats_unseen = all_evaluation_stats_unseen[i]
-        plot_auc_vs_percentage_included_with_proportions(eval_stats_seen.labels, eval_stats_unseen.labels,
-                                                         eval_stats_seen.preds, eval_stats_unseen.preds,
-                                                         eval_stats_seen.mutual_info, eval_stats_unseen.mutual_info,
-                                                         sort_by_name='mutual information', bg_alpha=0.10)
-    plt.savefig(
-        os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_seen_and_unseen_bg_{}.png'.format(args.model_base_name)),
-        bbox_inches='tight')
-    plt.clf()
-
-
-
-
-    # MAKE THE PLOTS WITH THE LINE SHOWING PROPORTIONS INCLUDED FROM EACH SEEN-SEEN AND UNSEEN-UNSEEN
-    # Make AUC vs. cumulative samples included for N models - DIFF. ENTROPY
-    # Seen-seen and unseen-unseen
-    for i in range(args.num_trained_models):
-        eval_stats_seen = all_evaluation_stats_seen[i]
-        eval_stats_unseen = all_evaluation_stats_unseen[i]
-        plot_auc_vs_percentage_included_seen_vs_unseen(eval_stats_seen.labels, eval_stats_unseen.labels,
-                                                       eval_stats_seen.preds, eval_stats_unseen.preds,
-                                                       eval_stats_seen.diff_entropy, eval_stats_unseen.diff_entropy,
-                                                       sort_by_name='diff. entropy')
-    plt.savefig(
-        os.path.join(args.save_dir,
-                     'auc_vs_cum_samples_incl_diff_entropy_seen_and_unseen_line{}.png'.format(args.model_base_name)),
-        bbox_inches='tight')
-    plt.clf()
-
-    # Make AUC vs. cumulative samples included for N models - MUTUAL INFO
-    # Seen-seen and unseen-unseen
-    for i in range(args.num_trained_models):
-        eval_stats_seen = all_evaluation_stats_seen[i]
-        eval_stats_unseen = all_evaluation_stats_unseen[i]
-        plot_auc_vs_percentage_included_seen_vs_unseen(eval_stats_seen.labels, eval_stats_unseen.labels,
-                                                       eval_stats_seen.preds, eval_stats_unseen.preds,
-                                                       eval_stats_seen.mutual_info, eval_stats_unseen.mutual_info,
-                                                       sort_by_name='mutual information')
-    plt.savefig(
-        os.path.join(args.save_dir,
-                     'auc_vs_cum_samples_incl_mutual_info_seen_and_unseen_line{}.png'.format(args.model_base_name)),
-        bbox_inches='tight')
-    plt.clf()
-
-
-
-    # MAKE THE AWESOME HISTOGRAMS
+    # Combine various metrics into single arrays (for ensemble)
     diff_entropy_seen_combined = reduce(lambda x, y: np.hstack((x, y)),
                                         map(lambda x: x.diff_entropy, all_evaluation_stats_seen))
     diff_entropy_unseen_combined = reduce(lambda x, y: np.hstack((x, y)),
@@ -329,81 +345,170 @@ def main(args):
                                        map(lambda x: x.mutual_info, all_evaluation_stats_seen))
     mutual_info_unseen_combined = reduce(lambda x, y: np.hstack((x, y)),
                                          map(lambda x: x.mutual_info, all_evaluation_stats_unseen))
-
-    # Diff. Entropy
-    plot_uncertainty_histogram(diff_entropy_seen_combined, diff_entropy_unseen_combined)
-    plt.savefig(
-        os.path.join(args.save_dir,
-                     'diff_entropy_histogram_{}.png'.format(args.model_base_name)),
-        bbox_inches='tight')
-    plt.clf()
-
-    # Mutual Info
-    plot_uncertainty_histogram(mutual_info_seen_combined, mutual_info_unseen_combined)
-    plt.savefig(
-        os.path.join(args.save_dir,
-                     'mutual_info_histogram_{}.png'.format(args.model_base_name)),
-        bbox_inches='tight')
-    plt.clf()
+    # labels_seen = all_evaluation_stats_seen[0].labels
+    # labels_unseen = all_evaluation_stats_unseen[0].labels
+    #
+    # predictions_seen_combined = reduce(lambda x, y: np.hstack((x, y)),
+    #                                    map(lambda x: x.preds, all_evaluation_stats_seen))
+    # predictions_unseen_combined = reduce(lambda x, y: np.hstack((x, y)),
+    #                                      map(lambda x: x.preds, all_evaluation_stats_unseen))
 
 
 
-    clrs = sns.dark_palette("muted purple", n_colors=args.num_trained_models, input="xkcd")
-    # Make AUC vs. cumulative samples included for N models - DIFF. ENTROPY
-    # Seen-seen
-    for i in range(args.num_trained_models):
-        eval_stats = all_evaluation_stats_seen[i]
-        plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.diff_entropy,
-                                               resolution=200, sort_by_name='diff. entropy', color=clrs[i])
-    plt.savefig(
-        os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_seen_{}.png'.format(args.model_base_name)),
-        bbox_inches='tight')
-    plt.clf()
+    # Calculate the metrics and numerical results:
+    run_misclassification_detection_over_ensemble(all_evaluation_stats_seen, uncertainty_attr_name='mutual_info',
+                                                  evaluation_name='Seen-seen Mutual Info', savedir=args.save_dir)
+    run_misclassification_detection_over_ensemble(all_evaluation_stats_seen, uncertainty_attr_name='diff_entropy',
+                                                  evaluation_name='Seen-seen Diff. Entropy', savedir=args.save_dir)
+    run_misclassification_detection_over_ensemble(all_evaluation_stats_unseen, uncertainty_attr_name='mutual_info',
+                                                  evaluation_name='Unseen-unseen Mutual Info', savedir=args.save_dir)
+    run_misclassification_detection_over_ensemble(all_evaluation_stats_unseen, uncertainty_attr_name='diff_entropy',
+                                                  evaluation_name='Unseen-unseen Diff. Entropy', savedir=args.save_dir)
 
-    # unseen-unseen
-    for i in range(args.num_trained_models):
-        eval_stats = all_evaluation_stats_unseen[i]
-        plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.diff_entropy,
-                                               resolution=200, sort_by_name='diff. entropy', color=clrs[i])
-    plt.savefig(
-        os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_unseen_{}.png'.format(args.model_base_name)),
-        bbox_inches='tight')
-    plt.clf()
+    run_roc_auc_over_ensemble(all_evaluation_stats_seen, evaluation_name='Seen-seen')
+    run_roc_auc_over_ensemble(all_evaluation_stats_unseen, evaluation_name='Uneen-unseen')
 
-    # Make AUC vs. cumulative samples included for N models - MUTUAL INFORMATION
-    # Seen-seen
-    for i in range(args.num_trained_models):
-        eval_stats = all_evaluation_stats_seen[i]
-        plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.mutual_info,
-                                               resolution=200, sort_by_name='mutual information', color=clrs[i])
-    plt.savefig(
-        os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_seen_{}.png'.format(args.model_base_name)),
-        bbox_inches='tight')
-    plt.clf()
 
-    # unseen-unseen
-    for i in range(args.num_trained_models):
-        eval_stats = all_evaluation_stats_unseen[i]
-        plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.mutual_info,
-                                               resolution=200, sort_by_name='mutual information', color=clrs[i])
-    plt.savefig(
-        os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_unseen_{}.png'.format(args.model_base_name)),
-        bbox_inches='tight')
-    plt.clf()
+    if args.make_plots:
+        # MAKE THE PLOTS WITH THE BACKGROUND SHOWING PROPORTIONS INCLUDED
+        # Make AUC vs. cumulative samples included for N models - DIFF. ENTROPY
+        # Seen-seen and unseen-unseen
+        for i in range(args.num_trained_models):
+            eval_stats_seen = all_evaluation_stats_seen[i]
+            eval_stats_unseen = all_evaluation_stats_unseen[i]
+            plot_auc_vs_percentage_included_with_proportions(eval_stats_seen.labels, eval_stats_unseen.labels,
+                                                             eval_stats_seen.preds, eval_stats_unseen.preds,
+                                                             eval_stats_seen.diff_entropy, eval_stats_unseen.diff_entropy,
+                                                             sort_by_name='diff. entropy', bg_alpha=0.10)
+        plt.savefig(
+            os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_seen_and_unseen_bg_{}.png'.format(args.model_base_name)),
+            bbox_inches='tight')
+        plt.clf()
 
-    mean_diff_entropy_seen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.diff_entropy),
-                                                            all_evaluation_stats_seen)) / args.num_trained_models
-    mean_diff_entropy_unseen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.diff_entropy),
-                                                              all_evaluation_stats_unseen)) / args.num_trained_models
-    mean_mutual_info_seen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.mutual_info),
-                                                           all_evaluation_stats_seen)) / args.num_trained_models
-    mean_mutual_info_unseen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.mutual_info),
-                                                             all_evaluation_stats_unseen)) / args.num_trained_models
-    print("Mean Diff. entropy seen: {}, unseen: {}".format(mean_diff_entropy_seen, mean_diff_entropy_unseen))
-    print("Mean mutual information seen: {}, unseen: {}".format(mean_mutual_info_seen, mean_mutual_info_unseen))
-    # #   AUC seen and unseen combined vs. CUMULATIVE INCLUDED
-    # plt.savefig(os.path.join(args.save_dir, 'auc_vs_cumulative_samples_included_diff_entropy_combined.png'),
-    #             bbox_inches='tight')
+        # Make AUC vs. cumulative samples included for N models - MUTUAL INFO
+        # Seen-seen and unseen-unseen
+        for i in range(args.num_trained_models):
+            eval_stats_seen = all_evaluation_stats_seen[i]
+            eval_stats_unseen = all_evaluation_stats_unseen[i]
+            plot_auc_vs_percentage_included_with_proportions(eval_stats_seen.labels, eval_stats_unseen.labels,
+                                                             eval_stats_seen.preds, eval_stats_unseen.preds,
+                                                             eval_stats_seen.mutual_info, eval_stats_unseen.mutual_info,
+                                                             sort_by_name='mutual information', bg_alpha=0.10)
+        plt.savefig(
+            os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_seen_and_unseen_bg_{}.png'.format(args.model_base_name)),
+            bbox_inches='tight')
+        plt.clf()
+
+
+
+
+        # MAKE THE PLOTS WITH THE LINE SHOWING PROPORTIONS INCLUDED FROM EACH SEEN-SEEN AND UNSEEN-UNSEEN
+        # Make AUC vs. cumulative samples included for N models - DIFF. ENTROPY
+        # Seen-seen and unseen-unseen
+        for i in range(args.num_trained_models):
+            eval_stats_seen = all_evaluation_stats_seen[i]
+            eval_stats_unseen = all_evaluation_stats_unseen[i]
+            plot_auc_vs_percentage_included_seen_vs_unseen(eval_stats_seen.labels, eval_stats_unseen.labels,
+                                                           eval_stats_seen.preds, eval_stats_unseen.preds,
+                                                           eval_stats_seen.diff_entropy, eval_stats_unseen.diff_entropy,
+                                                           sort_by_name='diff. entropy')
+        plt.savefig(
+            os.path.join(args.save_dir,
+                         'auc_vs_cum_samples_incl_diff_entropy_seen_and_unseen_line{}.png'.format(args.model_base_name)),
+            bbox_inches='tight')
+        plt.clf()
+
+        # Make AUC vs. cumulative samples included for N models - MUTUAL INFO
+        # Seen-seen and unseen-unseen
+        for i in range(args.num_trained_models):
+            eval_stats_seen = all_evaluation_stats_seen[i]
+            eval_stats_unseen = all_evaluation_stats_unseen[i]
+            plot_auc_vs_percentage_included_seen_vs_unseen(eval_stats_seen.labels, eval_stats_unseen.labels,
+                                                           eval_stats_seen.preds, eval_stats_unseen.preds,
+                                                           eval_stats_seen.mutual_info, eval_stats_unseen.mutual_info,
+                                                           sort_by_name='mutual information')
+        plt.savefig(
+            os.path.join(args.save_dir,
+                         'auc_vs_cum_samples_incl_mutual_info_seen_and_unseen_line{}.png'.format(args.model_base_name)),
+            bbox_inches='tight')
+        plt.clf()
+
+
+
+        # Diff. Entropy
+        plot_uncertainty_histogram(diff_entropy_seen_combined, diff_entropy_unseen_combined)
+        plt.savefig(
+            os.path.join(args.save_dir,
+                         'diff_entropy_histogram_{}.png'.format(args.model_base_name)),
+            bbox_inches='tight')
+        plt.clf()
+
+        # Mutual Info
+        plot_uncertainty_histogram(mutual_info_seen_combined, mutual_info_unseen_combined)
+        plt.savefig(
+            os.path.join(args.save_dir,
+                         'mutual_info_histogram_{}.png'.format(args.model_base_name)),
+            bbox_inches='tight')
+        plt.clf()
+
+
+
+        clrs = sns.dark_palette("muted purple", n_colors=args.num_trained_models, input="xkcd")
+        # Make AUC vs. cumulative samples included for N models - DIFF. ENTROPY
+        # Seen-seen
+        for i in range(args.num_trained_models):
+            eval_stats = all_evaluation_stats_seen[i]
+            plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.diff_entropy,
+                                                   resolution=200, sort_by_name='diff. entropy', color=clrs[i])
+        plt.savefig(
+            os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_seen_{}.png'.format(args.model_base_name)),
+            bbox_inches='tight')
+        plt.clf()
+
+        # unseen-unseen
+        for i in range(args.num_trained_models):
+            eval_stats = all_evaluation_stats_unseen[i]
+            plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.diff_entropy,
+                                                   resolution=200, sort_by_name='diff. entropy', color=clrs[i])
+        plt.savefig(
+            os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_diff_entropy_unseen_{}.png'.format(args.model_base_name)),
+            bbox_inches='tight')
+        plt.clf()
+
+        # Make AUC vs. cumulative samples included for N models - MUTUAL INFORMATION
+        # Seen-seen
+        for i in range(args.num_trained_models):
+            eval_stats = all_evaluation_stats_seen[i]
+            plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.mutual_info,
+                                                   resolution=200, sort_by_name='mutual information', color=clrs[i])
+        plt.savefig(
+            os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_seen_{}.png'.format(args.model_base_name)),
+            bbox_inches='tight')
+        plt.clf()
+
+        # unseen-unseen
+        for i in range(args.num_trained_models):
+            eval_stats = all_evaluation_stats_unseen[i]
+            plot_auc_vs_percentage_included_single(eval_stats.labels, eval_stats.preds, eval_stats.mutual_info,
+                                                   resolution=200, sort_by_name='mutual information', color=clrs[i])
+        plt.savefig(
+            os.path.join(args.save_dir, 'auc_vs_cum_samples_incl_mutual_info_unseen_{}.png'.format(args.model_base_name)),
+            bbox_inches='tight')
+        plt.clf()
+
+        mean_diff_entropy_seen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.diff_entropy),
+                                                                all_evaluation_stats_seen)) / args.num_trained_models
+        mean_diff_entropy_unseen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.diff_entropy),
+                                                                  all_evaluation_stats_unseen)) / args.num_trained_models
+        mean_mutual_info_seen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.mutual_info),
+                                                               all_evaluation_stats_seen)) / args.num_trained_models
+        mean_mutual_info_unseen = reduce(lambda x, y: x + y, map(lambda x: np.mean(x.mutual_info),
+                                                                 all_evaluation_stats_unseen)) / args.num_trained_models
+        print("Mean Diff. entropy seen: {}, unseen: {}".format(mean_diff_entropy_seen, mean_diff_entropy_unseen))
+        print("Mean mutual information seen: {}, unseen: {}".format(mean_mutual_info_seen, mean_mutual_info_unseen))
+        # #   AUC seen and unseen combined vs. CUMULATIVE INCLUDED
+        # plt.savefig(os.path.join(args.save_dir, 'auc_vs_cumulative_samples_included_diff_entropy_combined.png'),
+        #             bbox_inches='tight')
 
 
 

@@ -1,7 +1,4 @@
 #! /usr/bin/env python
-"""
-Just a one-off script for comparing the seed spread versus confidence
-"""
 from __future__ import print_function, division
 
 import matplotlib
@@ -853,9 +850,10 @@ def main():
         prompt_entropies = get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath=args.rel_labels_path)
 
     if args.hatm:
-        entropies=run_misclassification_detection_over_ensemble(labels, ensemble_predictions, prompt_entropies, savedir=args.savedir)
+        entropies = run_misclassification_detection_over_ensemble(labels, ensemble_predictions, prompt_entropies,
+                                                                  savedir=args.savedir)
     else:
-        entropies=run_misclassification_detection_over_ensemble(labels, ensemble_predictions, savedir=args.savedir)
+        entropies = run_misclassification_detection_over_ensemble(labels, ensemble_predictions, savedir=args.savedir)
 
     avg_predictions = calc_avg_predictions(ensemble_predictions)
 
