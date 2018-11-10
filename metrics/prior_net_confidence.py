@@ -275,7 +275,7 @@ def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_a
         misclassification = np.asarray(labels != predictions, dtype=np.int32)
         correct = np.asarray(labels == predictions, dtype=np.float32)
 
-        accuracies.append(np.mean(correct)
+        accuracies.append(np.mean(correct))
 
         auc = run_misclassification_detection(misclassification, uncertainty)
         auc_array_uncertainty.append(auc)
@@ -288,7 +288,7 @@ def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_a
     res_string = evaluation_name + ':\nMean Accuracy = {} +/- {}\nmisclassification ROC AUC: {} +/- {}\n' \
                  'misclassification AUPR POS: {} +/- {}\n' \
                  'misclassification AUPR NEG: {} +/- {}\n'.format(
-        str(accuracies.mean()), str(accuracies.std())), auc_uncertainty_mean[0], auc_uncertainty_std[0], auc_uncertainty_mean[1],
+        str(accuracies.mean()), str(accuracies.std()), auc_uncertainty_mean[0], auc_uncertainty_std[0], auc_uncertainty_mean[1],
         auc_uncertainty_std[1], auc_uncertainty_mean[2], auc_uncertainty_std[2])
     print(res_string)
 
