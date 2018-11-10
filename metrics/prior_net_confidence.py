@@ -259,7 +259,7 @@ def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_a
     auc_array_uncertainty = []
 
     for eval_stats in eval_stats_list:
-        uncertainty = getattr(eval_stats, uncertainty_name)
+        uncertainty = getattr(eval_stats, uncertainty_attr_name)
         predictions = eval_stats.preds
         labels = eval_stats.labels
 
