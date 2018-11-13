@@ -247,11 +247,6 @@ def run_misclassification_detection(misclassification_labels, uncertainty):
 def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_attr_name, evaluation_name, savedir=None):
     """
     This functions runs a uncertainty based miclassification detection experiment
-
-    :param labels: Labels on-topic / off-topic
-    :param predictions: array of predictions (probabilities) of [batch_size, size_ensemble]
-    :param prompt_entopies: array of entropies of prompt attention mechanism [batch_size, size_ensemble]
-    :return: None. Saves stuff
     """
 
     auc_array_uncertainty = []
@@ -320,6 +315,88 @@ def run_roc_auc_over_ensemble(eval_stats_list, evaluation_name, savedir=None):
     return
 
 
+def run_rejection_plot(eval_stats_list, uncertainty_attr_name, evaluation_name, savedir=None, make_plot=False,
+                       resolution=100):
+    """
+
+    :param make_plot:
+    :param resolution:
+    :return: (rejection_ratios, y_points, rejection_curve_auc)
+    rejection_ratios are the exact rejection ratios used to calculate each ROC AUC data point for each model
+    y_points is a list of arrays of ROC-AUC scores corresponding to each rejection ratio in rejection ratios, for every
+    model
+    rejection_curve_auc is a list of areas under the curve of the rejection plot for each model
+    """
+    auc_array_uncertainty = []
+
+    # Calculate the number of examples to include for each data point
+    num_preds = len(eval_stats_list[0])
+    examples_included_arr = np.floor(np.linspace(0., 1., num=resolution, endpoint=False) * num_preds).astype(
+        np.int32)
+    examples_included_arr = np.flip(examples_included_arr)
+    rejection_ratios = 1. - (examples_included_arr.astype(np.float32) / num_preds)
+
+    y_points = []  # List to store the y_coordinates for the plots for each model
+    y_points_oracle = []
+    rejection_curve_auc = []
+    oracle_rejection_curve_auc = []
+
+    for eval_stats in eval_stats_list:
+        uncertainty = getattr(eval_stats, uncertainty_attr_name)
+        predictions = eval_stats.preds
+        labels = eval_stats.labels
+
+
+        # Sort by uncertainty
+        sort_idx = np.argsort(uncertainty)
+        predictions = predictions[sort_idx]
+        labels = labels[sort_idx]
+
+        roc_auc_list = []
+        # Calculate ROC-AUC at different ratios
+        for examples_included in examples_included_arr:
+            predictions_with_rejection = np.hstack([predictions[:examples_included], labels[examples_included:]])
+            roc_auc_list.append(roc_auc_score(labels, predictions_with_rejection))
+
+        roc_auc_arr = np.array(roc_auc_list, dtype=np.float32)
+
+        y_points.append(roc_auc_arr)
+        rejection_curve_auc.append(auc(rejection_ratios, roc_auc_arr))
+
+
+        # Get the oracle results
+        # Sort by how wrong the model is
+        sort_idx = np.argsort(np.abs(labels.astype(np.float32) - predictions))
+        predictions = predictions[sort_idx]
+        labels = labels[sort_idx]
+
+        roc_auc_list = []
+        # Calculate ROC-AUC at different ratios
+        for examples_included in examples_included_arr:
+            predictions_with_rejection = np.hstack([predictions[:examples_included], labels[examples_included:]])
+            roc_auc_list.append(roc_auc_score(labels, predictions_with_rejection))
+        roc_auc_arr = np.array(roc_auc_list, dtype=np.float32)
+
+        y_points_oracle.append(roc_auc_arr)
+        oracle_rejection_curve_auc.append(auc(rejection_ratios, roc_auc_arr))
+
+    rejection_curve_auc = np.array(rejection_curve_auc)
+    oracle_rejection_curve_auc = np.array(oracle_rejection_curve_auc)
+
+
+    res_string = evaluation_name + ':\nRejection ratio AUC = {} +/- {}\n' \
+                                   'Oraclo RR-curve AUC: {} +/- {}\n'.format(
+        str(rejection_curve_auc.mean()), str(rejection_curve_auc.std()), str(oracle_rejection_curve_auc.mean()),
+        str(oracle_rejection_curve_auc.std()))
+    print(res_string)
+
+    if savedir:
+        with open(os.path.join(savedir, 'rejection_ratio_auc.txt'), 'a+') as f:
+            f.write(res_string)
+
+    return rejection_ratios, y_points, y_points_oracle
+
+
 def main(args):
     # Create save directory if doesn't exist:
     if not os.path.isdir(args.save_dir):
@@ -366,6 +443,12 @@ def main(args):
     run_roc_auc_over_ensemble(all_evaluation_stats_seen, evaluation_name='Seen-seen')
     run_roc_auc_over_ensemble(all_evaluation_stats_unseen, evaluation_name='Uneen-unseen')
 
+    rejection_ratios, y_points, y_points_oracle = run_rejection_plot(all_evaluation_stats_seen,
+                                                                     uncertainty_attr_name='diff_entropy',
+                                                                     evaluation_name='Diff. Entropy seen-seen')
+    rejection_ratios, y_points, y_points_oracle = run_rejection_plot(all_evaluation_stats_unseen,
+                                                                     uncertainty_attr_name='diff_entropy',
+                                                                     evaluation_name='Diff. Entropy unseen-unseen')
 
     if args.make_plots:
         # MAKE THE PLOTS WITH THE BACKGROUND SHOWING PROPORTIONS INCLUDED
