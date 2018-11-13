@@ -269,6 +269,7 @@ def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_a
 
         misclassification = np.asarray(labels != predictions, dtype=np.float32)
         correct = np.asarray(labels == predictions, dtype=np.float32)
+        assert np.all(misclassification != correct)
 
         accuracies.append(np.mean(correct))
 
