@@ -272,7 +272,7 @@ def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_a
         # Threshold the predictions with threshold 0.5 (take prediction to be the class with max prob.)
         predictions = np.argmax(probabilities, axis=1)  # on-topic is one
 
-        misclassification = np.asarray(labels != predictions, dtype=np.int32)
+        misclassification = np.asarray(labels != predictions, dtype=np.float32)
         correct = np.asarray(labels == predictions, dtype=np.float32)
 
         accuracies.append(np.mean(correct))
