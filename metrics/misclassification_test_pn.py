@@ -152,7 +152,7 @@ def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_a
     print(res_string)
 
     if save_dir:
-        with open(os.path.join(save_dir, 'misclassification_detect_individual.txt'), 'a') as f:
+        with open(os.path.join(save_dir, 'misclassification_detection_results.txt'), 'a') as f:
             f.write(res_string)
     return
 
