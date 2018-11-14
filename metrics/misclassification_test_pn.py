@@ -161,10 +161,10 @@ def run_roc_auc_over_ensemble(eval_stats_list, evaluation_name, save_dir=None):
     roc_auc_list = []
 
     for eval_stats in eval_stats_list:
-        predictions = eval_stats.preds
+        probabilities = eval_stats.probs
         labels = eval_stats.labels
 
-        roc_auc = roc_auc_score(labels, predictions)
+        roc_auc = roc_auc_score(labels, probabilities)
         roc_auc_list.append(roc_auc)
 
     roc_auc_array = np.stack(roc_auc_list)
