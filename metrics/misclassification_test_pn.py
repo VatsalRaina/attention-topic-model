@@ -145,10 +145,10 @@ def run_misclassification_detection_over_ensemble(eval_stats_list, uncertainty_a
                                                                     [accuracies, roc_auc_array, aupr_pos_array,
                                                                      aupr_neg_array])
 
-    res_string = evaluation_name + ':\nMean Accuracy = {} +/- {}\n'.format(accuracies.mean(), accuracies.std()) + \
-                 'misclassification ROC AUC: {} +/- {}\n'.format(roc_auc_array.mean(), roc_auc_array.std()) + \
-                 'misclassification AUPR POS: {} +/- {}\n'.format(aupr_pos_array.mean(), aupr_pos_array.std()) + \
-                 'misclassification AUPR NEG: {} +/- {}\n\n'.format(aupr_neg_array.mean(), aupr_neg_array.std())
+    res_string = evaluation_name + ':\nMean Accuracy = {:.3f} +/- {:.3f}\n'.format(accuracies.mean(), accuracies.std()) + \
+                 'misclassification ROC AUC: {:.3f} +/- {:.3f}\n'.format(roc_auc_array.mean(), roc_auc_array.std()) + \
+                 'misclassification AUPR POS: {:.3f} +/- {:.3f}\n'.format(aupr_pos_array.mean(), aupr_pos_array.std()) + \
+                 'misclassification AUPR NEG: {:.3f} +/- {:.3f}\n\n'.format(aupr_neg_array.mean(), aupr_neg_array.std())
     print(res_string)
 
     if save_dir:
@@ -170,7 +170,7 @@ def run_roc_auc_over_ensemble(eval_stats_list, evaluation_name, save_dir=None):
     roc_auc_array = np.stack(roc_auc_list)
 
     res_string = evaluation_name + ':\nIndividual ROC-AUC\'s: {}\n'.format(roc_auc_list) + \
-                 'Mean per model ROC-AUC: {} +/- {}\n\n'.format(roc_auc_array.mean(), roc_auc_array.std())
+                 'Mean per model ROC-AUC: {:.3f} +/- {:.3f}\n\n'.format(roc_auc_array.mean(), roc_auc_array.std())
     print(res_string)
 
     if save_dir:
@@ -288,8 +288,8 @@ def main(args):
 
     # Calculate the average ROC AUC scores
     open(os.path.join(args.save_dir, 'roc_auc_results.txt'), 'w').close()
-    run_roc_auc_over_ensemble(all_evaluation_stats_seen, evaluation_name='Seen-seen')
-    run_roc_auc_over_ensemble(all_evaluation_stats_unseen, evaluation_name='Uneen-unseen')
+    run_roc_auc_over_ensemble(all_evaluation_stats_seen, evaluation_name='Seen-seen', save_dir=args.save_dir)
+    run_roc_auc_over_ensemble(all_evaluation_stats_unseen, evaluation_name='Uneen-unseen', save_dir=args.save_dir)
 
 
 if __name__ == '__main__':

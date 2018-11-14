@@ -139,9 +139,9 @@ def run_misclassification_detection(misclassification_labels, uncertainty):
 
 def run_misclassification_detection_experiment(misclassification_labels, uncertainty, evaluation_name, save_dir=None):
     roc_auc, aupr_pos, aupr_neg = run_misclassification_detection(misclassification_labels, uncertainty)
-    res_string = evaluation_name + ':\nMisclassification ROC-AUC: {}\n'.format(roc_auc) + \
-                 'Misclassification AUPR-pos: {}\n'.format(aupr_pos) + \
-                 'Misclassification AUPR-neg: {}\n\n'.format(aupr_neg)
+    res_string = evaluation_name + ':\nMisclassification ROC-AUC: {:.3f}\n'.format(roc_auc) + \
+                 'Misclassification AUPR-pos: {:.3f}\n'.format(aupr_pos) + \
+                 'Misclassification AUPR-neg: {:.3f}\n\n'.format(aupr_neg)
     if save_dir:
         with open(os.path.join(save_dir, 'misclassification_detection_results.txt'), 'a+') as f:
             f.write(res_string)
@@ -175,8 +175,8 @@ def main(args):
     # Calculate the ROC AUC scores
     with open(os.path.join(args.save_dir, 'roc_auc_results.txt'), 'w') as f:
         write_str = 'Seen-seen ROC-AUC: {}\n'.format(
-            ensemble_seen.calc_roc_auc()) + 'Unseen-unseen ROC-AUC: {}\n\n'.format(ensemble_unseen.calc_roc_auc())
-        f.write()
+            ensemble_seen.calc_roc_auc()) + 'Unseen-unseen ROC-AUC: {:.3f}\n\n'.format(ensemble_unseen.calc_roc_auc())
+        f.write(write_str)
     return
 
 
