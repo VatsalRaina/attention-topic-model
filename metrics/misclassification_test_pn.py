@@ -54,6 +54,7 @@ class ModelEvaluationStats(object):
         # Calculate the measures of uncertainty
         self.diff_entropy = calc_dirich_diff_entropy(self.alphas)
         self.mutual_info = calc_dirich_mutual_info(self.alphas)
+        self.entropy = calc_entropy(self.probs)
 
         # Calculate misclassifications
         self.predictions = np.asarray(self.probs >= 0.5, dtype=np.float32)
@@ -65,6 +66,11 @@ class ModelEvaluationStats(object):
 
     def __len__(self):
         return self.size
+
+
+def calc_entropy(probabilities):
+    entropy = - probabilities * np.log(probabilities) - (1. - probabilities) * np.log((1. - probabilities))
+    return entropy
 
 
 def calc_dirich_diff_entropy(alphas):
@@ -194,11 +200,11 @@ def run_rejection_plot(eval_stats_list, uncertainty_attr_name, evaluation_name, 
     auc_array_uncertainty = []
 
     # Calculate the number of examples to include for each data point
-    num_preds = len(eval_stats_list[0])
-    examples_included_arr = np.floor(np.linspace(0., 1., num=resolution, endpoint=False) * num_preds).astype(
+    num_examples = len(eval_stats_list[0])
+    examples_rejected_arr = np.floor(np.linspace(0., 1., num=resolution, endpoint=False) * num_examples).astype(
         np.int32)
-    examples_included_arr = np.flip(examples_included_arr)
-    rejection_ratios = 1. - (examples_included_arr.astype(np.float32) / num_preds)
+    examples_included_arr = num_examples - examples_rejected_arr
+    rejection_ratios = examples_rejected_arr.astype(np.float32) / num_examples
 
     y_points = []  # List to store the y_coordinates for the plots for each model
     y_points_oracle = []
@@ -281,10 +287,14 @@ def main(args):
                                                   evaluation_name='Seen-seen Mutual Info', save_dir=args.save_dir)
     run_misclassification_detection_over_ensemble(all_evaluation_stats_seen, uncertainty_attr_name='diff_entropy',
                                                   evaluation_name='Seen-seen Diff. Entropy', save_dir=args.save_dir)
+    run_misclassification_detection_over_ensemble(all_evaluation_stats_seen, uncertainty_attr_name='entropy',
+                                                  evaluation_name='Seen-seen Entropy', save_dir=args.save_dir)
     run_misclassification_detection_over_ensemble(all_evaluation_stats_unseen, uncertainty_attr_name='mutual_info',
                                                   evaluation_name='Unseen-unseen Mutual Info', save_dir=args.save_dir)
     run_misclassification_detection_over_ensemble(all_evaluation_stats_unseen, uncertainty_attr_name='diff_entropy',
                                                   evaluation_name='Unseen-unseen Diff. Entropy', save_dir=args.save_dir)
+    run_misclassification_detection_over_ensemble(all_evaluation_stats_unseen, uncertainty_attr_name='entropy',
+                                                  evaluation_name='Unseen-unseen Entropy', save_dir=args.save_dir)
 
     # Calculate the average ROC AUC scores
     open(os.path.join(args.save_dir, 'roc_auc_results.txt'), 'w').close()

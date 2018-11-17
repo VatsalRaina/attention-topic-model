@@ -59,7 +59,7 @@ class EnsembleStats(object):
         self.labels = labels[0]
 
         # Calculate the measures of uncertainty
-        self.mutual_info = self.calc_mutual_info()
+        self.mutual_info, self.entropy_of_expected, self.expected_entropy = self.calc_mutual_info()
 
         # Calculate misclassifications
         self.predictions = np.asarray(self.probs >= 0.5, dtype=np.float32)
@@ -81,7 +81,7 @@ class EnsembleStats(object):
         expected_entropy = np.mean(entropy, axis=1)
         # Mutual information can be expressed as the difference between the two
         mutual_information = entropy_of_expected - expected_entropy
-        return mutual_information
+        return mutual_information, entropy_of_expected, expected_entropy
 
     def calc_roc_auc(self):
         return roc_auc_score(self.labels, self.probs)
@@ -167,10 +167,25 @@ def main(args):
     # Clear the contents of the file
     open(os.path.join(args.save_dir, 'misclassification_detection_results.txt'), 'w').close()
     # Calculate the metrics and numerical results:
+
+    with open(os.path.join(args.save_dir, 'misclassification_detection_results.txt'), 'a') as f:
+        # Write the accuracy
+        f.write("Accuracy (seen-seen): {:3f}\n".format(ensemble_seen.correct.mean()))
+        f.write("Accuracy (unseen-unseen): {:3f}\n\n".format(ensemble_unseen.correct.mean()))
+
     run_misclassification_detection_experiment(ensemble_seen.misclassifications, ensemble_seen.mutual_info,
                                                evaluation_name='Seen-seen Mutual Info', save_dir=args.save_dir)
+    run_misclassification_detection_experiment(ensemble_seen.misclassifications, ensemble_seen.expected_entropy,
+                                               evaluation_name='Seen-seen Expected Entropy', save_dir=args.save_dir)
+    run_misclassification_detection_experiment(ensemble_seen.misclassifications, ensemble_seen.entropy_of_expected,
+                                               evaluation_name='Seen-seen Entropy of Expected', save_dir=args.save_dir)
     run_misclassification_detection_experiment(ensemble_unseen.misclassifications, ensemble_unseen.mutual_info,
                                                evaluation_name='Unseen-unseen Mutual Info', save_dir=args.save_dir)
+    run_misclassification_detection_experiment(ensemble_unseen.misclassifications, ensemble_unseen.expected_entropy,
+                                               evaluation_name='Unseen-unseen Expected Entropy', save_dir=args.save_dir)
+    run_misclassification_detection_experiment(ensemble_unseen.misclassifications, ensemble_unseen.entropy_of_expected,
+                                               evaluation_name='Unseen-unseen Entropy of Expected',
+                                               save_dir=args.save_dir)
 
     # Calculate the ROC AUC scores
     with open(os.path.join(args.save_dir, 'roc_auc_results.txt'), 'w') as f:
