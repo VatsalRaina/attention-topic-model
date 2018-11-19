@@ -377,13 +377,12 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     roc_auc_scores = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
     roc_auc_scores_oracle = np.zeros(shape=[proportions_included.shape[0], predictions.shape[-1]], dtype=np.float32)
     for fold in range(predictions.shape[-1]):
-        sorted_order = np.argsort(sort_by_array[:,fold])
+        sorted_order = np.argsort(sort_by_array[:, fold])
 
         labels_sorted = labels[sorted_order]
         predictions_sorted = predictions[sorted_order, fold]
 
-
-        error = np.abs(labels - predictions[:,fold])
+        error = np.abs(labels - predictions[:, fold])
         error_sort = np.argsort(error)
         labels_oracle_sorted = labels[error_sort]
         predictions_oracle_sorted = predictions[error_sort, fold]

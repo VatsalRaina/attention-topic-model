@@ -148,6 +148,123 @@ def run_misclassification_detection_experiment(misclassification_labels, uncerta
     return
 
 
+# def _plot_rejection_plot_data_single(rejection_ratios, roc_auc_scores, legend_label, color='red'):
+#     mean_roc = roc_auc_scores.mean(axis=1)
+#     std_roc = roc_auc_scores.std(axis=1)
+#
+#     plt.plot(rejection_ratios[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)], label=legend_label, color=color)
+#     plt.fill_between(rejection_ratios[~np.isnan(mean_roc)],
+#                      mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)],
+#                      mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2, color=color)
+#
+#     return mean_roc, std_roc
+
+
+# def _calc_auc_rr_single(rejection_ratios, roc_auc_scores):
+#     num_models = roc_auc_scores.shape[-1]
+#     rr_aucs = np.empty(shape=num_models, dtype=np.float32)
+#     for i in range(num_models):
+#         auc_model = auc(rejection_ratios, roc_auc_scores[:, i])
+#
+#         roc_auc_wo_rejection = roc_auc_scores[0, i]
+#         auc_baseline = auc(np.array([0., 1.]), np.array([roc_auc_wo_rejection, 1.]))
+#
+#         rr_aucs[i] = auc_model - auc_baseline
+#     return rr_aucs
+
+
+def _calc_rejection_plot_data_single(labels, probs, uncertainty, examples_included_arr):
+    resolution = len(examples_included_arr)
+    # Sort by uncertainty
+    sort_idx = np.argsort(uncertainty)
+    probs_sorted = probs[sort_idx]
+    labels_sorted = labels[sort_idx]
+
+    roc_auc_scores = np.zeros(shape=len(examples_included_arr), dtype=np.float32)
+
+    # Calculate ROC-AUC at different ratios
+    for i in xrange(resolution):
+        examples_included = examples_included_arr[i]
+        probs_post_rejection = np.hstack(
+            [probs_sorted[:examples_included], labels_sorted[examples_included:]])
+        try:
+            roc_auc_scores[i] = roc_auc_score(labels_sorted, probs_post_rejection)
+        except ValueError:
+            roc_auc_scores[i] = np.nan
+    return roc_auc_scores
+
+
+def make_rejection_plot(labels, probs, uncertainty_metrics, uncertainty_display_names, evaluation_name,
+                        savedir=None, resolution=100):
+    """
+    :param make_plot:
+    :param resolution:
+    :return: (rejection_ratios, y_points, rejection_curve_auc)
+    rejection_ratios are the exact rejection ratios used to calculate each ROC AUC data point for each model
+    y_points is a list of arrays of ROC-AUC scores corresponding to each rejection ratio in rejection ratios, for every
+    model
+    rejection_curve_auc is a list of areas under the curve of the rejection plot for each model
+    """
+    # Calculate the number of examples to include for each data point
+    num_examples = len(labels)
+    num_uncertainty_metrics = len(uncertainty_metrics)
+    assert len(uncertainty_display_names) == num_uncertainty_metrics
+
+    examples_rejected_arr = np.floor(np.linspace(0., 1., num=resolution, endpoint=False) * num_examples).astype(
+        np.int32)
+    examples_included_arr = num_examples - examples_rejected_arr
+    rejection_ratios = examples_rejected_arr.astype(np.float32) / num_examples
+
+    roc_auc_scores_list = []
+
+    for i in range(num_uncertainty_metrics):
+        uncertainty = uncertainty_metrics[i]
+        roc_auc_scores = _calc_rejection_plot_data_single(labels, probs, uncertainty, examples_included_arr)
+        roc_auc_scores_list.append(roc_auc_scores)
+
+    # Calculate the curve for the oracle
+    l1_error = np.abs(probs - labels).astype(np.float32)
+    roc_auc_scores_oracle = _calc_rejection_plot_data_single(labels, probs, l1_error, examples_included_arr)
+
+    # Make the plot
+    clrs = sns.color_palette("husl", num_uncertainty_metrics + 1)
+    for i in range(num_uncertainty_metrics):
+        roc_auc_scores = roc_auc_scores_list[i]
+        plt.plot(rejection_ratios[~np.isnan(roc_auc_scores)], roc_auc_scores[~np.isnan(roc_auc_scores)],
+                 label=uncertainty_display_names[i], color=clrs[i])
+
+    # Make the curve for the oracle
+    plt.plot(rejection_ratios[~np.isnan(roc_auc_scores_oracle)],
+             roc_auc_scores_oracle[~np.isnan(roc_auc_scores_oracle)], label='Oracle', color=clrs[-1])
+
+    # Plot the random baseline
+    plt.plot([0.0, 1.0], [roc_auc_scores_oracle[0], 1.], 'k--', lw=4)
+
+    plt.xlabel("Percentage examples rejected to revaluation")
+    plt.ylabel("ROC AUC score after revaluation")
+    plt.xlim(0.0, 1.0)
+    plt.ylim(ymax=1.0)
+    plt.legend(title='Uncertainty Metric', loc='lower right')
+
+    if savedir is not None:
+        # Calculate the AUC_RR scores
+        # Baseline
+        baseline_auc = auc([0., 1.], [min(roc_auc_scores_oracle[0]), 1.])
+
+        # For the oracle
+        oracle_auc = auc(rejection_ratios, roc_auc_scores_oracle)
+        for i in range(num_uncertainty_metrics):
+            curve_auc = auc(rejection_ratios, roc_auc_scores_list[i])
+            auc_rr = (curve_auc - baseline_auc) / (oracle_auc - baseline_auc)
+            with open(os.path.join(savedir, 'auc_rr.txt'), 'a') as f:
+                f.write(evaluation_name + ' | Uncertainty: ' + uncertainty_display_names[i] + '\n')
+                f.write('ROC AUC RR of Ensemble: {}\n'.format(auc_rr))
+
+        # Save the plot
+        plt.savefig(os.path.join(savedir, 'auc_rr.png'), bbox_inches='tight')
+    return
+
+
 def main(args):
     # Create save directory if doesn't exist:
     if not os.path.isdir(args.save_dir):
@@ -192,6 +309,20 @@ def main(args):
         write_str = 'Seen-seen ROC-AUC: {}\n'.format(
             ensemble_seen.calc_roc_auc()) + 'Unseen-unseen ROC-AUC: {:.3f}\n\n'.format(ensemble_unseen.calc_roc_auc())
         f.write(write_str)
+
+    # Calculate AUC_RR
+    open(os.path.join(args.save_dir, 'auc_rr.txt'), 'w').close()
+    make_rejection_plot(ensemble_seen.labels, ensemble_seen.probs, uncertainty_metrics=[ensemble_seen.entropy_of_expected,
+                                                                                        ensemble_seen.mutual_info,
+                                                                                        ensemble_seen.expected_entropy],
+                        uncertainty_display_names=['Entropy of Avg.', 'Mutual Info.', 'Avg. Entropy'],
+                        evaluation_name='Seen-seen', savedir=args.save_dir)
+    make_rejection_plot(ensemble_unseen.labels, ensemble_unseen.probs,
+                        uncertainty_metrics=[ensemble_unseen.entropy_of_expected,
+                                             ensemble_unseen.mutual_info,
+                                             ensemble_unseen.expected_entropy],
+                        uncertainty_display_names=['Entropy of Avg.', 'Mutual Info.', 'Avg. Entropy'],
+                        evaluation_name='Unseen-unseen', savedir=args.save_dir)
     return
 
 

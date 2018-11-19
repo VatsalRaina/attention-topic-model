@@ -28,6 +28,8 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import auc
 
+from metrics.misclassification_test_pn import make_rejection_plot
+
 sns.set(style='whitegrid')
 
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
@@ -186,6 +188,14 @@ def main(args):
     run_roc_auc_over_ensemble(all_evaluation_stats_seen, evaluation_name='Seen-seen', save_dir=args.save_dir)
     run_roc_auc_over_ensemble(all_evaluation_stats_unseen, evaluation_name='Uneen-unseen', save_dir=args.save_dir)
 
+    # Calculate the AUC_RR
+    open(os.path.join(args.save_dir, 'auc_rr.txt'), 'w').close()
+    make_rejection_plot(all_evaluation_stats_seen, uncertainty_attr_names=['entropy'],
+                        uncertainty_display_names=['Entropy'],
+                        evaluation_name='Seen-seen', savedir=args.save_dir)
+    make_rejection_plot(all_evaluation_stats_unseen, uncertainty_attr_names=['entropy'],
+                        uncertainty_display_names=['Entropy'],
+                        evaluation_name='Unseen-unseen', savedir=args.save_dir)
     return
 
 

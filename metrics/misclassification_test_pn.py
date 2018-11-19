@@ -185,10 +185,55 @@ def run_roc_auc_over_ensemble(eval_stats_list, evaluation_name, save_dir=None):
     return
 
 
-def run_rejection_plot(eval_stats_list, uncertainty_attr_name, evaluation_name, savedir=None, make_plot=False,
-                       resolution=100):
-    """
+def _plot_rejection_plot_data_single(rejection_ratios, roc_auc_scores, legend_label, color='red'):
+    mean_roc = roc_auc_scores.mean(axis=1)
+    std_roc = roc_auc_scores.std(axis=1)
 
+    plt.plot(rejection_ratios[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)], label=legend_label, color=color)
+    plt.fill_between(rejection_ratios[~np.isnan(mean_roc)],
+                     mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)],
+                     mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2, color=color)
+
+    return mean_roc, std_roc
+
+
+def _calc_auc_rr_single(rejection_ratios, roc_auc_scores):
+    num_models = roc_auc_scores.shape[-1]
+    rr_aucs = np.empty(shape=num_models, dtype=np.float32)
+    for i in range(num_models):
+        auc_model = auc(rejection_ratios, roc_auc_scores[:, i])
+
+        roc_auc_wo_rejection = roc_auc_scores[0, i]
+        auc_baseline = auc(np.array([0., 1.]), np.array([roc_auc_wo_rejection, 1.]))
+
+        rr_aucs[i] = auc_model - auc_baseline
+    return rr_aucs
+
+
+def _calc_rejection_plot_data_single(labels, probs, uncertainty, examples_included_arr):
+    resolution = len(examples_included_arr)
+    # Sort by uncertainty
+    sort_idx = np.argsort(uncertainty)
+    probs_sorted = probs[sort_idx]
+    labels_sorted = labels[sort_idx]
+
+    roc_auc_scores = np.zeros(shape=len(examples_included_arr), dtype=np.float32)
+
+    # Calculate ROC-AUC at different ratios
+    for i in xrange(resolution):
+        examples_included = examples_included_arr[i]
+        probs_post_rejection = np.hstack(
+            [probs_sorted[:examples_included], labels_sorted[examples_included:]])
+        try:
+            roc_auc_scores[i] = roc_auc_score(labels_sorted, probs_post_rejection)
+        except ValueError:
+            roc_auc_scores[i] = np.nan
+    return roc_auc_scores
+
+
+def make_rejection_plot(eval_stats_list, uncertainty_attr_names, uncertainty_display_names, evaluation_name,
+                        savedir=None, resolution=100):
+    """
     :param make_plot:
     :param resolution:
     :return: (rejection_ratios, y_points, rejection_curve_auc)
@@ -197,74 +242,65 @@ def run_rejection_plot(eval_stats_list, uncertainty_attr_name, evaluation_name, 
     model
     rejection_curve_auc is a list of areas under the curve of the rejection plot for each model
     """
-    auc_array_uncertainty = []
-
     # Calculate the number of examples to include for each data point
     num_examples = len(eval_stats_list[0])
+    num_models = len(eval_stats_list)
+    num_uncertainty_metrics = len(uncertainty_attr_names)
+    assert len(uncertainty_display_names) == num_uncertainty_metrics
+
     examples_rejected_arr = np.floor(np.linspace(0., 1., num=resolution, endpoint=False) * num_examples).astype(
         np.int32)
     examples_included_arr = num_examples - examples_rejected_arr
     rejection_ratios = examples_rejected_arr.astype(np.float32) / num_examples
 
-    y_points = []  # List to store the y_coordinates for the plots for each model
-    y_points_oracle = []
-    rejection_curve_auc = []
-    oracle_rejection_curve_auc = []
+    roc_auc_scores_list = [np.zeros(shape=[resolution, num_models], dtype=np.float32) for i in
+                           range(num_uncertainty_metrics)]
+    roc_auc_scores_oracle = np.zeros(shape=[resolution, num_models], dtype=np.float32)
 
-    for eval_stats in eval_stats_list:
-        uncertainty = getattr(eval_stats, uncertainty_attr_name)
-        predictions = eval_stats.preds
-        labels = eval_stats.labels
+    for i in range(num_models):
+        eval_stats = eval_stats_list[i]
 
+        # Calculate the curve based on the uncertainty metrics
+        for j in range(num_uncertainty_metrics):
+            uncertainty = getattr(eval_stats, uncertainty_attr_names[j])
+            roc_auc_scores_list[j][:, i] = _calc_rejection_plot_data_single(eval_stats.labels, eval_stats.probs,
+                                                                            uncertainty, examples_included_arr)
+        # Calculate the curve for the oracle
+        l1_error = np.abs(eval_stats.probs - eval_stats.labels).astype(np.float32)
+        roc_auc_scores_oracle[:, i] = _calc_rejection_plot_data_single(eval_stats.labels, eval_stats.probs,
+                                                                       l1_error, examples_included_arr)
 
-        # Sort by uncertainty
-        sort_idx = np.argsort(uncertainty)
-        predictions = predictions[sort_idx]
-        labels = labels[sort_idx]
+    # Make the plot
+    clrs = sns.color_palette("husl", num_uncertainty_metrics + 1)
+    for i in range(num_uncertainty_metrics):
+        _plot_rejection_plot_data_single(rejection_ratios, roc_auc_scores_list[i],
+                                         legend_label=uncertainty_display_names[i], color=clrs[i])
+    # Make the curve for the oracle
+    mean_roc_oracle, std_roc_oracle = _plot_rejection_plot_data_single(rejection_ratios, roc_auc_scores_oracle,
+                                                                       legend_label='Oracle', color=clrs[-1])
 
-        roc_auc_list = []
-        # Calculate ROC-AUC at different ratios
-        for examples_included in examples_included_arr:
-            predictions_with_rejection = np.hstack([predictions[:examples_included], labels[examples_included:]])
-            roc_auc_list.append(roc_auc_score(labels, predictions_with_rejection))
+    # Plot the random baseline
+    plt.plot([0.0, 1.0], [mean_roc_oracle[0], 1], 'k--', lw=4)
 
-        roc_auc_arr = np.array(roc_auc_list, dtype=np.float32)
+    plt.xlabel("Percentage examples rejected to revaluation")
+    plt.ylabel("ROC AUC score after revaluation")
+    plt.xlim(0.0, 1.0)
+    plt.ylim(ymax=1.0)
+    plt.legend(title='Uncertainty Metric', loc='lower right')
 
-        y_points.append(roc_auc_arr)
-        rejection_curve_auc.append(auc(rejection_ratios, roc_auc_arr))
+    if savedir is not None:
+        # Calculate the AUC_RR scores
+        # For the oracle
+        oracle_rr_auc = _calc_auc_rr_single(rejection_ratios, roc_auc_scores_oracle)
+        for i in range(num_uncertainty_metrics):
+            auc_rr = _calc_auc_rr_single(rejection_ratios, roc_auc_scores_list[i]) / oracle_rr_auc
+            with open(os.path.join(savedir, 'auc_rr.txt'), 'a') as f:
+                f.write(evaluation_name + ' | Uncertainty: ' + uncertainty_display_names[i] + '\n')
+                f.write('ROC AUC RR of Inidivudal: {} +- {}\n'.format(auc_rr.mean(), auc_rr.std()))
 
-
-        # Get the oracle results
-        # Sort by how wrong the model is
-        sort_idx = np.argsort(np.abs(labels.astype(np.float32) - predictions))
-        predictions = predictions[sort_idx]
-        labels = labels[sort_idx]
-
-        roc_auc_list = []
-        # Calculate ROC-AUC at different ratios
-        for examples_included in examples_included_arr:
-            predictions_with_rejection = np.hstack([predictions[:examples_included], labels[examples_included:]])
-            roc_auc_list.append(roc_auc_score(labels, predictions_with_rejection))
-        roc_auc_arr = np.array(roc_auc_list, dtype=np.float32)
-
-        y_points_oracle.append(roc_auc_arr)
-        oracle_rejection_curve_auc.append(auc(rejection_ratios, roc_auc_arr))
-
-    rejection_curve_auc = np.array(rejection_curve_auc)
-    oracle_rejection_curve_auc = np.array(oracle_rejection_curve_auc)
-
-
-    res_string = evaluation_name + ':\nRejection ratio AUC = {} +/- {}\n' \
-                                   'Oraclo RR-curve AUC: {} +/- {}\n'.format(
-        str(rejection_curve_auc.mean()), str(rejection_curve_auc.std()), str(oracle_rejection_curve_auc.mean()),
-        str(oracle_rejection_curve_auc.std()))
-    print(res_string)
-
-    if savedir:
-        with open(os.path.join(savedir, 'rejection_ratio_auc.txt'), 'a+') as f:
-            f.write(res_string)
-
-    return rejection_ratios, y_points, y_points_oracle
+        # Save the plot
+        plt.savefig(os.path.join(savedir, 'auc_rr.png'), bbox_inches='tight')
+    return
 
 
 def main(args):
@@ -300,6 +336,16 @@ def main(args):
     open(os.path.join(args.save_dir, 'roc_auc_results.txt'), 'w').close()
     run_roc_auc_over_ensemble(all_evaluation_stats_seen, evaluation_name='Seen-seen', save_dir=args.save_dir)
     run_roc_auc_over_ensemble(all_evaluation_stats_unseen, evaluation_name='Uneen-unseen', save_dir=args.save_dir)
+
+    # Calculate the AUC_RR values and make the plots
+    open(os.path.join(args.save_dir, 'auc_rr.txt'), 'w').close()
+    make_rejection_plot(all_evaluation_stats_seen, uncertainty_attr_names=['entropy', 'mutual_info', 'diff_entropy'],
+                        uncertainty_display_names=['Entropy', 'Mutual Info.', 'Diff. Entropy'],
+                        evaluation_name='Seen-seen', savedir=args.save_dir)
+    make_rejection_plot(all_evaluation_stats_unseen, uncertainty_attr_names=['entropy', 'mutual_info', 'diff_entropy'],
+                        uncertainty_display_names=['Entropy', 'Mutual Info.', 'Diff. Entropy'],
+                        evaluation_name='Unseen-unseen', savedir=args.save_dir)
+
 
 
 if __name__ == '__main__':
