@@ -28,7 +28,7 @@ from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import auc
 
-sns.set(style='whitegrid')
+sns.set()
 
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
 parser.add_argument('models_parent_dir', type=str, help='Path to directory with models')
@@ -39,6 +39,7 @@ parser.add_argument('--unseen_eval_dir', type=str, default='eval_linsk_ALL')
 parser.add_argument('--seen_eval_dir', type=str, default='eval4_CDE')
 parser.add_argument('--num_trained_models', type=int, default=10)
 
+matplotlib.rcParams['savefig.dpi'] = 200
 
 class EnsembleStats(object):
     def __init__(self, eval_stats_list):
@@ -227,13 +228,14 @@ def make_rejection_plot(labels, probs, uncertainty_metrics, uncertainty_display_
     roc_auc_scores_oracle = _calc_rejection_plot_data_single(labels, probs, l1_error, examples_included_arr)
 
     # Make the plot
-    clrs = sns.color_palette("husl", num_uncertainty_metrics + 1)
+    plt.clf()
+    clrs = sns.color_palette("hls", num_uncertainty_metrics + 1)
     for i in range(num_uncertainty_metrics):
         roc_auc_scores = roc_auc_scores_list[i]
         plt.plot(rejection_ratios[~np.isnan(roc_auc_scores)], roc_auc_scores[~np.isnan(roc_auc_scores)],
                  label=uncertainty_display_names[i], color=clrs[i])
 
-    # Make the curve for the oracle
+    # Make thdk curve for the oracle
     plt.plot(rejection_ratios[~np.isnan(roc_auc_scores_oracle)],
              roc_auc_scores_oracle[~np.isnan(roc_auc_scores_oracle)], label='Oracle', color=clrs[-1])
 
@@ -258,10 +260,10 @@ def make_rejection_plot(labels, probs, uncertainty_metrics, uncertainty_display_
             auc_rr = (curve_auc - baseline_auc) / (oracle_auc - baseline_auc)
             with open(os.path.join(savedir, 'auc_rr.txt'), 'a') as f:
                 f.write(evaluation_name + ' | Uncertainty: ' + uncertainty_display_names[i] + '\n')
-                f.write('ROC AUC RR of Ensemble: {}\n'.format(auc_rr))
+                f.write('ROC AUC RR of Ensemble: {:.3f}\n'.format(auc_rr))
 
         # Save the plot
-        plt.savefig(os.path.join(savedir, 'auc_rr.png'), bbox_inches='tight')
+        plt.savefig(os.path.join(savedir, 'auc_rr_{}.png'.format(evaluation_name), bbox_inches='tight')
     return
 
 

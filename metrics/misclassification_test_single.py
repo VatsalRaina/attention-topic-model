@@ -30,7 +30,7 @@ from sklearn.metrics import auc
 
 from metrics.misclassification_test_pn import make_rejection_plot
 
-sns.set(style='whitegrid')
+sns.set()
 
 parser = argparse.ArgumentParser(description='Plot useful graphs for evaluation.')
 parser.add_argument('models_parent_dir', type=str, help='Path to directory with models')
@@ -41,6 +41,7 @@ parser.add_argument('--unseen_eval_dir', type=str, default='eval_linsk_ALL')
 parser.add_argument('--seen_eval_dir', type=str, default='eval4_CDE')
 parser.add_argument('--num_trained_models', type=int, default=10)
 
+matplotlib.rcParams['savefig.dpi'] = 200
 
 class ModelEvaluationStats(object):
     def __init__(self, model_dir_path, eval_dir='eval4_CDE'):
