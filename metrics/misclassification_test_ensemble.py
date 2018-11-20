@@ -253,7 +253,7 @@ def make_rejection_plot(labels, probs, uncertainty_metrics, uncertainty_display_
     if savedir is not None:
         # Calculate the AUC_RR scores
         # Baseline
-        baseline_auc = auc([0., 1.], [min(roc_auc_scores_oracle[0]), 1.])
+        baseline_auc = auc([0., 1.], [roc_auc_scores_oracle[0], 1.])
 
         # For the oracle
         oracle_auc = auc(rejection_ratios, roc_auc_scores_oracle)
@@ -265,7 +265,7 @@ def make_rejection_plot(labels, probs, uncertainty_metrics, uncertainty_display_
                 f.write('ROC AUC RR of Ensemble: {:.3f}\n'.format(auc_rr))
 
         # Save the plot
-        plt.savefig(os.path.join(savedir, 'auc_rr_{}.png'.format(evaluation_name), bbox_inches='tight')
+        plt.savefig(os.path.join(savedir, 'auc_rr_{}.png'.format(evaluation_name), bbox_inches='tight'))
     return
 
 

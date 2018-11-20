@@ -2,6 +2,7 @@
 from __future__ import print_function, division
 
 import context
+from metrics.misclassification_test_pn import make_rejection_plot
 
 import sys
 import os
@@ -29,8 +30,6 @@ import matplotlib.patches as mpatches
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import precision_recall_curve
 from sklearn.metrics import auc
-
-from metrics.misclassification_test_pn import make_rejection_plot
 
 sns.set()
 

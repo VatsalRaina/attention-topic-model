@@ -205,7 +205,6 @@ def _calc_auc_rr_single(rejection_ratios, roc_auc_scores):
     rr_aucs = np.empty(shape=num_models, dtype=np.float32)
     for i in range(num_models):
         auc_model = auc(rejection_ratios, roc_auc_scores[:, i])
-
         roc_auc_wo_rejection = roc_auc_scores[0, i]
         assert roc_auc_wo_rejection is not np.nan
         auc_baseline = auc(np.array([0., 1.]), np.array([roc_auc_wo_rejection, 1.]))
@@ -253,7 +252,7 @@ def make_rejection_plot(eval_stats_list, uncertainty_attr_names, uncertainty_dis
     num_uncertainty_metrics = len(uncertainty_attr_names)
     assert len(uncertainty_display_names) == num_uncertainty_metrics
 
-    examples_rejected_arr = np.floor(np.linspace(0., 1., num=resolution, endpoint=False) * num_examples).astype(
+    examples_rejected_arr = np.floor(np.linspace(0., 1., num=resolution, endpoint=True) * num_examples).astype(
         np.int32)
     examples_included_arr = num_examples - examples_rejected_arr
     rejection_ratios = examples_rejected_arr.astype(np.float32) / num_examples
@@ -299,7 +298,8 @@ def make_rejection_plot(eval_stats_list, uncertainty_attr_names, uncertainty_dis
         # For the oracle
         oracle_rr_auc = _calc_auc_rr_single(rejection_ratios, roc_auc_scores_oracle)
         for i in range(num_uncertainty_metrics):
-            auc_rr = _calc_auc_rr_single(rejection_ratios, roc_auc_scores_list[i]) / oracle_rr_auc
+            uncertainty_rr_auc = _calc_auc_rr_single(rejection_ratios, roc_auc_scores_list[i])
+            auc_rr = uncertainty_rr_auc / oracle_rr_auc
             with open(os.path.join(savedir, 'auc_rr.txt'), 'a') as f:
                 f.write(evaluation_name + ' | Uncertainty: ' + uncertainty_display_names[i] + '\n')
                 f.write('ROC AUC RR of Inidivudal: {:.3f} +- {:.3f}\n'.format(auc_rr.mean(), auc_rr.std()))
