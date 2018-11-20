@@ -1,5 +1,7 @@
 from __future__ import print_function, division
 
+import context
+
 import sys
 import os
 import numpy as np
@@ -189,7 +191,8 @@ def _plot_rejection_plot_data_single(rejection_ratios, roc_auc_scores, legend_la
     mean_roc = roc_auc_scores.mean(axis=1)
     std_roc = roc_auc_scores.std(axis=1)
 
-    plt.plot(rejection_ratios[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)], label=legend_label, color=color)
+    plt.plot(rejection_ratios[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)], label=legend_label, color=color,
+             alpha=.9)
     plt.fill_between(rejection_ratios[~np.isnan(mean_roc)],
                      mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)],
                      mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2, color=color)
@@ -198,13 +201,15 @@ def _plot_rejection_plot_data_single(rejection_ratios, roc_auc_scores, legend_la
 
 
 def _calc_auc_rr_single(rejection_ratios, roc_auc_scores):
-    num_models = roc_auc_scores.shape[-1]
+    num_models = roc_auc_scores.shape[1]
     rr_aucs = np.empty(shape=num_models, dtype=np.float32)
     for i in range(num_models):
         auc_model = auc(rejection_ratios, roc_auc_scores[:, i])
 
         roc_auc_wo_rejection = roc_auc_scores[0, i]
+        assert roc_auc_wo_rejection is not np.nan
         auc_baseline = auc(np.array([0., 1.]), np.array([roc_auc_wo_rejection, 1.]))
+        assert np.abs(auc_baseline - (1. + roc_auc_wo_rejection) / 2) < 0.001  # Assert the two formula yield identical
 
         rr_aucs[i] = auc_model - auc_baseline
     return rr_aucs
@@ -217,7 +222,7 @@ def _calc_rejection_plot_data_single(labels, probs, uncertainty, examples_includ
     probs_sorted = probs[sort_idx]
     labels_sorted = labels[sort_idx]
 
-    roc_auc_scores = np.zeros(shape=len(examples_included_arr), dtype=np.float32)
+    roc_auc_scores = np.zeros(shape=resolution, dtype=np.float32)
 
     # Calculate ROC-AUC at different ratios
     for i in xrange(resolution):
@@ -281,7 +286,7 @@ def make_rejection_plot(eval_stats_list, uncertainty_attr_names, uncertainty_dis
                                                                        legend_label='Oracle', color=clrs[-1])
 
     # Plot the random baseline
-    plt.plot([0.0, 1.0], [mean_roc_oracle[0], 1], 'k--', lw=4)
+    plt.plot([0.0, 1.0], [mean_roc_oracle[0], 1], 'k--', lw=3)
 
     plt.xlabel("Percentage examples rejected to revaluation")
     plt.ylabel("ROC AUC score after revaluation")

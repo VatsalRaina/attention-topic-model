@@ -1,6 +1,8 @@
 "Misclassification detection test, but for an ensemble"
 from __future__ import print_function, division
 
+import context
+
 import sys
 import os
 import numpy as np
@@ -233,14 +235,14 @@ def make_rejection_plot(labels, probs, uncertainty_metrics, uncertainty_display_
     for i in range(num_uncertainty_metrics):
         roc_auc_scores = roc_auc_scores_list[i]
         plt.plot(rejection_ratios[~np.isnan(roc_auc_scores)], roc_auc_scores[~np.isnan(roc_auc_scores)],
-                 label=uncertainty_display_names[i], color=clrs[i])
+                 label=uncertainty_display_names[i], color=clrs[i], alpha=.9)
 
     # Make thdk curve for the oracle
     plt.plot(rejection_ratios[~np.isnan(roc_auc_scores_oracle)],
-             roc_auc_scores_oracle[~np.isnan(roc_auc_scores_oracle)], label='Oracle', color=clrs[-1])
+             roc_auc_scores_oracle[~np.isnan(roc_auc_scores_oracle)], label='Oracle', color=clrs[-1], alpha=.9)
 
     # Plot the random baseline
-    plt.plot([0.0, 1.0], [roc_auc_scores_oracle[0], 1.], 'k--', lw=4)
+    plt.plot([0.0, 1.0], [roc_auc_scores_oracle[0], 1.], 'k--', lw=3)
 
     plt.xlabel("Percentage examples rejected to revaluation")
     plt.ylabel("ROC AUC score after revaluation")
