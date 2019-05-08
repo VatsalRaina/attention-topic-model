@@ -102,8 +102,9 @@ def get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath='eval4_naive/p
     prompt_entropies = -np.sum(attention * np.log(attention), axis=1)
     prompt_mean_entropy =  np.mean(prompt_entropies, axis=1)
     prompt_mutual_information = prompt_entropy_mean - prompt_mean_entropy
+    prompt_epkl = calc_expected_pairwise_KL_divergence(attention)
 
-    return prompt_entropy_mean, prompt_mean_entropy, prompt_mutual_information, prompt_entropies
+    return prompt_entropy_mean, prompt_mean_entropy, prompt_mutual_information, prompt_entropies, prompt_epkl
 
 
 def get_label_predictions(labels_filepath):
@@ -143,6 +144,21 @@ def calc_mutual_information(ensemble_predictions):
     # Mutual information can be expressed as the difference between the two
     mutual_information = entropy_of_expected - expected_entropy
     return mutual_information, entropy_of_expected
+
+def KL_divergence(p,q):
+    return np.sum(p*(np.log(p)-np.log(q)),axis=1)
+
+
+
+def calc_expected_pairwise_KL_divergence(ensemble_predictions):
+    epkl=0.0
+    count=0.0
+    for i in ensemble_predictions.shape[-1]:
+        for j in ensemble_predictions.shape[-1]:
+            epkl+=KL_divergence(ensemble_predictions[:,:,i], ensemble_predictions[:,:,j])#+KL_divergence(ensemble_predictions[:,:,j], ensemble_predictions[:,:,i])
+            count+=1.0
+
+    return epkl/count
 
 
 def plot_spread_histogram(correct, incorrect, spread, n_bins=20, ax=None, spread_name='std'):
@@ -439,21 +455,21 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     if first:
         plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc_oracle[~np.isnan(mean_roc)])
         plt.fill_between(proportions_included[~np.isnan(mean_roc_oracle)],
-                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] - std_roc_oracle[~np.isnan(mean_roc_oracle)],
-                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] + std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
+                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] - 2.0*std_roc_oracle[~np.isnan(mean_roc_oracle)],
+                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] + 2.0*std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
 
     plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)])
-    plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2)
+    plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - 2.0*std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + 2.0*std_roc[~np.isnan(mean_roc)], alpha=.2)
     if last:
         plt.plot([0.0, 1.0], [min(mean_roc), 1], 'k--', lw=4)
     plt.xlabel("Percentage examples rejected")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(min(mean_roc-std_roc), 1.0)
+    plt.ylim(min(mean_roc-2.0*std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('ROC AUC of Individual is: ' + str(mean_roc[-1]) + ' +/- '+str(std_roc[-1])+ '\n')
+        f.write('ROC AUC of Individual is: ' + str(mean_roc[-1]) + ' +/- '+str(2.0*std_roc[-1])+ '\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('ROC AUC RR of Inidivudal is: ' + str(AUC_RR) + ' +/- '+str(std_AUC_RR)+'\n')
+        f.write('ROC AUC RR of Inidivudal is: ' + str(AUC_RR) + ' +/- '+str(2.0*std_AUC_RR)+'\n')
     return
 
 def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_label=1, resolution=100,
@@ -626,21 +642,21 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     if first:
         plt.plot(proportions_included[~np.isnan(mean_roc_oracle)], mean_roc_oracle[~np.isnan(mean_roc_oracle)])
         plt.fill_between(proportions_included[~np.isnan(mean_roc_oracle)],
-                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] - std_roc_oracle[~np.isnan(mean_roc_oracle)],
-                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] + std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
+                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] - 2.0*std_roc_oracle[~np.isnan(mean_roc_oracle)],
+                         mean_roc_oracle[~np.isnan(mean_roc_oracle)] + 2.0*std_roc_oracle[~np.isnan(mean_roc_oracle)], alpha=.2)
     plt.plot(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)])
-    plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + std_roc[~np.isnan(mean_roc)], alpha=.2)
+    plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - 2.0*std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + 2.0*std_roc[~np.isnan(mean_roc)], alpha=.2)
     if last:
         plt.plot([0.0, 1.0], [min(mean_roc), 1], 'k--', lw=4)
     plt.xlabel("Percentage examples rejected")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
-    plt.ylim(min(mean_roc-std_roc), 1.0)
+    plt.ylim(min(mean_roc-2.0*std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('AUPR with pos label of '+str(pos_label)+ ' of Individual is: ' + str(mean_roc[-1]) + ' +\- ' + str(std_roc[-1])+'\n')
+        f.write('AUPR with pos label of '+str(pos_label)+ ' of Individual is: ' + str(mean_roc[-1]) + ' +\- ' + str(2.0*std_roc[-1])+'\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
         f.write('AUPR AUC RR with pos label of ' + str(pos_label) + ' of Individual is: ' + str(AUC_RR) + ' +\- ' + str(
-            std_AUC_RR) + '\n')
+            2.0*std_AUC_RR) + '\n')
     return
 
 def plot_pr_spread_mesh(labels, predictions, sort_by_array, pos_labels=1, resolution=40, spread_name='std'):
@@ -778,7 +794,7 @@ def run_misclassification_detection(misclassification_labels, uncertainty):
 
     return [roc_auc, aupr_pos, aupr_neg]
 
-def run_misclassification_detection_over_ensemble(labels, predictions, prompt_entopies=None, savedir=None):
+def run_misclassification_detection_over_ensemble(labels, predictions, prompt_entopies=None, prompt_mi=None, prompt_epkl=None, savedir=None):
     """
     This functions runs a uncertainty based miclassification detection experiment
 
@@ -823,15 +839,15 @@ def run_misclassification_detection_over_ensemble(labels, predictions, prompt_en
 
     if savedir:
         with open(os.path.join(savedir, 'misclassification_detect_individual.txt'), 'w') as f:
-            f.write('Mean Accuracy = ' +str(m_accuracy) +'+/-' + str(std_accuract)+'\n')
-            f.write('entropy ROC AUC: '+str(auc_entropy_mean[0])+ ' +/- ' + str(auc_entropy_std[0])+ '\n')
-            f.write('entropy AUPR POS: '+str(auc_entropy_mean[1])+ ' +/- ' + str(auc_entropy_std[1])+ '\n')
-            f.write('entropy AUPR NEG: '+str(auc_entropy_mean[2])+ ' +/- ' + str(auc_entropy_std[2])+ '\n')
+            f.write('Mean Accuracy = ' +str(m_accuracy) +'+/-' + str(2.0*std_accuract)+'\n')
+            f.write('entropy ROC AUC: '+str(auc_entropy_mean[0])+ ' +/- ' + str(2.0*auc_entropy_std[0])+ '\n')
+            f.write('entropy AUPR POS: '+str(auc_entropy_mean[1])+ ' +/- ' + str(2.0*auc_entropy_std[1])+ '\n')
+            f.write('entropy AUPR NEG: '+str(auc_entropy_mean[2])+ ' +/- ' + str(2.0*auc_entropy_std[2])+ '\n')
 
             if prompt_entopies is not None:
-                f.write('prompt entropy ROC AUC: ' + str(auc_pentropy_mean[0]) + ' +/- ' + str(auc_pentropy_std[0]) + '\n')
-                f.write('prompt entropy AUPR POS: ' + str(auc_pentropy_mean[1]) + ' +/ -' + str(auc_pentropy_std[1]) + '\n')
-                f.write('prompt entropy AUPR NEG: ' + str(auc_pentropy_mean[2]) + ' +/ -' + str(auc_pentropy_std[2]) + '\n')
+                f.write('prompt entropy ROC AUC: ' + str(auc_pentropy_mean[0]) + ' +/- ' + str(2.0*auc_pentropy_std[0]) + '\n')
+                f.write('prompt entropy AUPR POS: ' + str(auc_pentropy_mean[1]) + ' +/ -' + str(2.0*auc_pentropy_std[1]) + '\n')
+                f.write('prompt entropy AUPR NEG: ' + str(auc_pentropy_mean[2]) + ' +/ -' + str(2.0*auc_pentropy_std[2]) + '\n')
 
     return entropies
 
@@ -850,7 +866,8 @@ def main():
         prompt_entropy_mean, \
         prompt_mean_entropy, \
         prompt_mutual_information, \
-        prompt_entropies = get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath=args.rel_labels_path)
+        prompt_entropies,\
+        prompt_epkl     = get_ensemble_prompt_entropies(model_dirs, rel_labels_filepath=args.rel_labels_path)
 
     if args.hatm:
         entropies=run_misclassification_detection_over_ensemble(labels, ensemble_predictions, prompt_entropies, savedir=args.savedir)
@@ -860,6 +877,8 @@ def main():
     avg_predictions = calc_avg_predictions(ensemble_predictions)
 
     mutual_information, entropy_of_avg = calc_mutual_information(ensemble_predictions)
+    ensemble_predictions_2_class = np.concatenate([ensemble_predictions,1.0-ensemble_predictions], axis=1)
+    epkl = calc_expected_pairwise_KL_divergence(ensemble_predictions_2_class)
 
     assert np.all(mutual_information >= 0.)
 
@@ -873,6 +892,7 @@ def main():
     accuracy = np.mean(correct)
     aucs_entropy = run_misclassification_detection(misclassification, entropy_of_avg)
     aucs_mi = run_misclassification_detection(misclassification, mutual_information)
+    aucs_epkl = run_misclassification_detection(misclassification, epkl)
     with open(os.path.join(args.savedir, 'misclassification_detect_ensemble.txt'), 'w') as f:
         f.write('Mean Accuracy = ' + str(accuracy) +'\n')
         f.write('entropy ROC AUC: ' + str(aucs_entropy[0]) + '\n')
@@ -883,9 +903,14 @@ def main():
         f.write('mutual information AUPR POS: ' + str(aucs_mi[1]) + '\n')
         f.write('mutual information AUPR NEG: ' + str(aucs_mi[2]) + '\n')
 
+        f.write('EPKL ROC AUC: ' + str(aucs_epkl[0]) + '\n')
+        f.write('EPKL AUPR POS: ' + str(aucs_epkl[1]) + '\n')
+        f.write('EPKL AUPR NEG: ' + str(aucs_epkl[2]) + '\n')
+
         if args.hatm:
             aucs_pentropy = run_misclassification_detection(misclassification, prompt_entropy_mean)
             aucs_pmi = run_misclassification_detection(misclassification, prompt_mutual_information)
+            aucs_pepkl = run_misclassification_detection(misclassification, prompt_epkl)
 
             f.write('prompt entropy ROC AUC: ' + str(aucs_pentropy[0]) + '\n')
             f.write('prompt entropy AUPR POS: ' + str(aucs_pentropy[1]) + '\n')
@@ -895,7 +920,9 @@ def main():
             f.write('prompt mutual information AUPR POS: ' + str(aucs_pmi[1]) + '\n')
             f.write('prompt mutual information AUPR NEG: ' + str(aucs_pmi[2]) + '\n')
 
-
+            f.write('prompt EPKL ROC AUC: ' + str(aucs_pepkl[0]) + '\n')
+            f.write('prompt EPKL AUPR POS: ' + str(aucs_pepkl[1]) + '\n')
+            f.write('prompt EPKL AUPR NEG: ' + str(aucs_pepkl[2]) + '\n')
 
 
     mean_target_deviation = np.abs(labels - avg_predictions)
@@ -1096,18 +1123,30 @@ def main():
                                     sort_by_name='mutual information', first=True, savedir=args.savedir)
 
     if args.hatm:
-        plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
-                                        sort_by_name='entropy',  savedir=args.savedir)
+        plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, first=True,
+                                        savedir=args.savedir)
+        plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
+                                          savedir=args.savedir)
+        plot_auc_vs_percentage_included(labels, avg_predictions, epkl, resolution=200,
+                                        savedir=args.savedir)
         plot_auc_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200,
-                                        sort_by_name='prompt_entropy', savedir=args.savedir,last=True)
+                                         savedir=args.savedir)
+        plot_auc_vs_percentage_included(labels, avg_predictions, prompt_mutual_information, resolution=200,
+                                          savedir=args.savedir)
+        plot_auc_vs_percentage_included(labels, avg_predictions, prompt_epkl, resolution=200,
+                                          last=True, savedir=args.savedir)
     else:
-        plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
-                                        sort_by_name='entropy', savedir=args.savedir, last=True)
-
+        plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, first=True,
+                                         savedir=args.savedir)
+        plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
+                                        savedir=args.savedir)
+        plot_auc_vs_percentage_included(labels, avg_predictions, epkl, resolution=200, last=True,
+                                          savedir=args.savedir)
     if args.hatm:
-        plt.legend(['Oracle', 'Mutual Information', 'Entropy', 'Prompt Entropy', 'Random'])
+        plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL', 'Prompt Entropy', 'Prompt Mutual Information',
+                    'Prompt EPKL', 'Random'])
     else:
-        plt.legend(['Oracle', 'Mutual Information', 'Entropy','Random'])
+        plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL', ' Random'])
     plt.savefig(savedir + '/auc_vs_cumulative_samples.png', bbox_inches='tight')
     plt.clf()
 
@@ -1144,19 +1183,29 @@ def main():
 
     # Plot AUC of PR curves
     for pos_label in range(2):
-        plot_aupr_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200, first=True, pos_label=pos_label,savedir=args.savedir)
-
         if args.hatm:
-            plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
+            plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, first=True,
                                              pos_label=pos_label, savedir=args.savedir)
-            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200, pos_label=pos_label, last=True, savedir=args.savedir)
-        else:
-            plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200,
+            plot_aupr_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
+                                             pos_label=pos_label, savedir=args.savedir)
+            plot_aupr_vs_percentage_included(labels, avg_predictions, epkl, resolution=200,
+                                             pos_label=pos_label, savedir=args.savedir)
+            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200, pos_label=pos_label, savedir=args.savedir)
+            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_mutual_information, resolution=200,
+                                             pos_label=pos_label, savedir=args.savedir)
+            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_epkl, resolution=200,
                                              pos_label=pos_label, last=True, savedir=args.savedir)
-        if args.hatm:
-            plt.legend(['Oracle', 'Mutual Information', 'Entropy', 'Prompt Entropy','Random'])
         else:
-            plt.legend(['Oracle', 'Mutual Information', 'Entropy',' Random'])
+            plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, first=True,
+                                             pos_label=pos_label, savedir=args.savedir)
+            plot_aupr_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
+                                             pos_label=pos_label, savedir=args.savedir)
+            plot_aupr_vs_percentage_included(labels, avg_predictions, epkl, resolution=200, last=True,
+                                             pos_label=pos_label, savedir=args.savedir)
+        if args.hatm:
+            plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL','Prompt Entropy','Prompt Mutual Information','Prompt EPKL','Random'])
+        else:
+            plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL',' Random'])
         plt.savefig(savedir + '/aupr_vs_cumulative_samples_pos_label'+str(pos_label)+'.png', bbox_inches='tight')
         plt.clf()
 
