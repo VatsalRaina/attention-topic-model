@@ -14,7 +14,7 @@ from atm.atm import ATMPriorNetwork
 parser = argparse.ArgumentParser(description='Compute features from labels.')
 parser.add_argument('data_dir_in_domain', type=str,
                     help='Directory with in domain data.')
-parser.add_argument('data_dir_out_domain', type=str,
+parser.add_argument('--data_dir_out_domain', type=str, default=None,
                     help='Directory with out of domain data.')
 
 parser.add_argument('--valid_file', type=str, default='relevance.valid.tfrecords',
@@ -59,7 +59,10 @@ parser.add_argument('--epoch', type=str, default=None,
                                help='which should be loaded')
 parser.add_argument('--strip_start_end', action='store_true', help='whether to strip the <s> </s> marks at the beginning and end of prompts in sorted_topics.txt file (used for legacy sorted_topics.txt formatting')
 parser.add_argument('--which_training_cost', type=str, default='contrastive',
-                    choices=['contrastive', 'contrastive_with_nll'])
+                    choices=['contrastive', 'contrastive_with_nll', 'contrastive_with_xe', 'conflictive'])
+parser.add_argument('--out_of_domain_weight', type=float, default=1.0,
+                    help='The relative weight assigned to the out of domain loss')
+parser.add_argument('--conflictive_weight', type=float, default=0.1)
 
 
 def main(args):
@@ -70,7 +73,6 @@ def main(args):
         f.write('--------------------------------\n')
 
     tfrecords_dir_in_domain = os.path.join(args.data_dir_in_domain, 'tfrecords')
-    tfrecords_dir_out_domain = os.path.join(args.data_dir_out_domain, 'tfrecords')
 
     topic_path_in_domain = os.path.join(tfrecords_dir_in_domain, args.topic_file)
 
@@ -79,7 +81,6 @@ def main(args):
     topic_count_path_in_domain = os.path.join(tfrecords_dir_in_domain, args.topic_count_file)
 
     train_data_in_domain = os.path.join(tfrecords_dir_in_domain, args.train_file)
-    train_data_out_domain = os.path.join(tfrecords_dir_out_domain, args.train_file)
 
     valid_data = os.path.join(tfrecords_dir_in_domain, args.valid_file)
 
@@ -90,6 +91,10 @@ def main(args):
     topics_in_domain, topic_lens_in_domain = text_to_array(topic_path_in_domain, wlist_path,
                                                            strip_start_end=args.strip_start_end)
 
+    if args.which_training_cost != 'conflictive':
+        assert args.data_dir_in_domain is not None
+        tfrecords_dir_out_domain = os.path.join(args.data_dir_out_domain, 'tfrecords')
+        train_data_out_domain = os.path.join(tfrecords_dir_out_domain, args.train_file)
 
     if args.strip_start_end:
         print("Stripping the first and last word (should correspond to <s> and </s> marks) "
@@ -103,24 +108,46 @@ def main(args):
                           debug_mode=args.debug,
                           epoch=args.epoch)
 
-    atm.fit_prior_net(train_data_in_domain=train_data_in_domain,
-                      train_data_out_domain=train_data_out_domain,
-                      valid_data=valid_data,
-                      load_path=args.init,
-                      topics_in_domain=topics_in_domain,
-                      topic_lens_in_domain=topic_lens_in_domain,
-                      unigram_path_in_domain=topic_count_path_in_domain,
-                      train_size=train_size,
-                      learning_rate=args.learning_rate,
-                      lr_decay=args.lr_decay,
-                      dropout=args.dropout,
-                      distortion=args.distortion,
-                      presample_batch_size=batch_size,
-                      optimizer=tf.train.AdamOptimizer,
-                      optimizer_params={},
-                      n_epochs=args.n_epochs,
-                      epoch=0,
-                      which_trn_cost=args.which_training_cost)
+    if args.which_training_cost == 'conflictive':
+        atm.fit(train_data=train_data_in_domain,
+                valid_data=valid_data,
+                load_path=args.init,
+                topics=topics_in_domain,
+                topic_lens=topic_lens_in_domain,
+                unigram_path=topic_count_path_in_domain,
+                train_size=train_size,
+                learning_rate=args.learning_rate,
+                lr_decay=args.lr_decay,
+                dropout=args.dropout,
+                distortion=args.distortion,
+                presample_batch_size=args.batch_size,
+                optimizer=tf.train.AdamOptimizer,
+                optimizer_params={},
+                n_epochs=args.n_epochs,
+                epoch=0,
+                which_trn_cost=args.which_training_cost,
+                loss_regularisation_weight=args.conflictive_weight)
+    else:
+        atm.fit_with_ood(train_data_in_domain=train_data_in_domain,
+                         train_data_out_domain=train_data_out_domain,
+                         valid_data=valid_data,
+                         load_path=args.init,
+                         topics_in_domain=topics_in_domain,
+                         topic_lens_in_domain=topic_lens_in_domain,
+                         unigram_path_in_domain=topic_count_path_in_domain,
+                         train_size=train_size,
+                         learning_rate=args.learning_rate,
+                         lr_decay=args.lr_decay,
+                         dropout=args.dropout,
+                         distortion=args.distortion,
+                         presample_batch_size=args.batch_size,
+                         optimizer=tf.train.AdamOptimizer,
+                         optimizer_params={},
+                         n_epochs=args.n_epochs,
+                         epoch=0,
+                         which_trn_cost=args.which_training_cost,
+                         out_of_domain_weight=args.out_of_domain_weight)
+
     atm.save()
 
 if __name__ == '__main__':

@@ -86,6 +86,11 @@ parser.add_argument('--match_samples', action='store_true',
 parser.add_argument('--reuse_epoch_dataset', action='store_true', help='Whether there is just one teacher dataset'
                                                                        'that the training procedure should reuse for'
                                                                        'each epoch of training.')
+parser.add_argument('--loop_epochs', default=False, type=int, help='If specified and the model is trained for epochs'
+                                                                   'than loop_epochs, for the subsequent epochs the'
+                                                                   'data from the previous epochs will be used'
+                                                                   ' (looped). Helpful when you don\'t have a' 
+                                                                   'sufficient number of epoch data.')
 
 
 def main(args):
@@ -119,7 +124,11 @@ def main(args):
         if args.reuse_epoch_dataset:
             epoch_tfrecords_dir = os.path.join(args.teacher_data_dir, 'tfrecords')
         else:
-            epoch_tfrecords_dir = os.path.join(args.teacher_data_dir, 'epoch' + str(epoch + 1), 'tfrecords')
+            if args.loop_epochs:
+                epoch_data_num = epoch % args.loop_epochs
+            else:
+                epoch_data_num = epoch
+            epoch_tfrecords_dir = os.path.join(args.teacher_data_dir, 'epoch' + str(epoch_data_num + 1), 'tfrecords')
         topic_path = os.path.join(epoch_tfrecords_dir, args.topic_file)
         wlist_path = os.path.join(epoch_tfrecords_dir, args.wlist_file)
 

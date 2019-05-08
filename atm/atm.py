@@ -1638,11 +1638,83 @@ class ATMPriorNetwork(AttentionTopicModel):
         # The first column (alpha1) corresponds to P_relevant, and the 2nd column (alpha2) corresponds to P_off_topic.
 
         # Construct the contrastive loss using is_in_domain to mask the appriopriate values
-        contr_loss_in_domain = self.kl_divergence_between_dirchlets(model_alphas_in_domain, in_domain_target_alphas)
-        contr_loss_out_domain = self.kl_divergence_between_dirchlets(model_alphas_out_domain, out_of_domain_target_alphas)
+        contr_loss_in_domain = self.kl_divergence_between_dirchlets(in_domain_target_alphas, model_alphas_in_domain)
+        contr_loss_out_domain = self.kl_divergence_between_dirchlets(out_of_domain_target_alphas, model_alphas_out_domain)
 
         cost = tf.reduce_mean(contr_loss_in_domain + out_of_domain_weight * contr_loss_out_domain) / (
         1. + out_of_domain_weight)  # Take mean batch-wise (over the number of examples)
+
+        if self._debug_mode > 1:
+            tf.scalar_summary('cost', cost)
+
+        if is_training:
+            tf.add_to_collection('losses', cost)
+            # The total loss is defined as the target loss plus all of the weight
+            # decay terms (L2 loss).
+            total_cost = tf.add_n(tf.get_collection('losses'), name='total_cost')
+            return cost, total_cost
+        else:
+            return cost
+
+    def _construct_conflictive_cost(self, logits, targets, batch_size, regularisation_weight=0.1, is_training=False):
+        print('Constructing conflictive (XENT + Dir(1, 1)) cost')
+        model_alphas = tf.exp(logits)
+
+        xent_cost = tf.nn.softmax_cross_entropy_with_logits(labels=targets, logits=logits, name='total_xentropy')
+
+        regularisation_target_alphas = tf.ones([batch_size, 2], dtype=tf.float32)
+        regularisation_cost = self.kl_divergence_between_dirchlets(regularisation_target_alphas, model_alphas)
+
+        cost = tf.reduce_mean(xent_cost + regularisation_weight * regularisation_cost, name='total_conflictive_per_batch')
+
+        if self._debug_mode > 1:
+            tf.scalar_summary('XENT', cost)
+
+        if is_training:
+            tf.add_to_collection('losses', cost)
+            # The total loss is defined as the target loss plus all of the weight
+            # decay terms (L2 loss).
+            total_cost = tf.add_n(tf.get_collection('losses'), name='total_cost')
+            return cost, total_cost
+        else:
+            return cost
+
+    def _construct_contrastive_with_xe_loss(self, logits_in_domain, logits_out_domain, targets_in_domain,
+                                            batch_size, in_domain_precision=20., is_training=False,
+                                            out_of_domain_kl_weight=1., in_domain_kl_weight=0.5):
+        """
+        Contrastive Loss as described in the Prior Net Paper
+        :param logits_in_domain: logits for the in_domain batch
+        :param logits_out_domain: logits for the out of domain batch
+        :param targets_in_domain: targets for the in domain batch
+        :param in_domain_precision: float
+        :param is_training: bool
+        :return: cost ( cost, total_cost tuple if is_training==True)
+        """
+        print('Constructing contrastive loss with XE in domain')
+
+        model_alphas_in_domain = tf.exp(logits_in_domain)
+        model_alphas_out_domain = tf.exp(logits_out_domain)
+
+        # Specify the target alphas and smooth as required
+        xe_targets = targets_in_domain[:, 0]  # Shape should be [batch_size, 1]
+
+        in_domain_target_alphas = tf.ones([batch_size, 2], dtype=tf.float32) * (in_domain_precision / 2.)
+        out_of_domain_target_alphas = tf.ones([batch_size, 2], dtype=tf.float32)
+
+        # The first column (alpha1) corresponds to P_relevant, and the 2nd column (alpha2) corresponds to P_off_topic.
+
+        # Construct the contrastive loss using is_in_domain to mask the appriopriate values
+        contr_loss_in_domain = self.kl_divergence_between_dirchlets(in_domain_target_alphas, model_alphas_in_domain)
+        contr_loss_out_domain = self.kl_divergence_between_dirchlets(out_of_domain_target_alphas,
+                                                                     model_alphas_out_domain)
+
+        xe_in_domain = tf.nn.weighted_cross_entropy_with_logits(logits=logits_in_domain[:, 0], targets=xe_targets,
+                                                                pos_weight=1., name='total_xentropy_per_batch')
+
+        cost = tf.reduce_mean(
+            xe_in_domain + in_domain_kl_weight * contr_loss_in_domain + out_of_domain_kl_weight * contr_loss_out_domain) / (
+               1. + out_of_domain_kl_weight + in_domain_kl_weight)  # Take mean batch-wise (over the number of examples)
 
         if self._debug_mode > 1:
             tf.scalar_summary('cost', cost)
@@ -1786,27 +1858,28 @@ class ATMPriorNetwork(AttentionTopicModel):
 
         return targets, prompts, prompt_lengths, responses, response_lengths, iterator
 
-    def fit_prior_net(self,
-            train_data_in_domain,
-            train_data_out_domain,
-            valid_data,
-            load_path,
-            topics_in_domain,
-            topic_lens_in_domain,
-            unigram_path_in_domain,
-            train_size=100,
-            valid_size=100,
-            learning_rate=1e-2,
-            lr_decay=0.8,
-            dropout=1.0,
-            presample_batch_size=50,
-            distortion=1.0,
-            optimizer=tf.train.AdamOptimizer,
-            optimizer_params={},
-            n_epochs=30,
-            n_samples=1,  # Number of negative samples to generate per positive sample
-            epoch=1,
-            which_trn_cost='contrastive'):
+    def fit_with_ood(self,
+                      train_data_in_domain,
+                      train_data_out_domain,
+                      valid_data,
+                      load_path,
+                      topics_in_domain,
+                      topic_lens_in_domain,
+                      unigram_path_in_domain,
+                      train_size=100,
+                      valid_size=100,
+                      learning_rate=1e-2,
+                      lr_decay=0.8,
+                      dropout=1.0,
+                      presample_batch_size=50,
+                      distortion=1.0,
+                      optimizer=tf.train.AdamOptimizer,
+                      optimizer_params={},
+                      n_epochs=30,
+                      n_samples=1,  # Number of negative samples to generate per positive sample
+                      epoch=1,
+                      which_trn_cost='contrastive',
+                      out_of_domain_weight=1.):
         """Custom fit function for a prior network. """
         with self._graph.as_default():
             batch_size = ((n_samples + 1) * presample_batch_size)  # Batch size after sampling
@@ -1885,6 +1958,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                                       batch_size=batch_size,
                                                                       keep_prob=self.dropout)
 
+
                 valid_predictions, \
                 valid_probabilities, \
                 valid_logits, \
@@ -1897,26 +1971,234 @@ class ATMPriorNetwork(AttentionTopicModel):
                                                           batch_size=presample_batch_size,
                                                           keep_prob=1.0)
 
-            if which_trn_cost == 'conflictive':
-                # todo: implement this
-                pass
-            elif which_trn_cost == 'contrastive':
+                # Use mean precision for training logging purposes
+                mean_precision_id = tf.reduce_mean(tf.reduce_sum(tf.exp(train_logits_in_domain), axis=1))
+                mean_precision_ood = tf.reduce_mean(tf.reduce_sum(tf.exp(train_logits_out_domain), axis=1))
+
+            if which_trn_cost == 'contrastive':
                 # Construct the conflictive training cost
                 trn_cost, total_loss = self._construct_contrastive_loss(logits_in_domain=train_logits_in_domain,
                                                                         logits_out_domain=train_logits_out_domain,
                                                                         targets_in_domain=targets_in_domain,
                                                                         batch_size=batch_size,
-                                                                        out_of_domain_weight=1.0,
+                                                                        out_of_domain_weight=out_of_domain_weight,
                                                                         is_training=True)
-            elif which_trn_cost == 'contrastive_with_nll':
+            elif which_trn_cost == 'contrastive_with_xe' or which_trn_cost == 'contraceptive':
+                # Construct the contraceptive training cost
+                trn_cost, total_loss = self._construct_contrastive_with_xe_loss(logits_in_domain=train_logits_in_domain,
+                                                                                logits_out_domain=train_logits_out_domain,
+                                                                                targets_in_domain=targets_in_domain,
+                                                                                batch_size=batch_size,
+                                                                                out_of_domain_kl_weight=out_of_domain_weight,
+                                                                                in_domain_kl_weight=0.1,
+                                                                                is_training=True)
+            else:
+                raise AttributeError('{} is not a valid training cost for the ATM Prior Network'.format(which_trn_cost))
+
+            evl_cost = self._construct_softmax_xent_cost(labels=valid_targets,
+                                                         logits=valid_logits,
+                                                         is_training=False)
+
+            train_op = util.create_train_op(total_loss=total_loss,
+                                            learning_rate=learning_rate,
+                                            optimizer=optimizer,
+                                            optimizer_params=optimizer_params,
+                                            n_examples=n_examples,
+                                            batch_size=batch_size,
+                                            learning_rate_decay=lr_decay,
+                                            global_step=global_step,
+                                            clip_gradient_norm=10.0,
+                                            summarize_gradients=False)
+
+            # Intialize only newly created variables, as opposed to reused - allows for finetuning and transfer learning :)
+            init = tf.variables_initializer(set(tf.global_variables()) - temp)
+            self.sess.run(init)
+
+            if load_path != None:
+                self._load_variables(load_scope='model/Embeddings/word_embedding',
+                                     new_scope='atm/Embeddings/word_embedding', load_path=load_path)
+
+            # Update Log with training details
+            with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                format_str = (
+                    'Learning Rate: %f\nLearning Rate Decay: %f\nBatch Size: %d\nValid Size: %d\nOptimizer: %s\nDropout: %f\nSEED: %i\n')
+                f.write(format_str % (
+                    learning_rate, lr_decay, batch_size, valid_size, str(optimizer), dropout, self._seed) + '\n\n')
+
+            format_str = (
+                'Epoch %d, Train Loss = %.2f, ID Precision = %.2f, OOD Precision = %.2f, Valid Loss = %.2f, Valid ROC = %.2f, (%.1f examples/sec; %.3f ' 'sec/batch)')
+            print("Starting Training!\n-----------------------------")
+            start_time = time.time()
+            for epoch in xrange(epoch + 1, epoch + n_epochs + 1):
+                # Run Training Loop
+                loss_total = 0.
+                precision_id_total = 0.
+                precision_ood_total = 0.
+                batch_time = time.time()
+                for batch in xrange(n_batches):
+                    _, loss_value, precision_id_value, precision_ood_value = self.sess.run([train_op, trn_cost, mean_precision_id, mean_precision_ood],
+                                                  feed_dict={self.dropout: dropout})
+                    assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
+                    loss_total += loss_value
+                    precision_id_total += precision_id_value
+                    precision_ood_total += precision_ood_value
+
+                duration = time.time() - batch_time
+                loss_total /= n_batches
+                precision_id_total /= n_batches
+                precision_ood_total /= n_batches
+                examples_per_sec = batch_size / duration
+                sec_per_epoch = float(duration)
+
+                # Run Validation Loop
+                eval_loss = 0.0
+                valid_probs = None
+                vld_targets = None
+                total_size = 0
+                self.sess.run(valid_iterator.initializer)
+                while True:
+                    try:
+                        batch_eval_loss, \
+                        batch_valid_preds, \
+                        batch_valid_probs, \
+                        batch_attention, \
+                        batch_valid_targets = self.sess.run([evl_cost,
+                                                             valid_predictions,
+                                                             valid_probabilities,
+                                                             valid_attention,
+                                                             valid_targets])
+                        size = batch_valid_probs.shape[0]
+                        eval_loss += float(size) * batch_eval_loss
+                        if valid_probs is None:
+                            valid_probs = batch_valid_probs
+                            vld_targets = batch_valid_targets
+                        else:
+                            valid_probs = np.concatenate((valid_probs, batch_valid_probs), axis=0)
+                            vld_targets = np.concatenate((vld_targets, batch_valid_targets), axis=0)
+                        total_size += size
+                    except Exception as e:  # tf.errors.OutOfRangeError:
+                        # print("The end of validation loop exception:\n------------------\n", e, "\n--------------")
+                        break
+
+                eval_loss = eval_loss / float(total_size)
+                roc_score = roc(np.squeeze(vld_targets), np.squeeze(valid_probs))
+
+                # Summarize Epoch
+                with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                    f.write(format_str % (epoch, loss_total, precision_id_total, precision_ood_total, eval_loss, roc_score, examples_per_sec, sec_per_epoch) + '\n')
+                print(format_str % (epoch, loss_total, precision_id_total, precision_ood_total, eval_loss, roc_score, examples_per_sec, sec_per_epoch))
+                self.save(step=epoch)
+
+            # Finish Training
+            duration = time.time() - start_time
+            with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
+                format_str = ('Training took %.3f sec')
+                f.write('\n' + format_str % (duration) + '\n')
+                f.write('----------------------------------------------------------\n')
+            print(format_str % (duration))
+            self.save()
+
+    def fit(self,
+            train_data,
+            valid_data,
+            load_path,
+            topics,
+            topic_lens,
+            unigram_path,
+            train_size=100,
+            valid_size=100,
+            learning_rate=1e-2,
+            lr_decay=0.8,
+            dropout=1.0,
+            presample_batch_size=50,
+            distortion=1.0,
+            optimizer=tf.train.AdamOptimizer,
+            optimizer_params={},
+            n_epochs=30,
+            n_samples=1,  # Number of negative samples to generate per positive sample
+            which_trn_cost='conflictive',
+            loss_regularisation_weight=0.1,
+            epoch=1):
+        """The prior net fit without out of distribution data."""
+        with self._graph.as_default():
+            batch_size = ((n_samples + 1) * presample_batch_size)  # Batch size after sampling
+            print("Actual batch size used (post-sampling): {}".format(batch_size))
+            # Compute number of training examples and batch size
+            n_examples = train_size
+            n_batches = n_examples / batch_size
+
+            # If some variables have been initialized - get them into a set
+            temp = set(tf.global_variables())
+
+            # Define Global step for training
+            global_step = tf.Variable(0, trainable=False, name='global_step')
+
+            # Set up inputs
+            with tf.variable_scope(self._input_scope, reuse=True) as scope:
+                # Construct training data queues
+                # Construct training data queues
+                targets, \
+                prompts, \
+                prompt_lens, \
+                responses, \
+                response_lens, _ = self._construct_inputs(train_data,
+                                                          presample_batch_size,
+                                                          unigram_path=unigram_path,
+                                                          topics=topics,
+                                                          topic_lens=topic_lens,
+                                                          train=True, capacity_mul=1000,
+                                                          num_threads=8, distortion=1.0,
+                                                          sample=True,
+                                                          name='train')
+
+                valid_targets, \
+                valid_prompts, \
+                valid_prompt_lens, \
+                valid_responses, \
+                valid_response_lens, valid_iterator = self._construct_inputs(valid_data,
+                                                                             presample_batch_size,
+                                                                             unigram_path=unigram_path,
+                                                                             topics=topics,
+                                                                             topic_lens=topic_lens,
+                                                                             train=False,
+                                                                             capacity_mul=100,
+                                                                             sample=True,
+                                                                             num_threads=1,
+                                                                             name='valid')
+
+            # Construct Training & Validation models
+            with tf.variable_scope(self._model_scope, reuse=True) as scope:
+                trn_predictions, \
+                trn_probabilities, \
+                trn_logits, _, = self._construct_network(a_input=responses,
+                                                         a_seqlens=response_lens,
+                                                         n_samples=n_samples,
+                                                         q_input=prompts,
+                                                         q_seqlens=prompt_lens,
+                                                         maxlen=tf.reduce_max(response_lens),
+                                                         batch_size=presample_batch_size,
+                                                         keep_prob=self.dropout)
+
+                valid_predictions, \
+                valid_probabilities, \
+                valid_logits, \
+                valid_attention = self._construct_network(a_input=valid_responses,
+                                                          a_seqlens=valid_response_lens,
+                                                          n_samples=n_samples,
+                                                          q_input=valid_prompts,
+                                                          q_seqlens=valid_prompt_lens,
+                                                          maxlen=tf.reduce_max(valid_response_lens),
+                                                          batch_size=presample_batch_size,
+                                                          keep_prob=1.0)
+
+            # Construct XEntropy training costs
+            if which_trn_cost == 'conflictive':
                 # Construct the conflictive training cost
-                trn_cost, total_loss = self._construct_contrastive_with_nll_loss(
-                    logits_in_domain=train_logits_in_domain,
-                    logits_out_domain=train_logits_out_domain,
-                    targets_in_domain=targets_in_domain,
-                    batch_size=batch_size,
-                    out_of_domain_weight=1.0,
-                    is_training=True)
+                trn_cost, total_loss = self._construct_conflictive_cost(logits=trn_logits,
+                                                                        targets=targets,
+                                                                        batch_size=batch_size,
+                                                                        regularisation_weight=loss_regularisation_weight,
+                                                                        is_training=True)
             else:
                 raise AttributeError('{} is not a valid training cost for the ATM Prior Network'.format(which_trn_cost))
 
@@ -1994,8 +2276,7 @@ class ATMPriorNetwork(AttentionTopicModel):
                             valid_probs = np.concatenate((valid_probs, batch_valid_probs), axis=0)
                             vld_targets = np.concatenate((vld_targets, batch_valid_targets), axis=0)
                         total_size += size
-                    except Exception as e:  # tf.errors.OutOfRangeError:
-                        print("The end of validation loop exception:\n------------------\n", e, "\n--------------")
+                    except:  # tf.errors.OutOfRangeError:
                         break
 
                 eval_loss = eval_loss / float(total_size)
