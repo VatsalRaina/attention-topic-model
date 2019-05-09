@@ -145,8 +145,6 @@ def calc_mutual_information(ensemble_predictions):
 def KL_divergence(p,q):
     return np.sum(p*(np.log(p)-np.log(q)),axis=1)
 
-
-
 def calc_expected_pairwise_KL_divergence(ensemble_predictions):
     epkl=0.0
     count=0.0
@@ -875,7 +873,8 @@ def main():
     avg_predictions = calc_avg_predictions(ensemble_predictions)
 
     mutual_information, entropy_of_avg = calc_mutual_information(ensemble_predictions)
-    ensemble_predictions_2_class = np.concatenate([ensemble_predictions,1.0-ensemble_predictions], axis=1)
+    ensemble_predictions_2_class = np.concatenate([ensemble_predictions[:,np.newaxis,:],1.0-ensemble_predictions[:,np.newaxis,:]], axis=1)
+    print(ensemble_predictions_2_class.shape)
     epkl = calc_expected_pairwise_KL_divergence(ensemble_predictions_2_class)
 
     assert np.all(mutual_information >= 0.)
