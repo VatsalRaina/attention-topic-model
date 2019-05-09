@@ -1172,7 +1172,7 @@ def main():
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
         for i in range(2):
-            plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
+            plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, 'entropy', resolution=100,
                                                       pos_label=i, savedir=args.savedir, first=True,  last=True)
             plt.legend(['Oracle', 'Entropy','Random'])
             plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label' + str(i) + '.png', bbox_inches='tight')
