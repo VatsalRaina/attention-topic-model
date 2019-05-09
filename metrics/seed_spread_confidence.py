@@ -32,7 +32,7 @@ matplotlib.rcParams['savefig.dpi'] = 200
 import seaborn as sns
 
 sns.set()
-sns.set(font_scale=1.2)
+sns.set(font_scale=1.25)
 
 # Specify the colours
 green = (0.3, 0.9, 0.3)
