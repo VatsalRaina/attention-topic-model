@@ -363,7 +363,7 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, measure,
     plt.plot(proportions_included[~np.isnan(roc_auc_scores)], roc_auc_scores[~np.isnan(roc_auc_scores)][::-1])
     if last:
         plt.plot([0.0, 1.0], [min(roc_auc_scores), 1], 'k--', lw=4)
-    plt.xlabel("Percentage examples rejected")
+    plt.xlabel("Fraction of predictions rejected to oracle")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
     plt.ylim(min(roc_auc_scores), 1.0)
@@ -458,7 +458,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - 2.0*std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + 2.0*std_roc[~np.isnan(mean_roc)], alpha=.2)
     if last:
         plt.plot([0.0, 1.0], [min(mean_roc), 1], 'k--', lw=4)
-    plt.xlabel("Percentage examples rejected")
+    plt.xlabel("Fraction of predictions rejected to oracle")
     plt.ylabel("ROC AUC score on the subset examples included")
     plt.xlim(0.0, 1.0)
     plt.ylim(min(mean_roc-2.0*std_roc), 1.0)
@@ -540,7 +540,7 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, measure
     plt.plot(proportions_included[~np.isnan(aupr_scores)], aupr_scores[~np.isnan(aupr_scores)][::-1])
     if last:
         plt.plot([0.0, 1.0], [min(aupr_scores), 1], 'k--', lw=4)
-    plt.xlabel("Percentage examples rejected")
+    plt.xlabel("Fraction of predictions rejected to oracle")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
     plt.ylim(min(aupr_scores), 1.0)
@@ -644,7 +644,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     plt.fill_between(proportions_included[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] - 2.0*std_roc[~np.isnan(mean_roc)], mean_roc[~np.isnan(mean_roc)] + 2.0*std_roc[~np.isnan(mean_roc)], alpha=.2)
     if last:
         plt.plot([0.0, 1.0], [min(mean_roc), 1], 'k--', lw=4)
-    plt.xlabel("Percentage examples rejected")
+    plt.xlabel("Fraction of predictions rejected to oracle")
     plt.ylabel("AUPR score on the subset examples included")
     plt.xlim(0.0, 1.0)
     plt.ylim(min(mean_roc-2.0*std_roc), 1.0)
