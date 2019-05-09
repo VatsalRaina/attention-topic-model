@@ -32,6 +32,7 @@ matplotlib.rcParams['savefig.dpi'] = 200
 import seaborn as sns
 
 sns.set()
+sns.set(font_scale=1.2)
 
 # Specify the colours
 green = (0.3, 0.9, 0.3)
@@ -1139,9 +1140,9 @@ def main():
                                           savedir=args.savedir)
     if args.hatm:
         plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL', 'Prompt Entropy', 'Prompt Mutual Information',
-                    'Prompt EPKL', 'Random'])
+                    'Prompt EPKL', 'Random'],loc=4)
     else:
-        plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL', ' Random'])
+        plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL', ' Random'],loc=4)
     plt.savefig(savedir + '/auc_vs_cumulative_samples.png', bbox_inches='tight')
     plt.clf()
 
@@ -1153,7 +1154,7 @@ def main():
                                                  measure='entropy', first=True, savedir=args.savedir)
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
                                                  measure='prompt_entropy', savedir=args.savedir, last=True)
-        plt.legend(['Oracle', 'Entropy', 'Prompt Entropy', 'Random'])
+        plt.legend(['Oracle', 'Entropy', 'Prompt Entropy', 'Random'],loc=4)
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
 
@@ -1162,7 +1163,7 @@ def main():
                                                      pos_label=i, first=True,  savedir=args.savedir)
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, measure='prompt entropy', resolution=100,
                                                     pos_label=i, savedir=args.savedir, last=True)
-            plt.legend(['Oracle', 'Entropy', 'Prompt Entropy','Random'])
+            plt.legend(['Oracle', 'Entropy', 'Prompt Entropy','Random'],loc=4)
             plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label'+str(i)+'.png', bbox_inches='tight')
             plt.clf()
     else:
@@ -1174,7 +1175,7 @@ def main():
         for i in range(2):
             plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, 'entropy', resolution=100,
                                                       pos_label=i, savedir=args.savedir, first=True,  last=True)
-            plt.legend(['Oracle', 'Entropy','Random'])
+            plt.legend(['Oracle', 'Entropy','Random'],loc=4)
             plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label' + str(i) + '.png', bbox_inches='tight')
             plt.clf()
 
@@ -1201,9 +1202,9 @@ def main():
             plot_aupr_vs_percentage_included(labels, avg_predictions, epkl, 'EPKL', resolution=200, last=True,
                                              pos_label=pos_label, savedir=args.savedir)
         if args.hatm:
-            plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL','Prompt Entropy','Prompt Mutual Information','Prompt EPKL','Random'])
+            plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL','Prompt Entropy','Prompt Mutual Information','Prompt EPKL','Random'],loc=4)
         else:
-            plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL',' Random'])
+            plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL',' Random'],loc=4)
         plt.savefig(savedir + '/aupr_vs_cumulative_samples_pos_label'+str(pos_label)+'.png', bbox_inches='tight')
         plt.clf()
 
