@@ -462,9 +462,9 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     plt.xlim(0.0, 1.0)
     plt.ylim(min(mean_roc-2.0*std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('ROC AUC of Individual using' + measure +'is: ' + str(mean_roc[0]) + ' +/- '+str(2.0*std_roc[0])+ '\n')
+        f.write('ROC AUC of Individual using' + measure +' is: ' + str(mean_roc[0]) + ' +/- '+str(2.0*std_roc[0])+ '\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('ROC AUC RR of Inidivudal using' + measure +'is: ' + str(AUC_RR) + ' +/- '+str(2.0*std_AUC_RR)+'\n')
+        f.write('ROC AUC RR of Inidivudal using' + measure +' is: ' + str(AUC_RR) + ' +/- '+str(2.0*std_AUC_RR)+'\n')
     return
 
 def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, measure, pos_label=1, resolution=100,
@@ -544,7 +544,7 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, measure
     plt.xlim(0.0, 1.0)
     plt.ylim(min(aupr_scores), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('AUPR with pos label of '+str(pos_label)+ ' of Ensemble using' + measure +'is: ' + str(aupr_scores[-1]) + '\n')
+        f.write('AUPR with pos label of '+str(pos_label)+ ' of Ensemble using' + measure +' is: ' + str(aupr_scores[-1]) + '\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
         f.write('AUPR AUC RR with pos label of '+str(pos_label)+ ' of  Ensemble using' + measure +' is: ' + str(AUC_RR) + '\n')
     return
@@ -650,7 +650,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
         f.write('AUPR with pos label of '+str(pos_label)+ ' of Individual using' + measure +' is: ' + str(mean_roc[0]) + ' +\- ' + str(2.0*std_roc[0])+'\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('AUPR AUC RR with pos label of ' + str(pos_label) + ' of Individual using' + measure +'is: ' + str(AUC_RR) + ' +\- ' + str(
+        f.write('AUPR AUC RR with pos label of ' + str(pos_label) + ' of Individual using' + measure +' is: ' + str(AUC_RR) + ' +\- ' + str(
             2.0*std_AUC_RR) + '\n')
     return
 
@@ -1131,11 +1131,11 @@ def main():
         plot_auc_vs_percentage_included(labels, avg_predictions, prompt_epkl, 'prompt epkl', resolution=200,
                                           last=True, savedir=args.savedir)
     else:
-        plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, first=True,
+        plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg,  'entropy', resolution=200, first=True,
                                          savedir=args.savedir)
-        plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
+        plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, 'MI', resolution=200,
                                         savedir=args.savedir)
-        plot_auc_vs_percentage_included(labels, avg_predictions, epkl, resolution=200, last=True,
+        plot_auc_vs_percentage_included(labels, avg_predictions, epkl, 'EPKL', resolution=200, last=True,
                                           savedir=args.savedir)
     if args.hatm:
         plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL', 'Prompt Entropy', 'Prompt Mutual Information',
