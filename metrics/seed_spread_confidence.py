@@ -299,7 +299,7 @@ def plot_confusion_matrix_ratio_chart(tp, fp, tn, fn, spread, n_bins=20, ax=None
     return ax
 
 
-def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resolution=100, sort_by_name='std',
+def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, measure, resolution=100,
                                     savedir=None, first=False, last=False):
     """
     Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
@@ -367,14 +367,14 @@ def plot_auc_vs_percentage_included(labels, predictions, sort_by_array, resoluti
     plt.xlim(0.0, 1.0)
     plt.ylim(min(roc_auc_scores), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('ROC AUC of Ensemble is: ' + str(roc_auc_scores[-1]) + '\n')
+        f.write('ROC AUC of Ensemble using' + measure +' is: ' + str(roc_auc_scores[-1]) + '\n')
 
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('ROC AUC AUC RR of Ensemble is: ' + str(AUC_RR) + '\n')
+        f.write('ROC AUC AUC RR of Ensemble using' + measure +'is: ' + str(AUC_RR) + '\n')
     return
 
 
-def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array, resolution=100, sort_by_name='std',
+def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array, measure, resolution=100,
                                     savedir=None, first=False, last=False):
     """
     Plot the ROC AUC score vs. the percentage of examples included where the examples are sorted by the array
@@ -462,12 +462,12 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     plt.xlim(0.0, 1.0)
     plt.ylim(min(mean_roc-2.0*std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('ROC AUC of Individual is: ' + str(mean_roc[-1]) + ' +/- '+str(2.0*std_roc[-1])+ '\n')
+        f.write('ROC AUC of Individual using' + measure +'is: ' + str(mean_roc[-1]) + ' +/- '+str(2.0*std_roc[-1])+ '\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('ROC AUC RR of Inidivudal is: ' + str(AUC_RR) + ' +/- '+str(2.0*std_AUC_RR)+'\n')
+        f.write('ROC AUC RR of Inidivudal using' + measure +'is: ' + str(AUC_RR) + ' +/- '+str(2.0*std_AUC_RR)+'\n')
     return
 
-def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_label=1, resolution=100,
+def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, measure, pos_label=1, resolution=100,
                                     savedir=None, first=False, last=False):
     """
     Plot the AUPR score vs. the percentage of examples included where the examples are sorted by the array
@@ -544,13 +544,13 @@ def plot_aupr_vs_percentage_included(labels, predictions, sort_by_array, pos_lab
     plt.xlim(0.0, 1.0)
     plt.ylim(min(aupr_scores), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('AUPR with pos label of '+str(pos_label)+ ' of Ensemble is: ' + str(aupr_scores[-1]) + '\n')
+        f.write('AUPR with pos label of '+str(pos_label)+ ' of Ensemble using' + measure +'is: ' + str(aupr_scores[-1]) + '\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('AUPR AUC RR with pos label of '+str(pos_label)+ ' of  Ensemble is: ' + str(AUC_RR) + '\n')
+        f.write('AUPR AUC RR with pos label of '+str(pos_label)+ ' of  Ensemble using' + measure +' is: ' + str(AUC_RR) + '\n')
     return
 
 
-def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array, pos_label=1, resolution=100,
+def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array, measure, pos_label=1, resolution=100,
                                     savedir=None, first=False, last=False):
     """
     Plot the AUPR score vs. the percentage of examples included where the examples are sorted by the array
@@ -648,9 +648,9 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     plt.xlim(0.0, 1.0)
     plt.ylim(min(mean_roc-2.0*std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('AUPR with pos label of '+str(pos_label)+ ' of Individual is: ' + str(mean_roc[-1]) + ' +\- ' + str(2.0*std_roc[-1])+'\n')
+        f.write('AUPR with pos label of '+str(pos_label)+ ' of Individual using' + measure +' is: ' + str(mean_roc[-1]) + ' +\- ' + str(2.0*std_roc[-1])+'\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
-        f.write('AUPR AUC RR with pos label of ' + str(pos_label) + ' of Individual is: ' + str(AUC_RR) + ' +\- ' + str(
+        f.write('AUPR AUC RR with pos label of ' + str(pos_label) + ' of Individual using' + measure +'is: ' + str(AUC_RR) + ' +\- ' + str(
             2.0*std_AUC_RR) + '\n')
     return
 
@@ -1116,21 +1116,19 @@ def main():
     #   AUC vs. CUMULATIVE INCLUDED
 
     # Make AUC vs. cumulative samples included by range spread
-    plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
-                                    sort_by_name='mutual information', first=True, savedir=args.savedir)
 
     if args.hatm:
-        plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, first=True,
+        plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, 'entropy', resolution=200, first=True,
                                         savedir=args.savedir)
-        plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
+        plot_auc_vs_percentage_included(labels, avg_predictions, mutual_information, 'MI', resolution=200,
                                           savedir=args.savedir)
-        plot_auc_vs_percentage_included(labels, avg_predictions, epkl, resolution=200,
+        plot_auc_vs_percentage_included(labels, avg_predictions, epkl, 'EPKL', resolution=200,
                                         savedir=args.savedir)
-        plot_auc_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200,
+        plot_auc_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, 'prompt entropy', resolution=200,
                                          savedir=args.savedir)
-        plot_auc_vs_percentage_included(labels, avg_predictions, prompt_mutual_information, resolution=200,
+        plot_auc_vs_percentage_included(labels, avg_predictions, prompt_mutual_information, 'prompt mi', resolution=200,
                                           savedir=args.savedir)
-        plot_auc_vs_percentage_included(labels, avg_predictions, prompt_epkl, resolution=200,
+        plot_auc_vs_percentage_included(labels, avg_predictions, prompt_epkl, 'prompt epkl', resolution=200,
                                           last=True, savedir=args.savedir)
     else:
         plot_auc_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, first=True,
@@ -1147,26 +1145,29 @@ def main():
     plt.savefig(savedir + '/auc_vs_cumulative_samples.png', bbox_inches='tight')
     plt.clf()
 
+
+
+
     if args.hatm:
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
-                                                 sort_by_name='entropy', first=True, savedir=args.savedir)
+                                                 measure='entropy', first=True, savedir=args.savedir)
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
-                                                 sort_by_name='prompt_entropy', savedir=args.savedir, last=True)
+                                                 measure='prompt_entropy', savedir=args.savedir, last=True)
         plt.legend(['Oracle', 'Entropy', 'Prompt Entropy', 'Random'])
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
 
         for i in range(2):
-            plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
+            plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, measure='entropy', resolution=100,
                                                      pos_label=i, first=True,  savedir=args.savedir)
-            plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, resolution=100,
+            plot_aupr_vs_percentage_included_ensemble(labels, ensemble_predictions, prompt_entropies, measure='prompt entropy', resolution=100,
                                                     pos_label=i, savedir=args.savedir, last=True)
             plt.legend(['Oracle', 'Entropy', 'Prompt Entropy','Random'])
             plt.savefig(savedir + '/aupr_vs_cumulative_samples_ensemble_pos_label'+str(i)+'.png', bbox_inches='tight')
             plt.clf()
     else:
         plot_auc_vs_percentage_included_ensemble(labels, ensemble_predictions, entropies, resolution=100,
-                                                 sort_by_name='entropy', first=True, savedir=args.savedir,last=True)
+                                                 measure='entropy', first=True, savedir=args.savedir,last=True)
         plt.legend(['Oracle', 'Entropy','Random'])
         plt.savefig(savedir + '/auc_vs_cumulative_samples_ensemble.png', bbox_inches='tight')
         plt.clf()
@@ -1181,23 +1182,23 @@ def main():
     # Plot AUC of PR curves
     for pos_label in range(2):
         if args.hatm:
-            plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, first=True,
+            plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, 'entropy', resolution=200, first=True,
                                              pos_label=pos_label, savedir=args.savedir)
-            plot_aupr_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
+            plot_aupr_vs_percentage_included(labels, avg_predictions, mutual_information, 'MI',  resolution=200,
                                              pos_label=pos_label, savedir=args.savedir)
-            plot_aupr_vs_percentage_included(labels, avg_predictions, epkl, resolution=200,
+            plot_aupr_vs_percentage_included(labels, avg_predictions, epkl, 'EPKL', resolution=200,
                                              pos_label=pos_label, savedir=args.savedir)
-            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, resolution=200, pos_label=pos_label, savedir=args.savedir)
-            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_mutual_information, resolution=200,
+            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_entropy_mean, 'prompt entropy', resolution=200, pos_label=pos_label, savedir=args.savedir)
+            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_mutual_information, 'prompt mi', resolution=200,
                                              pos_label=pos_label, savedir=args.savedir)
-            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_epkl, resolution=200,
+            plot_aupr_vs_percentage_included(labels, avg_predictions, prompt_epkl, 'prompt epkl', resolution=200,
                                              pos_label=pos_label, last=True, savedir=args.savedir)
         else:
-            plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, resolution=200, first=True,
+            plot_aupr_vs_percentage_included(labels, avg_predictions, entropy_of_avg, 'entropy', resolution=200, first=True,
                                              pos_label=pos_label, savedir=args.savedir)
-            plot_aupr_vs_percentage_included(labels, avg_predictions, mutual_information, resolution=200,
+            plot_aupr_vs_percentage_included(labels, avg_predictions, mutual_information, 'MI', resolution=200,
                                              pos_label=pos_label, savedir=args.savedir)
-            plot_aupr_vs_percentage_included(labels, avg_predictions, epkl, resolution=200, last=True,
+            plot_aupr_vs_percentage_included(labels, avg_predictions, epkl, 'EPKL', resolution=200, last=True,
                                              pos_label=pos_label, savedir=args.savedir)
         if args.hatm:
             plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL','Prompt Entropy','Prompt Mutual Information','Prompt EPKL','Random'])
