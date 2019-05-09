@@ -940,176 +940,176 @@ def main():
     # Make the plots:
     savedir = args.savedir
 
-    #    RATIOS PLOTS
-    # Make the mutual information ratios plots
-    plot_ratio_bar_chart(correct, incorrect, mutual_information, n_bins=40, y_lim=[0.0, 1.0])
-    plt.xlabel("Mutual Information")
-    plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
-    plt.savefig(savedir + '/ratios_mutual_info_histogram.png', bbox_inches='tight')
-    plt.clf()
-
-    # Make the mutual information ratios confusion matrix plot:
-    plot_confusion_matrix_ratio_chart(tp, fp, tn, fn, mutual_information, n_bins=40)
-    plt.xlabel("Mutual Information")
-    plt.ylabel("Ratios in each bin")
-    plt.savefig(savedir + '/conf_mat_ratios_mutual_info_histogram.png', bbox_inches='tight')
-    plt.clf()
-
-    #     HISTOGRAM PLOTS
-    # Make mutual_infromation histogram plot:
-    plot_spread_histogram(correct, incorrect, mutual_information, n_bins=40, spread_name='mutual information')
-    plt.savefig(savedir + '/mutual_info_histogram.png', bbox_inches='tight')
-    plt.clf()
-
-    plot_spread_histogram(correct, incorrect, entropy_of_avg, n_bins=40, spread_name='entropy')
-    plt.savefig(savedir + '/entropy_histogram.png', bbox_inches='tight')
-    plt.clf()
-
-    # Make mutual_infromation histogram plot:
-    if args.hatm:
-        plot_spread_histogram(correct, incorrect, prompt_mutual_information, n_bins=40,
-                              spread_name='prompt_mutual information')
-        plt.savefig(savedir + '/prompt_mutual_info_histogram.png', bbox_inches='tight')
-        plt.clf()
-
-        plot_spread_histogram(correct, incorrect, prompt_entropy_mean, n_bins=40,
-                              spread_name='prompt_entropy_mean')
-        plt.savefig(savedir + '/prompt_entropy_mean.png', bbox_inches='tight')
-        plt.clf()
-
-        plot_spread_histogram(correct, incorrect, prompt_mean_entropy, n_bins=40,
-                              spread_name='prompt_mean_entropy')
-        plt.savefig(savedir + '/prompt_mean_entropy.png', bbox_inches='tight')
-        plt.clf()
-
-    # DENSITY Plots
-    # All  examples
-    sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
-                shade_lowest=False, shade=True)
-    plt.ylim(0.0, 1.0)
-    plt.xlim(0.0, 0.6)
-    plt.xlabel("Mutual Information")
-    plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + '/mutual_information_vs_mean_density.png', bbox_inches='tight')
-    plt.clf()
-
-    # On-Topic
-    sns.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
-                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
-                shade_lowest=False, cmap='Blues', shade=True)
-    plt.ylim(0.0, 1.0)
-    plt.xlim(0.0, 0.6)
-    plt.xlabel("Mutual Information")
-    plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + '/mutual_information_vs_mean_density_positive.png', bbox_inches='tight')
-    plt.clf()
-
-    # Off-Topic
-    sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels,
-                shade_lowest=False, cmap="Reds", shade=True)
-    plt.ylim(0.0, 1.0)
-    plt.xlim(0.0, 0.6)
-    plt.xlabel("Mutual Information")
-    plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + '/mutual_information_vs_mean_density_negative.png', bbox_inches='tight')
-    plt.clf()
-
-    sns.kdeplot(entropy_of_avg, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
-                shade_lowest=False, shade=True)
-    plt.ylim(0.0, 1.0)
-    plt.xlim(0.0, 1.0)
-    plt.xlabel("Entropy of Mean Prediction")
-    plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + '/entropy_vs_mean_density.png', bbox_inches='tight')
-    plt.clf()
-
-    # On-Topic
-    sns.kdeplot(np.extract(labels.astype(np.bool), entropy_of_avg),
-                np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
-                shade_lowest=False, cmap='Blues', shade=True)
-    plt.ylim(0.0, 1.0)
-    plt.xlim(0.0, 1.0)
-    plt.xlabel("Entropy of Mean Prediction")
-    plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + '/entropy_vs_mean_density_positive.png', bbox_inches='tight')
-    plt.clf()
-
-    # Off-Topic
-    sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), entropy_of_avg),
-                np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels,
-                shade_lowest=False, cmap="Reds", shade=True)
-    plt.ylim(0.0, 1.0)
-    plt.xlim(0.0, 1.0)
-    plt.xlabel("Entropy of Mean Prediction")
-    plt.ylabel("Deviation of average ensemble prediction from label")
-    plt.savefig(savedir + 'entropy_vs_mean_density_negative.png', bbox_inches='tight')
-    plt.clf()
-
-    if args.hatm:
-        sns.kdeplot(prompt_entropy_mean, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
-                    shade_lowest=False, shade=True)
-        plt.ylim(0.0, 1.0)
-        plt.xlim(0.0, 0.6)
-        plt.xlabel('Prompt Entropy')
-        plt.ylabel("Deviation of average ensemble prediction from label")
-        plt.savefig(savedir + '/prompt_entropy_vs_mean_density.png', bbox_inches='tight')
-        plt.clf()
-
-        # On-Topic
-        sns.kdeplot(np.extract(labels.astype(np.bool), prompt_entropy_mean),
-                    np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
-                    shade_lowest=False, cmap='Blues', shade=True)
-        plt.ylim(0.0, 1.0)
-        plt.xlim(0.0, 0.6)
-        plt.xlabel('Prompt Entropy')
-        plt.ylabel("Deviation of average ensemble prediction from label")
-        plt.savefig(savedir + '/prompt_entropy_vs_mean_density_positive.png', bbox_inches='tight')
-        plt.clf()
-
-        # Off-Topic
-        sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), prompt_entropy_mean),
-                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True,
-                    n_levels=args.n_levels,
-                    shade_lowest=False, cmap="Reds", shade=True)
-        plt.ylim(0.0, 1.0)
-        plt.xlim(0.0, 0.6)
-        plt.xlabel('Prompt Entropy')
-        plt.ylabel("Deviation of average ensemble prediction from label")
-        plt.savefig(savedir + '/prompt_entropy_vs_mean_density_negative.png', bbox_inches='tight')
-        plt.clf()
-
-        sns.kdeplot(prompt_mutual_information, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
-                    shade_lowest=False, shade=True)
-        plt.ylim(0.0, 1.0)
-        plt.xlim(0.0, 0.2)
-        plt.xlabel('Prompt Mutual Information')
-        plt.ylabel("Deviation of average ensemble prediction from label")
-        plt.savefig(savedir + '/prompt_mutual_information_vs_mean_density.png', bbox_inches='tight')
-        plt.clf()
-
-        # On-Topic
-        sns.kdeplot(np.extract(labels.astype(np.bool), prompt_mutual_information),
-                    np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
-                    shade_lowest=False, cmap='Blues', shade=True)
-        plt.ylim(0.0, 1.0)
-        plt.xlim(0.0, 0.2)
-        plt.xlabel('Prompt Mutual Information')
-        plt.ylabel("Deviation of average ensemble prediction from label")
-        plt.savefig(savedir + '/prompt_mutual_information_vs_mean_density_positive.png', bbox_inches='tight')
-        plt.clf()
-
-        # Off-Topic
-        sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), prompt_mutual_information),
-                    np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True,
-                    n_levels=args.n_levels,
-                    shade_lowest=False, cmap="Reds", shade=True)
-        plt.ylim(0.0, 1.0)
-        plt.xlim(0.0, 0.2)
-        plt.xlabel('Prompt Mutual Information')
-        plt.ylabel("Deviation of average ensemble prediction from label")
-        plt.savefig(savedir + '/prompt_mutual_information_vs_mean_density_negative.png', bbox_inches='tight')
-        plt.clf()
+    # #    RATIOS PLOTS
+    # # Make the mutual information ratios plots
+    # plot_ratio_bar_chart(correct, incorrect, mutual_information, n_bins=40, y_lim=[0.0, 1.0])
+    # plt.xlabel("Mutual Information")
+    # plt.ylabel("Ratio correct to incorrect predictions (thresh = 0.5)")
+    # plt.savefig(savedir + '/ratios_mutual_info_histogram.png', bbox_inches='tight')
+    # plt.clf()
+    #
+    # # Make the mutual information ratios confusion matrix plot:
+    # plot_confusion_matrix_ratio_chart(tp, fp, tn, fn, mutual_information, n_bins=40)
+    # plt.xlabel("Mutual Information")
+    # plt.ylabel("Ratios in each bin")
+    # plt.savefig(savedir + '/conf_mat_ratios_mutual_info_histogram.png', bbox_inches='tight')
+    # plt.clf()
+    #
+    # #     HISTOGRAM PLOTS
+    # # Make mutual_infromation histogram plot:
+    # plot_spread_histogram(correct, incorrect, mutual_information, n_bins=40, spread_name='mutual information')
+    # plt.savefig(savedir + '/mutual_info_histogram.png', bbox_inches='tight')
+    # plt.clf()
+    #
+    # plot_spread_histogram(correct, incorrect, entropy_of_avg, n_bins=40, spread_name='entropy')
+    # plt.savefig(savedir + '/entropy_histogram.png', bbox_inches='tight')
+    # plt.clf()
+    #
+    # # Make mutual_infromation histogram plot:
+    # if args.hatm:
+    #     plot_spread_histogram(correct, incorrect, prompt_mutual_information, n_bins=40,
+    #                           spread_name='prompt_mutual information')
+    #     plt.savefig(savedir + '/prompt_mutual_info_histogram.png', bbox_inches='tight')
+    #     plt.clf()
+    #
+    #     plot_spread_histogram(correct, incorrect, prompt_entropy_mean, n_bins=40,
+    #                           spread_name='prompt_entropy_mean')
+    #     plt.savefig(savedir + '/prompt_entropy_mean.png', bbox_inches='tight')
+    #     plt.clf()
+    #
+    #     plot_spread_histogram(correct, incorrect, prompt_mean_entropy, n_bins=40,
+    #                           spread_name='prompt_mean_entropy')
+    #     plt.savefig(savedir + '/prompt_mean_entropy.png', bbox_inches='tight')
+    #     plt.clf()
+    #
+    # # DENSITY Plots
+    # # All  examples
+    # sns.kdeplot(mutual_information, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
+    #             shade_lowest=False, shade=True)
+    # plt.ylim(0.0, 1.0)
+    # plt.xlim(0.0, 0.6)
+    # plt.xlabel("Mutual Information")
+    # plt.ylabel("Deviation of average ensemble prediction from label")
+    # plt.savefig(savedir + '/mutual_information_vs_mean_density.png', bbox_inches='tight')
+    # plt.clf()
+    #
+    # # On-Topic
+    # sns.kdeplot(np.extract(labels.astype(np.bool), mutual_information),
+    #             np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+    #             shade_lowest=False, cmap='Blues', shade=True)
+    # plt.ylim(0.0, 1.0)
+    # plt.xlim(0.0, 0.6)
+    # plt.xlabel("Mutual Information")
+    # plt.ylabel("Deviation of average ensemble prediction from label")
+    # plt.savefig(savedir + '/mutual_information_vs_mean_density_positive.png', bbox_inches='tight')
+    # plt.clf()
+    #
+    # # Off-Topic
+    # sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), mutual_information),
+    #             np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+    #             shade_lowest=False, cmap="Reds", shade=True)
+    # plt.ylim(0.0, 1.0)
+    # plt.xlim(0.0, 0.6)
+    # plt.xlabel("Mutual Information")
+    # plt.ylabel("Deviation of average ensemble prediction from label")
+    # plt.savefig(savedir + '/mutual_information_vs_mean_density_negative.png', bbox_inches='tight')
+    # plt.clf()
+    #
+    # sns.kdeplot(entropy_of_avg, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
+    #             shade_lowest=False, shade=True)
+    # plt.ylim(0.0, 1.0)
+    # plt.xlim(0.0, 1.0)
+    # plt.xlabel("Entropy of Mean Prediction")
+    # plt.ylabel("Deviation of average ensemble prediction from label")
+    # plt.savefig(savedir + '/entropy_vs_mean_density.png', bbox_inches='tight')
+    # plt.clf()
+    #
+    # # On-Topic
+    # sns.kdeplot(np.extract(labels.astype(np.bool), entropy_of_avg),
+    #             np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+    #             shade_lowest=False, cmap='Blues', shade=True)
+    # plt.ylim(0.0, 1.0)
+    # plt.xlim(0.0, 1.0)
+    # plt.xlabel("Entropy of Mean Prediction")
+    # plt.ylabel("Deviation of average ensemble prediction from label")
+    # plt.savefig(savedir + '/entropy_vs_mean_density_positive.png', bbox_inches='tight')
+    # plt.clf()
+    #
+    # # Off-Topic
+    # sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), entropy_of_avg),
+    #             np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+    #             shade_lowest=False, cmap="Reds", shade=True)
+    # plt.ylim(0.0, 1.0)
+    # plt.xlim(0.0, 1.0)
+    # plt.xlabel("Entropy of Mean Prediction")
+    # plt.ylabel("Deviation of average ensemble prediction from label")
+    # plt.savefig(savedir + 'entropy_vs_mean_density_negative.png', bbox_inches='tight')
+    # plt.clf()
+    #
+    # if args.hatm:
+    #     sns.kdeplot(prompt_entropy_mean, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
+    #                 shade_lowest=False, shade=True)
+    #     plt.ylim(0.0, 1.0)
+    #     plt.xlim(0.0, 0.6)
+    #     plt.xlabel('Prompt Entropy')
+    #     plt.ylabel("Deviation of average ensemble prediction from label")
+    #     plt.savefig(savedir + '/prompt_entropy_vs_mean_density.png', bbox_inches='tight')
+    #     plt.clf()
+    #
+    #     # On-Topic
+    #     sns.kdeplot(np.extract(labels.astype(np.bool), prompt_entropy_mean),
+    #                 np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+    #                 shade_lowest=False, cmap='Blues', shade=True)
+    #     plt.ylim(0.0, 1.0)
+    #     plt.xlim(0.0, 0.6)
+    #     plt.xlabel('Prompt Entropy')
+    #     plt.ylabel("Deviation of average ensemble prediction from label")
+    #     plt.savefig(savedir + '/prompt_entropy_vs_mean_density_positive.png', bbox_inches='tight')
+    #     plt.clf()
+    #
+    #     # Off-Topic
+    #     sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), prompt_entropy_mean),
+    #                 np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True,
+    #                 n_levels=args.n_levels,
+    #                 shade_lowest=False, cmap="Reds", shade=True)
+    #     plt.ylim(0.0, 1.0)
+    #     plt.xlim(0.0, 0.6)
+    #     plt.xlabel('Prompt Entropy')
+    #     plt.ylabel("Deviation of average ensemble prediction from label")
+    #     plt.savefig(savedir + '/prompt_entropy_vs_mean_density_negative.png', bbox_inches='tight')
+    #     plt.clf()
+    #
+    #     sns.kdeplot(prompt_mutual_information, mean_target_deviation, cbar=True, n_levels=args.n_levels, cmap='Purples',
+    #                 shade_lowest=False, shade=True)
+    #     plt.ylim(0.0, 1.0)
+    #     plt.xlim(0.0, 0.2)
+    #     plt.xlabel('Prompt Mutual Information')
+    #     plt.ylabel("Deviation of average ensemble prediction from label")
+    #     plt.savefig(savedir + '/prompt_mutual_information_vs_mean_density.png', bbox_inches='tight')
+    #     plt.clf()
+    #
+    #     # On-Topic
+    #     sns.kdeplot(np.extract(labels.astype(np.bool), prompt_mutual_information),
+    #                 np.extract(labels.astype(np.bool), mean_target_deviation), cbar=True, n_levels=args.n_levels,
+    #                 shade_lowest=False, cmap='Blues', shade=True)
+    #     plt.ylim(0.0, 1.0)
+    #     plt.xlim(0.0, 0.2)
+    #     plt.xlabel('Prompt Mutual Information')
+    #     plt.ylabel("Deviation of average ensemble prediction from label")
+    #     plt.savefig(savedir + '/prompt_mutual_information_vs_mean_density_positive.png', bbox_inches='tight')
+    #     plt.clf()
+    #
+    #     # Off-Topic
+    #     sns.kdeplot(np.extract(np.invert(labels.astype(np.bool)), prompt_mutual_information),
+    #                 np.extract(np.invert(labels.astype(np.bool)), mean_target_deviation), cbar=True,
+    #                 n_levels=args.n_levels,
+    #                 shade_lowest=False, cmap="Reds", shade=True)
+    #     plt.ylim(0.0, 1.0)
+    #     plt.xlim(0.0, 0.2)
+    #     plt.xlabel('Prompt Mutual Information')
+    #     plt.ylabel("Deviation of average ensemble prediction from label")
+    #     plt.savefig(savedir + '/prompt_mutual_information_vs_mean_density_negative.png', bbox_inches='tight')
+    #     plt.clf()
 
 
 
@@ -1205,9 +1205,6 @@ def main():
             plt.legend(['Oracle', 'Entropy', 'Mutual Information', 'EPKL',' Random'])
         plt.savefig(savedir + '/aupr_vs_cumulative_samples_pos_label'+str(pos_label)+'.png', bbox_inches='tight')
         plt.clf()
-
-
-
 
     # Make precision recall curve for average of predictions
     for i in range(10):
