@@ -150,8 +150,8 @@ def KL_divergence(p,q):
 def calc_expected_pairwise_KL_divergence(ensemble_predictions):
     epkl=0.0
     count=0.0
-    for i in ensemble_predictions.shape[-1]:
-        for j in ensemble_predictions.shape[-1]:
+    for i in xrange(ensemble_predictions.shape[-1]):
+        for j in xrange(ensemble_predictions.shape[-1]):
             epkl+=KL_divergence(ensemble_predictions[:,:,i], ensemble_predictions[:,:,j])#+KL_divergence(ensemble_predictions[:,:,j], ensemble_predictions[:,:,i])
             count+=1.0
 
