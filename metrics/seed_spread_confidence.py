@@ -462,7 +462,7 @@ def plot_auc_vs_percentage_included_ensemble(labels, predictions, sort_by_array,
     plt.xlim(0.0, 1.0)
     plt.ylim(min(mean_roc-2.0*std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('ROC AUC of Individual using' + measure +'is: ' + str(mean_roc[-1]) + ' +/- '+str(2.0*std_roc[-1])+ '\n')
+        f.write('ROC AUC of Individual using' + measure +'is: ' + str(mean_roc[0]) + ' +/- '+str(2.0*std_roc[0])+ '\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
         f.write('ROC AUC RR of Inidivudal using' + measure +'is: ' + str(AUC_RR) + ' +/- '+str(2.0*std_AUC_RR)+'\n')
     return
@@ -648,7 +648,7 @@ def plot_aupr_vs_percentage_included_ensemble(labels, predictions, sort_by_array
     plt.xlim(0.0, 1.0)
     plt.ylim(min(mean_roc-2.0*std_roc), 1.0)
     with open(os.path.join(savedir, 'ensemble_auc.txt'), 'a') as f:
-        f.write('AUPR with pos label of '+str(pos_label)+ ' of Individual using' + measure +' is: ' + str(mean_roc[-1]) + ' +\- ' + str(2.0*std_roc[-1])+'\n')
+        f.write('AUPR with pos label of '+str(pos_label)+ ' of Individual using' + measure +' is: ' + str(mean_roc[0]) + ' +\- ' + str(2.0*std_roc[0])+'\n')
     with open(os.path.join(savedir, 'ensemble_auc_rr.txt'), 'a') as f:
         f.write('AUPR AUC RR with pos label of ' + str(pos_label) + ' of Individual using' + measure +'is: ' + str(AUC_RR) + ' +\- ' + str(
             2.0*std_AUC_RR) + '\n')
