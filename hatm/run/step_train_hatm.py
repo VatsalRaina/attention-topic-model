@@ -20,6 +20,8 @@ commandLineParser.add_argument('--lr_decay', type=float, default=0.85,
                                help='Specify the learning rate decay rate')
 commandLineParser.add_argument('--dropout', type=float, default=1.0,
                                help='Specify the dropout keep probability')
+commandLineParser.add_argument('--attention_dropout', type=float, default=1.0,
+			       help='Specify the dropout keep probability for attention weights')
 commandLineParser.add_argument('--n_epochs', type=int, default=1,
                                help='Specify the number of epoch to run training for')
 commandLineParser.add_argument('--n_samples', type=int, default=1,
