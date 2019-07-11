@@ -83,6 +83,7 @@ def main(argv=None):
             learning_rate=args.learning_rate,
             lr_decay=args.lr_decay,
             dropout=args.dropout,
+	    attention_dropout=args.attention_dropout,
             distortion=args.distortion,
             batch_size=args.batch_size,
             optimizer=tf.train.AdamOptimizer,

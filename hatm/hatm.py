@@ -67,7 +67,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
         elif load_path != None:
             self.load(load_path=load_path, step=epoch)
 
-    def _construct_network(self, a_input, a_seqlens, n_samples, p_input, p_seqlens, maxlen, p_ids, batch_size, is_training=False, run_prompt_encoder=False, keep_prob=1.0):
+    def _construct_network(self, a_input, a_seqlens, n_samples, p_input, p_seqlens, maxlen, p_ids, batch_size, is_training=False, run_prompt_encoder=False, keep_prob=1.0, attention_keep_prob=1.0):
         """ Construct RNNLM network
         Args:
           ?
@@ -157,7 +157,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                 tf.zeros(shape=[batch_size * (n_samples + 1), self.network_architecture['n_topics']], dtype=tf.float32),
                                 tf.ones(shape=[batch_size * (n_samples + 1), self.network_architecture['n_topics']], dtype=tf.float32))
                 a = a * mask
-
+	    a = tf.nn.dropout(a, attention_dropout)
             attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
             attended_prompt_embedding = tf.matmul(attention, prompt_embeddings)
 
@@ -213,6 +213,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
             learning_rate=1e-2,
             lr_decay=0.8,
             dropout=1.0,
+	    attention_dropout=1.0,
             batch_size=50,
             distortion=1.0,
             optimizer=tf.train.AdamOptimizer,
@@ -296,7 +297,8 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                                          maxlen=tf.reduce_max(response_lengths),
                                                          batch_size=batch_size,
                                                          is_training=True,
-                                                         keep_prob=self.dropout)
+                                                         keep_prob=self.dropout,
+							 attention_keep_prob=self.attention_dropout)
 
                 valid_predictions, \
                 valid_probabilities, \
