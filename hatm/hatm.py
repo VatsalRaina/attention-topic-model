@@ -367,7 +367,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                                          batch_size=batch_size,
                                                          is_training=True,
                                                          keep_prob=self.dropout,
-                                                         att_keep_prob=att_dropout)
+                                                         att_keep_prob=0.6)
 
                 valid_predictions, \
                 valid_probabilities, \

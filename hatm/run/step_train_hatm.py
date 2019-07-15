@@ -20,8 +20,8 @@ commandLineParser.add_argument('--lr_decay', type=float, default=0.85,
                                help='Specify the learning rate decay rate')
 commandLineParser.add_argument('--dropout', type=float, default=1.0,
                                help='Specify the dropout keep probability')
-commandLineParser.add_argument('--att_dropout', type=float, default=1.0,
-                               help='Dropout keep probability for attention weights of prompts')
+#commandLineParser.add_argument('--att_dropout', type=float, default=1.0,
+#                               help='Dropout keep probability for attention weights of prompts')
 commandLineParser.add_argument('--n_epochs', type=int, default=1,
                                help='Specify the number of epoch to run training for')
 commandLineParser.add_argument('--n_samples', type=int, default=1,
@@ -77,7 +77,7 @@ def main(argv=None):
                              load_path=args.load_path,
                              debug_mode=args.debug,
                              epoch=args.epoch)
-
+    print("Got just before fit mate")
     atm.fit(train_data=args.train_data,
             valid_data=args.valid_data,
             load_path=args.init,
@@ -88,7 +88,7 @@ def main(argv=None):
             learning_rate=args.learning_rate,
             lr_decay=args.lr_decay,
             dropout=args.dropout,
-            att_dropout=args.att_dropout,
+ #           att_dropout=args.att_dropout,
             distortion=args.distortion,
             batch_size=args.batch_size,
             optimizer=tf.train.AdamOptimizer,
