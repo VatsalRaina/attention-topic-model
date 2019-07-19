@@ -45,7 +45,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 self._predictions, \
                 self._probabilities, \
                 self._logits, \
-                self.attention, self.zero_frac = self._construct_network(a_input=self.x_a,
+                self.attention, = self._construct_network(a_input=self.x_a,
                                                           a_seqlens=self.alens,
                                                           p_input=self.x_p,
                                                           p_seqlens=self.plens,
@@ -226,17 +226,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                 tf.zeros(shape=[batch_size * (n_samples + 1), self.network_architecture['n_topics']], dtype=tf.float32),
                                 tf.ones(shape=[batch_size * (n_samples + 1), self.network_architecture['n_topics']], dtype=tf.float32))
                 a = a * mask
-                # Draw the prompt attention keep probability from a uniform distribution
-                floor = 0.05 #TODO change to command line argument and use tf.placeholder
-                ceil = 0.95
-                attention_keep_prob = tf.random_uniform(shape=(), minval=floor, maxval=ceil) #TODO Remove att_keep_prob
-            else:
-                attention_keep_prob = tf.constant(1.0, dtype=tf.float32)
-            #TEMP
-            if is_training:
-                attention_keep_prob = 0.8
-            a = tf.nn.dropout(a, attention_keep_prob)
-            zero_frac = tf.nn.zero_fraction(a) # To plot distribution of attention_keep_prob
+            a = tf.nn.dropout(a, att_keep_prob)
             prompt_attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
             attended_prompt_embedding = tf.matmul(prompt_attention, prompt_embeddings)
 
@@ -278,7 +268,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
             probabilities = self.network_architecture['output_fn'](logits)
             predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
 
-        return predictions, probabilities, logits, prompt_attention, zero_frac
+        return predictions, probabilities, logits, prompt_attention
 
     def fit(self,
             train_data,
@@ -367,7 +357,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
             with tf.variable_scope(self._model_scope, reuse=True) as scope:
                 trn_predictions, \
                 trn_probabilities, \
-                trn_logits, _, zero_frac = self._construct_network(a_input=responses,
+                trn_logits, _, = self._construct_network(a_input=responses,
                                                          a_seqlens=response_lengths,
                                                          n_samples=n_samples,
                                                          p_input=prompts,
@@ -382,7 +372,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 valid_predictions, \
                 valid_probabilities, \
                 valid_logits, \
-                valid_attention, _ = self._construct_network(a_input=valid_responses,
+                valid_attention = self._construct_network(a_input=valid_responses,
                                                           a_seqlens=valid_response_lengths,
                                                           n_samples=n_samples,
                                                           p_input=valid_prompts,
@@ -394,7 +384,6 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                                           keep_prob=1.0,
                                                           att_keep_prob=1.0)
 
-            kappa = 1 - zero_frac
             # Construct XEntropy training costs
             trn_cost, total_loss = self._construct_xent_cost(targets=targets,
                                                              logits=trn_logits,
@@ -474,13 +463,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 loss = 0.0
                 batch_time = time.time()
                 for batch in xrange(n_batches):
-                    print("TRAINING NOW")
-                   # print(temp_att.eval(session=self.sess))
-                   # print(kappa)
-                    # Need to create text file to store data
-                   # kapp_file = '/home/blahblahblah/kapp_file.txt'
-                   # with open(kapp_file, 'w') as f:
-                    #f.write(kappa)
+                    print("TRAINING HERE")
                     if epoch <= 2:
                         _, loss_value = self.sess.run([train_op_new, trn_cost], feed_dict={self.dropout: dropout})
                     elif epoch == 3:
@@ -566,7 +549,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 test_predictions, \
                 test_probabilities, \
                 test_logits, \
-                test_attention, _ = self._construct_network(a_input=test_responses,
+                test_attention = self._construct_network(a_input=test_responses,
                                                          a_seqlens=test_response_lengths,
                                                          n_samples=0,
                                                          p_input=test_prompts,
