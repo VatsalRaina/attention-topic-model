@@ -3,6 +3,7 @@ import time
 
 import matplotlib
 import numpy as np
+import pandas as pd
 
 matplotlib.use('agg')
 from matplotlib import pyplot as plt
@@ -228,13 +229,13 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 a = a * mask
                 # Draw the prompt attention keep probability from a uniform distribution
                 floor = 0.05 #TODO change to command line argument and use tf.placeholder
-                ceil = 0.95
+                ceil = 0.55
                 attention_keep_prob = tf.random_uniform(shape=(), minval=floor, maxval=ceil) #TODO Remove att_keep_prob
             else:
                 attention_keep_prob = tf.constant(1.0, dtype=tf.float32)
             #TEMP
-            if is_training:
-                attention_keep_prob = 0.8
+           # if is_training:
+               # attention_keep_prob = 0.2
             a = tf.nn.dropout(a, attention_keep_prob)
             zero_frac = tf.nn.zero_fraction(a) # To plot distribution of attention_keep_prob
             prompt_attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
@@ -469,26 +470,24 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 'Epoch %d, Train Loss = %.2f, Valid Loss = %.2f, Valid ROC = %.2f, (%.1f examples/sec; %.3f ' 'sec/batch)')
             print "Starting Training!\n-----------------------------"
             start_time = time.time()
+            kappa_arr = []
             for epoch in xrange(epoch + 1, epoch + n_epochs + 1):
                 # Run Training Loop
                 loss = 0.0
                 batch_time = time.time()
                 for batch in xrange(n_batches):
-                    print("TRAINING NOW")
+                   # print("TRAINING NOW")
                    # print(temp_att.eval(session=self.sess))
-                   # print(kappa)
-                    # Need to create text file to store data
-                   # kapp_file = '/home/blahblahblah/kapp_file.txt'
-                   # with open(kapp_file, 'w') as f:
-                    #f.write(kappa)
                     if epoch <= 2:
-                        _, loss_value = self.sess.run([train_op_new, trn_cost], feed_dict={self.dropout: dropout})
+                        _, loss_value, kappa_eval = self.sess.run([train_op_new, trn_cost, kappa], feed_dict={self.dropout: dropout})
                     elif epoch == 3:
-                        _, loss_value = self.sess.run([train_op_atn, trn_cost], feed_dict={self.dropout: dropout})
+                        _, loss_value, kappa_eval = self.sess.run([train_op_atn, trn_cost, kappa], feed_dict={self.dropout: dropout})
                     else:
-                        _, loss_value = self.sess.run([train_op_all, trn_cost], feed_dict={self.dropout: dropout})
+                        _, loss_value, kappa_eval = self.sess.run([train_op_all, trn_cost, kappa], feed_dict={self.dropout: dropout})
                     assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
                     loss += loss_value
+                    kappa_arr.append(kappa_eval)
+                   # print(kappa_eval)
 
                 duration = time.time() - batch_time
                 loss /= n_batches
@@ -512,6 +511,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                                              valid_probabilities,
                                                              valid_attention,
                                                              valid_targets])
+
                         size = batch_valid_probs.shape[0]
                         eval_loss += float(size) * batch_eval_loss
                         if valid_probs is None:
@@ -534,6 +534,12 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 self.save(step=epoch)
 
             # Finish Training
+            dist = plt.figure()
+            plt.hist(kappa_arr, bins=20)
+            plt.ylabel('Number of mini-batches')
+            plt.xlabel('Dropout keep-probability')
+            plt.show()
+            dist.savefig("hist.png", bbox_inches='tight')
             duration = time.time() - start_time
             with open(os.path.join(self._save_path, 'LOG.txt'), 'a') as f:
                 format_str = ('Training took %.3f sec')
