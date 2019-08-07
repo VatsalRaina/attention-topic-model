@@ -19,7 +19,7 @@ from sklearn.metrics import auc
 sns.set()
 
 from hatm.hatm import HierarchicialAttentionTopicModel
-from core.utilities.utilities import text_to_array, IdToWordConverter
+from core.utilities.utilities import text_to_array, IdToWordConverter, text_to_array_bert
 
 commandLineParser = argparse.ArgumentParser(description='Compute features from labels.')
 commandLineParser.add_argument('--load_path', type=str, default='./',
@@ -115,6 +115,7 @@ def main(argv=None):
             prompts_str_lines = map(lambda x: ' '.join(map(lambda w_id: str(w_id), x)), prompts_word_ids)
             prompt_file.write('\n'.join(prompts_str_lines))
 
+        # TODO: NEED TO CHANGE CONTENTS OF IF STATEMENT
         # Process responses and prompts to get actual words
         if args.wlist_path is not None:
             id_converter = IdToWordConverter(args.wlist_path)

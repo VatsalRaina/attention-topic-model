@@ -6,7 +6,7 @@ import sys
 
 import tensorflow as tf
 
-from core.utilities.utilities import text_to_array, get_train_size_from_meta
+from core.utilities.utilities import text_to_array, get_train_size_from_meta, text_to_array_bert
 from hatm.hatm import HierarchicialAttentionTopicModel
 
 commandLineParser = argparse.ArgumentParser(description='Compute features from labels.')
@@ -66,7 +66,9 @@ def main(argv=None):
 
     train_size = get_train_size_from_meta(args.meta_data_path)
 
-    topics, topic_lens = text_to_array(args.topic_path, args.wlist_path, strip_start_end=args.strip_start_end)
+   # topics, topic_lens = text_to_array(args.topic_path, args.wlist_path, strip_start_end=args.strip_start_end)
+    vocab_file = '/home/alta/relevance/vr311/uncased_L-12_H-768_A-12/vocab.txt'
+    topics, topic_lens = text_to_array_bert(args.topic_path, vocab_file)
     if args.strip_start_end:
         print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
 
@@ -77,7 +79,7 @@ def main(argv=None):
                              load_path=args.load_path,
                              debug_mode=args.debug,
                              epoch=args.epoch)
-    print("Got just before fit mate")
+    print("Got just before fat matey")
     atm.fit(train_data=args.train_data,
             valid_data=args.valid_data,
             load_path=args.init,
