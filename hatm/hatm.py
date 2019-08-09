@@ -14,6 +14,8 @@ import tensorflow.contrib.slim as slim
 
 from core.basemodel import BaseModel
 import core.utilities.utilities as util
+import core.utilities.bert.modeling as modeling
+from core.utilities.utilities import IdToWordConverter
 
 
 class HierarchicialAttentionTopicModel(BaseModel):
@@ -46,7 +48,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 self._predictions, \
                 self._probabilities, \
                 self._logits, \
-                self.attention, self.zero_frac = self._construct_network(a_input=self.x_a,
+                self.attention, self.zero_frac, _,_,_,_ = self._construct_network(a_input=self.x_a,
                                                           a_seqlens=self.alens,
                                                           p_input=self.x_p,
                                                           p_seqlens=self.plens,
@@ -137,7 +139,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
             return attended_prompt_embedding, prompt_attention
 
 
-    def _construct_network(self, a_input, a_seqlens, n_samples, p_input, p_seqlens, maxlen, p_ids, batch_size, is_training=False, run_prompt_encoder=False, keep_prob=1.0, att_keep_prob=1.0):
+    def _construct_network(self, a_input, a_seqlens, n_samples, p_input, p_seqlens, maxlen, p_ids, batch_size, is_training=False, run_prompt_encoder=False, keep_prob=1.0):
         """ Construct RNNLM network
         Args:
           ?
@@ -159,43 +161,58 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                             device='/GPU:0')
             a_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, a_input, name='embedded_data'),
                                      keep_prob=keep_prob, seed=self._seed + 1)
-            p_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, p_input, name='embedded_data'),
-                                     keep_prob=keep_prob, seed=self._seed + 2)
+           # p_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, p_input, name='embedded_data'),
+            #                         keep_prob=keep_prob, seed=self._seed + 2)
 
-            p_inputs_fw = tf.transpose(p_inputs, [1, 0, 2])
-            p_inputs_bw = tf.transpose(tf.reverse_sequence(p_inputs, seq_lengths=p_seqlens, seq_axis=1, batch_axis=0),
-                                       [1, 0, 2])
+          #  p_inputs_fw = tf.transpose(p_inputs, [1, 0, 2])
+          #  p_inputs_bw = tf.transpose(tf.reverse_sequence(p_inputs, seq_lengths=p_seqlens, seq_axis=1, batch_axis=0),
+                                    #   [1, 0, 2])
 
             a_inputs_fw = tf.transpose(a_inputs, [1, 0, 2])
             a_inputs_bw = tf.transpose(tf.reverse_sequence(a_inputs, seq_lengths=a_seqlens, seq_axis=1, batch_axis=0),
                                        [1, 0, 2])
 
+           
+            input_mask = tf.sequence_mask(p_seqlens, 93) #TODO Need to make 93 a fixed variable for max number of words in a prompt
+            config = modeling.BertConfig(vocab_size=32000)
+            bert_model = modeling.BertModel(config=config, is_training=False, input_ids=p_input, input_mask=input_mask)
+            keys = bert_model.get_pooled_output()
+            keys = tf.nn.dropout(keys, keep_prob=keep_prob, seed=self._seed + 10)
+
+            print("Pooled output shape: ")
+            print(keys.shape)
+                
 
         if run_prompt_encoder == True:
             # Prompt Encoder RNN
-            with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
-                rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-                _, state_fw = rnn_fw(p_inputs_fw, sequence_length=p_seqlens, dtype=tf.float32)
-            with tf.variable_scope('RNN_Q_BW', initializer=initializer(self._seed)) as scope:
-                rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-                _, state_bw = rnn_bw(p_inputs_bw, sequence_length=p_seqlens, dtype=tf.float32)
+           # with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
+            #    rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+            #    _, state_fw = rnn_fw(p_inputs_fw, sequence_length=p_seqlens, dtype=tf.float32)
+           # with tf.variable_scope('RNN_Q_BW', initializer=initializer(self._seed)) as scope:
+            #    rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+             #   _, state_bw = rnn_bw(p_inputs_bw, sequence_length=p_seqlens, dtype=tf.float32)
 
-            prompt_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
+          #  prompt_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
             prompt_embeddings = tf.nn.dropout(prompt_embeddings, keep_prob=keep_prob, seed=self._seed)
 
         else:
             prompt_embeddings = tf.nn.dropout(self.prompt_embeddings, keep_prob=keep_prob, seed=self._seed)
 
-        with tf.variable_scope('RNN_KEY_FW', initializer=initializer(self._seed)) as scope:
-            rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-            _, state_fw = rnn_fw(p_inputs_fw, sequence_length=p_seqlens, dtype=tf.float32)
-        with tf.variable_scope('RNN_KEY_BW', initializer=initializer(self._seed)) as scope:
-            rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-            _, state_bw = rnn_bw(p_inputs_bw, sequence_length=p_seqlens, dtype=tf.float32)
+      #  with tf.variable_scope('RNN_KEY_FW', initializer=initializer(self._seed)) as scope:
+       #     rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+        #    _, state_fw = rnn_fw(p_inputs_fw, sequence_length=p_seqlens, dtype=tf.float32)
+       # with tf.variable_scope('RNN_KEY_BW', initializer=initializer(self._seed)) as scope:
+        #    rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+         #   _, state_bw = rnn_bw(p_inputs_bw, sequence_length=p_seqlens, dtype=tf.float32)
 
 
-        keys = tf.nn.dropout(tf.concat([state_fw[1], state_bw[1]], axis=1), keep_prob=keep_prob, seed=self._seed + 10)
+       # keys = tf.nn.dropout(tf.concat([state_fw[1], state_bw[1]], axis=1), keep_prob=keep_prob, seed=self._seed + 10)
 
+        #print("prompt_embeddings: ")
+        #print(prompt_embeddings.shape)
+        #print("keys: ")
+        #print(keys.shape)
+  
         with tf.variable_scope('PROMPT_ATN', initializer=initializer(self._seed)) as scope:
             # Compute Attention over known questions
             mems = slim.fully_connected(prompt_embeddings,
@@ -216,7 +233,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                     device='/GPU:0')
 
             tmp = tf.nn.tanh(mems + tkeys)
-            print tmp.get_shape()
+           # print tmp.get_shape()
             tmp = tf.nn.dropout(tf.reshape(tmp, shape=[-1, 2 *self.network_architecture['n_phid']]), keep_prob=keep_prob, seed=self._seed + 3)
             a = tf.exp(tf.reshape(tf.matmul(tmp, v), [batch_size * (n_samples + 1), -1]))
 
@@ -234,9 +251,9 @@ class HierarchicialAttentionTopicModel(BaseModel):
             else:
                 attention_keep_prob = tf.constant(1.0, dtype=tf.float32)
             #TEMP
-           # if is_training:
-               # attention_keep_prob = 0.2
-            a = tf.nn.dropout(a, attention_keep_prob)
+            if is_training:
+                attention_keep_prob = 1.0
+           # a = tf.nn.dropout(a, attention_keep_prob)
             zero_frac = tf.nn.zero_fraction(a) # To plot distribution of attention_keep_prob
             prompt_attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
             attended_prompt_embedding = tf.matmul(prompt_attention, prompt_embeddings)
@@ -279,7 +296,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
             probabilities = self.network_architecture['output_fn'](logits)
             predictions = tf.cast(tf.round(probabilities), dtype=tf.float32)
 
-        return predictions, probabilities, logits, prompt_attention, zero_frac
+        return predictions, probabilities, logits, prompt_attention, zero_frac, keys, tkeys, prompt_embeddings, mems
 
     def fit(self,
             train_data,
@@ -293,7 +310,6 @@ class HierarchicialAttentionTopicModel(BaseModel):
             learning_rate=1e-2,
             lr_decay=0.8,
             dropout=1.0,
-            att_dropout=1.0,
             batch_size=50,
             distortion=1.0,
             optimizer=tf.train.AdamOptimizer,
@@ -368,7 +384,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
             with tf.variable_scope(self._model_scope, reuse=True) as scope:
                 trn_predictions, \
                 trn_probabilities, \
-                trn_logits, _, zero_frac = self._construct_network(a_input=responses,
+                trn_logits, train_attention, zero_frac, x1, x2, x3, x4 = self._construct_network(a_input=responses,
                                                          a_seqlens=response_lengths,
                                                          n_samples=n_samples,
                                                          p_input=prompts,
@@ -377,13 +393,12 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                                          maxlen=tf.reduce_max(response_lengths),
                                                          batch_size=batch_size,
                                                          is_training=True,
-                                                         keep_prob=self.dropout,
-                                                         att_keep_prob=0.7)
+                                                         keep_prob=self.dropout)
 
                 valid_predictions, \
                 valid_probabilities, \
                 valid_logits, \
-                valid_attention, _ = self._construct_network(a_input=valid_responses,
+                valid_attention, _, _,_,_,_ = self._construct_network(a_input=valid_responses,
                                                           a_seqlens=valid_response_lengths,
                                                           n_samples=n_samples,
                                                           p_input=valid_prompts,
@@ -392,8 +407,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                                           maxlen=tf.reduce_max(valid_response_lengths),
                                                           is_training=False,
                                                           batch_size=batch_size,
-                                                          keep_prob=1.0,
-                                                          att_keep_prob=1.0)
+                                                          keep_prob=1.0)
 
             kappa = 1 - zero_frac
             # Construct XEntropy training costs
@@ -476,10 +490,18 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 loss = 0.0
                 batch_time = time.time()
                 for batch in xrange(n_batches):
-                   # print("TRAINING NOW")
+                    print("TRAINING NOW")
                    # print(temp_att.eval(session=self.sess))
                     if epoch <= 2:
-                        _, loss_value, kappa_eval = self.sess.run([train_op_new, trn_cost, kappa], feed_dict={self.dropout: dropout})
+                        _, loss_value, kappa_eval, x1e,x2e,x3e,x4e = self.sess.run([train_op_new, trn_cost, kappa, x1,x2,x3,x4], feed_dict={self.dropout: dropout})
+                        print("keys: ")
+                        print(x1e.shape)
+                        print("tkeys: ")
+                        print(x2e.shape)
+                        print("prompt_embeddings: ")
+                        print(x3e.shape)
+                        print("mems: ")
+                        print(x4e.shape)
                     elif epoch == 3:
                         _, loss_value, kappa_eval = self.sess.run([train_op_atn, trn_cost, kappa], feed_dict={self.dropout: dropout})
                     else:
@@ -487,7 +509,6 @@ class HierarchicialAttentionTopicModel(BaseModel):
                     assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
                     loss += loss_value
                     kappa_arr.append(kappa_eval)
-                   # print(kappa_eval)
 
                 duration = time.time() - batch_time
                 loss /= n_batches
@@ -548,7 +569,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
             print (format_str % (duration))
             self.save()
 
-    def predict(self, test_pattern, batch_size=20, cache_inputs=False, apply_bucketing=True):
+    def predict(self, test_pattern, topics, topic_lens, batch_size=20, cache_inputs=False, apply_bucketing=True):
         with self._graph.as_default():
             test_files = tf.gfile.Glob(test_pattern)
             if apply_bucketing:
@@ -567,12 +588,25 @@ class HierarchicialAttentionTopicModel(BaseModel):
             test_p_ids, \
             test_responses, \
             test_response_lengths, test_prompts, test_prompt_lens = test_iterator.get_next(name='valid_data')
+            print("Yo")
+            print(test_prompts.shape)
+            # This is temporary to make correct dimensions
+            zeros = tf.zeros([20,5], tf.int32)
+            test_prompts = tf.concat([test_prompts, zeros], 1)
+            print("Here")
+            print(test_prompts.shape)
+
+           # topics = tf.convert_to_tensor(topics, dtype=tf.int32)
+           # topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
+
+           # test_prompts = tf.nn.embedding_lookup(topics, test_p_ids, name='test_prompt_lookup')
+           # test_prompt_lens = tf.gather(topic_lens, test_p_ids)
 
             with tf.variable_scope(self._model_scope, reuse=True) as scope:
                 test_predictions, \
                 test_probabilities, \
                 test_logits, \
-                test_attention, _ = self._construct_network(a_input=test_responses,
+                test_attention, _, _,_,_,_ = self._construct_network(a_input=test_responses,
                                                          a_seqlens=test_response_lengths,
                                                          n_samples=0,
                                                          p_input=test_prompts,
@@ -593,7 +627,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                                        test_responses, test_response_lengths, test_prompts,
                                                        test_prompt_lens)
             else:
-                return self._predict_loop(loss, test_probabilities,  test_attention, test_targets)
+                return self._predict_loop(loss, test_probabilities,  test_attention, test_targets, test_prompts, test_prompt_lens)
 
     def _predict_loop_with_caching(self, loss, test_probabilities, test_attention, test_targets, test_responses, test_response_lengths,
                                    test_prompts, test_prompt_lens):
@@ -657,7 +691,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 test_responses_list,
                 test_prompts_list)
 
-    def _predict_loop(self, loss, test_probabilities, test_attention, test_targets):
+    def _predict_loop(self, loss, test_probabilities, test_attention, test_targets, test_prompts, test_prompt_lens):
         test_loss = 0.0
         total_size = 0
         count = 0
@@ -668,10 +702,20 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 batch_eval_loss, \
                 batch_test_probs, \
                 batch_test_attention, \
-                batch_test_targets = self.sess.run([loss,
+                batch_test_targets, batch_test_prompts, batch_test_prompt_lens = self.sess.run([loss,
                                                     test_probabilities,
                                                     test_attention,
-                                                    test_targets])
+                                                    test_targets, test_prompts, test_prompt_lens])
+
+                print("Batch test prompts: ")
+                print(batch_test_prompts)
+                #TODO the following code to do in the predict() function but using tf tensors (should work out of the box as it worked in the forward process in using text_to_array)
+                wlist_path = data/input.wlist.index
+                idToWordConverter = IdToWordConverter(wlist_path)
+                print("Now printing prompts as words: ")
+                for ugh in batch_test_prompts:
+                    print(idToWordConverter.id_list_to_word(ugh)) #TODO remove the extra 0s in a list using batch_test_prompt_lens
+
 
                 size = batch_test_probs.shape[0]
                 test_loss += float(size) * batch_eval_loss

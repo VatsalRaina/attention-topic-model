@@ -73,6 +73,10 @@ def main(argv=None):
 
     start_time = time.time()
 
+    topic_path = '/home/alta/relevance/vr311/data/LINSKuns03evl03_ALL_naive/prompts.txt'
+    vocab_file = '/home/alta/relevance/vr311/uncased_L-12_H-768_A-12/vocab.txt'
+    topics, topic_lens = text_to_array_bert(topic_path, vocab_file)
+
     if args.save_reordered_input:
         test_loss, \
         test_probs_arr, \
@@ -81,12 +85,12 @@ def main(argv=None):
         test_response_lens_arr, \
         test_prompt_lens_arr, \
         test_responses_list, \
-        test_prompts_list = atm.predict(args.data_pattern, cache_inputs=True, apply_bucketing=apply_bucketing)
+        test_prompts_list = atm.predict(args.data_pattern, topics=topics, topic_lens=topic_lens, cache_inputs=True, apply_bucketing=apply_bucketing)
     else:
         test_loss, \
         test_probs_arr, \
         test_attention_arr, \
-        test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False, apply_bucketing=apply_bucketing)
+        test_labels_arr = atm.predict(args.data_pattern, topics=topics, topic_lens=topic_lens, cache_inputs=False, apply_bucketing=apply_bucketing)
 
     end_time = time.time()
     print("Time taken for evaluating the dataset: {} minutes".format((end_time - start_time) / 60.0))

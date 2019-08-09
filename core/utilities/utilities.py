@@ -7,9 +7,9 @@ from scipy.special import loggamma
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
-sys.path.append('bert/')
-import modeling        # Includes the BERT model implementation
-import tokenization    # For tokenizing the sequence
+#sys.path.insert(0, 'bert/')
+import bert.modeling as modeling        # Includes the BERT model implementation
+import bert.tokenization as tokenization    # For tokenizing the sequence
 
 
 try:
@@ -221,7 +221,7 @@ def text_to_array(data_path, words_index_path, strip_start_end=True):
     return processed_data, slens
 
 def text_to_array_bert(data_path, vocab_file):
-    tokenizer = tokenization.FullTokenizer(vocab_file = 'vocab_file')
+    tokenizer = tokenization.FullTokenizer(vocab_file = vocab_file)
     with open(data_path, 'r') as f:
         data = []
         for line in f.readlines():
@@ -236,6 +236,7 @@ def text_to_array_bert(data_path, vocab_file):
     # Now convert list of sentences to a list of vectors where each vector contains the IDs of the words
     max_tokens = 0
     ids = []
+    slens = []
     for line in data:
         tokens = tokenizer.tokenize(line)
         tok_ids = tokenizer.convert_tokens_to_ids(tokens)
