@@ -14,8 +14,10 @@ import tensorflow.contrib.slim as slim
 
 from core.basemodel import BaseModel
 import core.utilities.utilities as util
+import core.utilities.bert.tokenization as tokenization
 import core.utilities.bert.modeling as modeling
 from core.utilities.utilities import IdToWordConverter
+from core.utilities.utilities import text_to_array_bert
 
 
 class HierarchicialAttentionTopicModel(BaseModel):
@@ -40,6 +42,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
 
                 self.dropout = tf.placeholder(tf.float32, [])
                 self.batch_size = tf.placeholder(tf.int32, [])
+                self.test_row = tf.placeholder(tf.int32, [])    # Keeps track of data point reached in evaluation dataset
 
             with tf.variable_scope('atm') as scope:
                 prompt_embeddings=np.loadtxt(os.path.join('./model/prompt_embeddings.txt'),dtype=np.float32)
@@ -75,6 +78,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
         Args:
           ?
         Returns:
+m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_to_array_bert
           predictions, probabilities, logits, attention
         """
 
@@ -173,7 +177,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                        [1, 0, 2])
 
            
-            input_mask = tf.sequence_mask(p_seqlens, 93) #TODO Need to make 93 a fixed variable for max number of words in a prompt
+            input_mask = tf.sequence_mask(p_seqlens, tf.shape(p_input)[1])
             config = modeling.BertConfig(vocab_size=32000)
             bert_model = modeling.BertModel(config=config, is_training=False, input_ids=p_input, input_mask=input_mask)
             keys = bert_model.get_pooled_output()
@@ -589,12 +593,18 @@ class HierarchicialAttentionTopicModel(BaseModel):
             test_responses, \
             test_response_lengths, test_prompts, test_prompt_lens = test_iterator.get_next(name='valid_data')
             print("Yo")
-            print(test_prompts.shape)
-            # This is temporary to make correct dimensions
-            zeros = tf.zeros([20,5], tf.int32)
-            test_prompts = tf.concat([test_prompts, zeros], 1)
-            print("Here")
-            print(test_prompts.shape)
+
+            vocab_file = '/home/alta/relevance/vr311/uncased_L-12_H-768_A-12/vocab.txt'
+            topic_path = '/home/alta/relevance/vr311/models_bert/test_prompts.txt'
+            tot_prompts, tot_prompt_lens = text_to_array_bert(topic_path, vocab_file)
+            print(len(tot_prompts))
+            print('and')
+
+            tot_prompts = tf.convert_to_tensor(tot_prompts, dtype=tf.int32)
+            tot_prompt_lens = tf.convert_to_tensor(tot_prompt_lens, dtype=tf.int32)
+                   
+            tot_prompts_batch = tot_prompts[self.test_row:self.test_row+20,:]
+            tot_prompt_lens_batch = tot_prompt_lens[self.test_row:self.test_row+20] 
 
            # topics = tf.convert_to_tensor(topics, dtype=tf.int32)
            # topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
@@ -609,8 +619,8 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 test_attention, _, _,_,_,_ = self._construct_network(a_input=test_responses,
                                                          a_seqlens=test_response_lengths,
                                                          n_samples=0,
-                                                         p_input=test_prompts,
-                                                         p_seqlens=test_prompt_lens,
+                                                         p_input=tot_prompts_batch,
+                                                         p_seqlens=tot_prompt_lens_batch,
                                                          p_ids=test_p_ids,
                                                          maxlen=tf.reduce_max(test_response_lengths),
                                                          batch_size=batch_size,
@@ -627,7 +637,7 @@ class HierarchicialAttentionTopicModel(BaseModel):
                                                        test_responses, test_response_lengths, test_prompts,
                                                        test_prompt_lens)
             else:
-                return self._predict_loop(loss, test_probabilities,  test_attention, test_targets, test_prompts, test_prompt_lens)
+                return self._predict_loop(loss, test_probabilities,  test_attention, test_targets, tot_prompts_batch, tot_prompt_lens_batch, test_p_ids)
 
     def _predict_loop_with_caching(self, loss, test_probabilities, test_attention, test_targets, test_responses, test_response_lengths,
                                    test_prompts, test_prompt_lens):
@@ -691,10 +701,12 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 test_responses_list,
                 test_prompts_list)
 
-    def _predict_loop(self, loss, test_probabilities, test_attention, test_targets, test_prompts, test_prompt_lens):
+    def _predict_loop(self, loss, test_probabilities, test_attention, test_targets, test_prompts, test_prompt_lens, test_p_ids):
         test_loss = 0.0
         total_size = 0
         count = 0
+
+       # f = open("/home/alta/relevance/vr311/models_bert/test_prompts.txt", "w+")
 
         # Variables for storing the batch_ordered data
         while True:
@@ -702,20 +714,24 @@ class HierarchicialAttentionTopicModel(BaseModel):
                 batch_eval_loss, \
                 batch_test_probs, \
                 batch_test_attention, \
-                batch_test_targets, batch_test_prompts, batch_test_prompt_lens = self.sess.run([loss,
+                batch_test_targets, batch_test_prompts, batch_test_prompt_lens, batch_test_p_ids = self.sess.run([loss,
                                                     test_probabilities,
                                                     test_attention,
-                                                    test_targets, test_prompts, test_prompt_lens])
+                                                    test_targets, test_prompts, test_prompt_lens, test_p_ids], feed_dict={self.test_row: count*20})
 
                 print("Batch test prompts: ")
-                print(batch_test_prompts)
-                #TODO the following code to do in the predict() function but using tf tensors (should work out of the box as it worked in the forward process in using text_to_array)
-                wlist_path = data/input.wlist.index
-                idToWordConverter = IdToWordConverter(wlist_path)
-                print("Now printing prompts as words: ")
-                for ugh in batch_test_prompts:
-                    print(idToWordConverter.id_list_to_word(ugh)) #TODO remove the extra 0s in a list using batch_test_prompt_lens
-
+                print(batch_test_prompt_lens)
+                #TODO the following code to do in the predict() function but using tf tensors
+              #  wlist_path = 'data/input.wlist.index'
+               # idToWordConverter = IdToWordConverter(wlist_path)
+              #  print("Now printing prompts as words: ")
+              #  for i, ugh in enumerate(batch_test_prompts):
+              #      ug = ugh[:batch_test_prompt_lens[i]]
+              #      gug = (idToWordConverter.id_list_to_word(ug))
+              #      blug = " ".join(gug)
+               #     print(batch_test_p_ids[i])
+              #      print(blug)
+              #      f.write(blug + "\n")
 
                 size = batch_test_probs.shape[0]
                 test_loss += float(size) * batch_eval_loss
@@ -730,9 +746,16 @@ class HierarchicialAttentionTopicModel(BaseModel):
 
                 total_size += size
                 count += 1
+                print(count)
+
+                # TEMP - should remove
+               # if count == 1:
+                   # break
+ 
             except:  # todo: tf.errors.OutOfRangeError:
                 break
 
+       # f.close()
         test_loss = test_loss / float(total_size)
 
         return (test_loss,

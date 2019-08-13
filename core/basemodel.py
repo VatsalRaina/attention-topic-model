@@ -263,7 +263,7 @@ class BaseModel(object):
 
         return targets, q_ids
 
-    def _bahdanau_attention(self, memory, seq_lens, maxlen, query, size, batch_size, name='Attention'):
+    def _bahdanau_attention(self, memory, seq_lens, maxlen, query, size, batch_size, bert_size=768, name='Attention'):
         WD = self.network_architecture['L2']
         with tf.variable_scope(name) as scope:
             with slim.arg_scope([slim.model_variable],
@@ -273,7 +273,7 @@ class BaseModel(object):
                 # Define Attention Parameters
                 v = slim.model_variable('v', shape=[1, size])
                 U = slim.model_variable('u', shape=[size, size])
-                W = slim.model_variable('w', shape=[size, size])
+                W = slim.model_variable('w', shape=[bert_size, size])
                 biases = slim.model_variable('biases', shape=[size], initializer=tf.constant_initializer(0.1))
 
                 tmp_a = tf.reshape(memory, [-1, size])

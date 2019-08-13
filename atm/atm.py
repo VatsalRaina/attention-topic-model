@@ -18,6 +18,10 @@ import tensorflow.contrib.slim as slim
 import context
 from core.basemodel import BaseModel
 import core.utilities.utilities as util
+import core.utilities.bert.tokenization as tokenization
+import core.utilities.bert.modeling as modeling
+from core.utilities.utilities import IdToWordConverter
+from core.utilities.utilities import text_to_array_bert
 
 
 class AttentionTopicModel(BaseModel):
@@ -105,6 +109,11 @@ class AttentionTopicModel(BaseModel):
             a_inputs_bw = tf.transpose(tf.reverse_sequence(a_inputs, seq_lengths=a_seqlens, seq_axis=1, batch_axis=0),
                                        [1, 0, 2])
 
+            input_mask = tf.sequence_mask(q_seqlens, tf.shape(q_input)[1])
+            config = modeling.BertConfig(vocab_size=32000)
+           # bert_model = modeling.BertModel(config=config, is_training=False, input_ids=q_input, input_mask=input_mask)
+           # question_embeddings = bert_model.get_pooled_output()
+
         # Prompt Encoder RNN
         with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
             rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
@@ -116,6 +125,11 @@ class AttentionTopicModel(BaseModel):
 
         question_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
         question_embeddings = tf.nn.dropout(question_embeddings, keep_prob=keep_prob, seed=self._seed)
+
+        #TEMP
+       # question_embeddings = question_embeddings[:,:400]
+        print('blah')
+        print(question_embeddings.shape)
 
         # Response Encoder RNN
         with tf.variable_scope('RNN_A_FW', initializer=initializer(self._seed)) as scope:
@@ -136,7 +150,8 @@ class AttentionTopicModel(BaseModel):
         hidden, attention = self._bahdanau_attention(memory=outputs, seq_lens=a_seqlens, maxlen=maxlen,
                                                      query=question_embeddings,
                                                      size=2 * self.network_architecture['n_rhid'],
-                                                     batch_size=batch_size * (n_samples + 1))
+                                                     batch_size=batch_size * (n_samples + 1),
+                                                     bert_size=400)
 
         with tf.variable_scope('Grader') as scope:
             for layer in xrange(self.network_architecture['n_flayers']):

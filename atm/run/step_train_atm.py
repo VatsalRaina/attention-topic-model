@@ -5,9 +5,10 @@ import os
 import sys
 
 import tensorflow as tf
+import numpy as np
 
 import context
-from core.utilities.utilities import text_to_array, get_train_size_from_meta
+from core.utilities.utilities import text_to_array, get_train_size_from_meta, text_to_array_bert
 from atm.atm import AttentionTopicModel
 
 parser = argparse.ArgumentParser(description='Compute features from labels.')
@@ -64,8 +65,18 @@ def main(args):
 
     train_size = get_train_size_from_meta(args.meta_data_path)
 
-    topics, topic_lens = text_to_array(args.topic_path, args.wlist_path, strip_start_end=args.strip_start_end)
-    if args.strip_start_end: print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
+   # topics, topic_lens = text_to_array(args.topic_path, args.wlist_path, strip_start_end=args.strip_start_end)
+
+    vocab_file = '/home/alta/relevance/vr311/uncased_L-12_H-768_A-12/vocab.txt'
+    topics, topic_lens = text_to_array_bert(args.topic_path, vocab_file)
+
+    print('topics')
+    print(np.array(topics).shape)
+    print('topic_lens')
+    print(topic_lens)
+
+    if args.strip_start_end:
+        print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
 
     atm = AttentionTopicModel(network_architecture=None,
                               seed=args.seed,
