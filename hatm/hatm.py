@@ -282,7 +282,7 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
         hidden, attention = self._bahdanau_attention(memory=outputs, seq_lens=a_seqlens, maxlen=maxlen,
                                                      query=attended_prompt_embedding,
                                                      size=2 * self.network_architecture['n_rhid'],
-                                                     batch_size=batch_size * (n_samples + 1))
+                                                     batch_size=batch_size * (n_samples + 1), bert_size=768)
 
         with tf.variable_scope('Grader') as scope:
             for layer in xrange(self.network_architecture['n_flayers']):
@@ -473,8 +473,8 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
                 #self._load_variables(load_scope='RNN_Q_BW', new_scope='RNN_Q_BW', load_path=load_path, trainable=True)
                 self._load_variables(load_scope='RNN_A_FW', new_scope='RNN_A_FW', load_path=load_path, trainable=True)
                 self._load_variables(load_scope='RNN_A_BW', new_scope='RNN_A_BW', load_path=load_path, trainable=True)
-                self._load_variables(load_scope='Attention', new_scope='Attention', load_path=load_path,
-                                    trainable=True)
+               # self._load_variables(load_scope='Attention', new_scope='Attention', load_path=load_path,
+                #                    trainable=True)
                 self._load_variables(load_scope='Grader', new_scope='Grader', load_path=load_path, trainable=True)
 
             # Update Log with training details
@@ -498,20 +498,21 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
                    # print(temp_att.eval(session=self.sess))
                     if epoch <= 2:
                         _, loss_value, kappa_eval, x1e,x2e,x3e,x4e = self.sess.run([train_op_new, trn_cost, kappa, x1,x2,x3,x4], feed_dict={self.dropout: dropout})
-                        print("keys: ")
-                        print(x1e.shape)
-                        print("tkeys: ")
-                        print(x2e.shape)
-                        print("prompt_embeddings: ")
-                        print(x3e.shape)
-                        print("mems: ")
-                        print(x4e.shape)
+                       # print("keys: ")
+                       # print(x1e.shape)
+                       # print("tkeys: ")
+                       # print(x2e.shape)
+                       # print("prompt_embeddings: ")
+                       # print(x3e.shape)
+                       # print("mems: ")
+                       # print(x4e.shape)
                     elif epoch == 3:
                         _, loss_value, kappa_eval = self.sess.run([train_op_atn, trn_cost, kappa], feed_dict={self.dropout: dropout})
                     else:
                         _, loss_value, kappa_eval = self.sess.run([train_op_all, trn_cost, kappa], feed_dict={self.dropout: dropout})
                     assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
                     loss += loss_value
+                    print(loss_value)
                     kappa_arr.append(kappa_eval)
 
                 duration = time.time() - batch_time
