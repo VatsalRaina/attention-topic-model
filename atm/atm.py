@@ -35,7 +35,7 @@ class AttentionTopicModel(BaseModel):
             with tf.variable_scope('input') as scope:
                 self._input_scope = scope
                 self.x_a = tf.placeholder(tf.int32, [None, None])
-                self.x_q = tf.placeholder(tf.int32, [None, None])
+                self.x_q = tf.placeholder(tf.float32, [None, None])
                 self.qlens = tf.placeholder(tf.int32, [None])
                 self.alens = tf.placeholder(tf.int32, [None])
                 self.y = tf.placeholder(tf.float32, [None, 1])
@@ -98,36 +98,37 @@ class AttentionTopicModel(BaseModel):
                                             device='/GPU:0')
             a_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, a_input, name='embedded_data'),
                                      keep_prob=keep_prob, seed=self._seed + 1)
-            q_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_input, name='embedded_data'),
-                                     keep_prob=keep_prob, seed=self._seed + 2)
+           # q_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_input, name='embedded_data'),
+            #                         keep_prob=keep_prob, seed=self._seed + 2)
 
-            q_inputs_fw = tf.transpose(q_inputs, [1, 0, 2])
-            q_inputs_bw = tf.transpose(tf.reverse_sequence(q_inputs, seq_lengths=q_seqlens, seq_axis=1, batch_axis=0),
-                                       [1, 0, 2])
+           # q_inputs_fw = tf.transpose(q_inputs, [1, 0, 2])
+           # q_inputs_bw = tf.transpose(tf.reverse_sequence(q_inputs, seq_lengths=q_seqlens, seq_axis=1, batch_axis=0),
+            #                           [1, 0, 2])
 
             a_inputs_fw = tf.transpose(a_inputs, [1, 0, 2])
             a_inputs_bw = tf.transpose(tf.reverse_sequence(a_inputs, seq_lengths=a_seqlens, seq_axis=1, batch_axis=0),
                                        [1, 0, 2])
 
-            input_mask = tf.sequence_mask(q_seqlens, tf.shape(q_input)[1])
-            config = modeling.BertConfig(vocab_size=32000)
+           # input_mask = tf.sequence_mask(q_seqlens, tf.shape(q_input)[1])
+          #  config = modeling.BertConfig(vocab_size=32000)
            # bert_model = modeling.BertModel(config=config, is_training=False, input_ids=q_input, input_mask=input_mask)
            # question_embeddings = bert_model.get_pooled_output()
 
+            question_embeddings = tf.convert_to_tensor(q_input, tf.float32)
+
         # Prompt Encoder RNN
-        with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
-            rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-            _, state_fw = rnn_fw(q_inputs_fw, sequence_length=q_seqlens, dtype=tf.float32)
+      #  with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
+       #     rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+       #     _, state_fw = rnn_fw(q_inputs_fw, sequence_length=q_seqlens, dtype=tf.float32)
 
-        with tf.variable_scope('RNN_Q_BW', initializer=initializer(self._seed)) as scope:
-            rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-            _, state_bw = rnn_bw(q_inputs_bw, sequence_length=q_seqlens, dtype=tf.float32)
+       # with tf.variable_scope('RNN_Q_BW', initializer=initializer(self._seed)) as scope:
+       #     rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
+       #     _, state_bw = rnn_bw(q_inputs_bw, sequence_length=q_seqlens, dtype=tf.float32)
 
-        question_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
-        question_embeddings = tf.nn.dropout(question_embeddings, keep_prob=keep_prob, seed=self._seed)
+       # question_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
+       # question_embeddings = tf.nn.dropout(question_embeddings, keep_prob=keep_prob, seed=self._seed)
 
-        #TEMP
-       # question_embeddings = question_embeddings[:,:400]
+       
         print('blah')
         print(question_embeddings.shape)
 
@@ -151,7 +152,7 @@ class AttentionTopicModel(BaseModel):
                                                      query=question_embeddings,
                                                      size=2 * self.network_architecture['n_rhid'],
                                                      batch_size=batch_size * (n_samples + 1),
-                                                     bert_size=400)
+                                                     bert_size=768)
 
         with tf.variable_scope('Grader') as scope:
             for layer in xrange(self.network_architecture['n_flayers']):
@@ -283,14 +284,14 @@ class AttentionTopicModel(BaseModel):
                                                                      name='valid',
                                                                      distortion=1.0)
 
-            topics = tf.convert_to_tensor(topics, dtype=tf.int32)
-            topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
+            topics = tf.convert_to_tensor(topics, dtype=tf.float32)
+           # topic_lens = tf.convert_to_tensor(topic_lens, dtype=tf.int32)
 
             prompts = tf.nn.embedding_lookup(topics, q_ids, name='train_prompot_loopkup')
-            prompt_lens = tf.gather(topic_lens, q_ids)
+           # prompt_lens = tf.gather(topic_lens, q_ids)
 
             valid_prompts = tf.nn.embedding_lookup(topics, valid_q_ids, name='valid_prompot_loopkup')
-            valid_prompt_lens = tf.gather(topic_lens, valid_q_ids)
+           # valid_prompt_lens = tf.gather(topic_lens, valid_q_ids)
 
             # Construct Training & Validation models
             with tf.variable_scope(self._model_scope, reuse=True) as scope:
@@ -300,7 +301,7 @@ class AttentionTopicModel(BaseModel):
                                                          a_seqlens=response_lengths,
                                                          n_samples=n_samples,
                                                          q_input=prompts,
-                                                         q_seqlens=prompt_lens,
+                                                         q_seqlens=None,
                                                          maxlen=tf.reduce_max(response_lengths),
                                                          batch_size=batch_size,
                                                          keep_prob=self.dropout)
@@ -312,7 +313,7 @@ class AttentionTopicModel(BaseModel):
                                                           a_seqlens=valid_response_lengths,
                                                           n_samples=n_samples,
                                                           q_input=valid_prompts,
-                                                          q_seqlens=valid_prompt_lens,
+                                                          q_seqlens=None,
                                                           maxlen=tf.reduce_max(valid_response_lengths),
                                                           batch_size=batch_size,
                                                           keep_prob=1.0)
@@ -370,6 +371,7 @@ class AttentionTopicModel(BaseModel):
                 loss /= n_batches
                 examples_per_sec = batch_size / duration
                 sec_per_epoch = float(duration)
+                print(loss_value)
 
                 # Run Validation Loop
                 eval_loss = 0.0
@@ -418,7 +420,7 @@ class AttentionTopicModel(BaseModel):
             print(format_str % (duration))
             self.save()
 
-    def predict(self, test_pattern, batch_size=20, cache_inputs=False, apply_bucketing=True):
+    def predict(self, test_pattern, batch_size=20, cache_inputs=False, apply_bucketing=True, topics=None):
         """
         Run inference on a trained model on a dataset.
         :param test_pattern: filepath to dataset to run inference/evaluation on
@@ -437,15 +439,17 @@ class AttentionTopicModel(BaseModel):
                 test_prompt_lengths, test_responses_list, test_prompts_list
         """
         with self._graph.as_default():
-            test_files = tf.gfile.Glob(test_pattern)
-            if apply_bucketing:
-                batching_function = self._batch_func
-            else:
-                batching_function = self._batch_func_without_bucket
-            test_iterator = self._construct_dataset_from_tfrecord(test_files,
+           # test_files = tf.gfile.Glob(test_pattern)
+           # if apply_bucketing:
+            #    batching_function = self._batch_func
+           # else:
+           #     batching_function = self._batch_func_without_bucket
+            n_examples = batch_size * 2
+            n_batches = n_examples / (batch_size * 2)
+            test_iterator = self._construct_dataset_from_tfrecord([test_pattern],
                                                                   self._parse_func,
                                                                   self._map_func,
-                                                                  batching_function,
+                                                                  self._batch_func,
                                                                   batch_size=batch_size,
                                                                   train=False,
                                                                   capacity_mul=100,
@@ -453,7 +457,30 @@ class AttentionTopicModel(BaseModel):
             test_targets, \
             test_q_ids, \
             test_responses, \
-            test_response_lengths, test_prompts, test_prompt_lens = test_iterator.get_next(name='valid_data')
+            test_response_lengths, _, _ = test_iterator.get_next(name='valid_data')
+
+            topics = tf.convert_to_tensor(topics, dtype=tf.float32)
+
+            # Change number of topics for evaluation dataset
+            self.network_architecture['n_topics'] = 56
+            unigram_path = '/home/alta/relevance/vr311/data_vatsal/LINSK/tfrecords_train/unigrams.txt'
+            test_targets, test_q_ids = self._sampling_function(targets=test_targets,
+                                                     q_ids=test_q_ids,
+                                                     unigram_path=unigram_path,
+                                                     batch_size=batch_size,
+                                                     n_samples=1,
+                                                     name='test',
+                                                     distortion=1.0)
+
+
+            test_prompts_bertified = tf.nn.embedding_lookup(topics, test_q_ids, name='test_prompt_loopkup')
+
+            # Convert test prompts to bert sentence embeddings
+           # input_mask = tf.sequence_mask(test_prompt_lens, tf.shape(test_prompts)[1])
+           # config = modeling.BertConfig(vocab_size=32000)
+           # bert_model = modeling.BertModel(config=config, is_training=False, input_ids=test_prompts, input_mask=input_mask)
+           # test_prompts_bertified = bert_model.get_pooled_output()
+             
 
             with tf.variable_scope(self._model_scope, reuse=True) as scope:
                 test_predictions, \
@@ -461,14 +488,14 @@ class AttentionTopicModel(BaseModel):
                 test_logits, \
                 test_attention = self._construct_network(a_input=test_responses,
                                                          a_seqlens=test_response_lengths,
-                                                         n_samples=0,
-                                                         q_input=test_prompts,
-                                                         q_seqlens=test_prompt_lens,
+                                                         n_samples=1,
+                                                         q_input=test_prompts_bertified,
+                                                         q_seqlens=None,
                                                          maxlen=tf.reduce_max(test_response_lengths),
                                                          batch_size=batch_size,
                                                          keep_prob=1.0)
 
-            loss = self._construct_xent_cost(targets=test_targets, logits=tf.squeeze(test_logits), pos_weight=1.0,
+            loss = self._construct_xent_cost(targets=test_targets, logits=test_logits, pos_weight=1.0,
                                              is_training=False)
             self.sess.run(test_iterator.initializer)
             if cache_inputs:
@@ -540,17 +567,24 @@ class AttentionTopicModel(BaseModel):
         total_size = 0
         count = 0
 
+       # init = tf.variables_initializer(set(tf.global_variables()) - temp)
+       # self.sess.run(init)
+
         # Variables for storing the batch_ordered data
         while True:
             try:
+                print("Got to a")
                 batch_eval_loss, \
                 batch_test_probs, \
                 batch_test_targets = self.sess.run([loss,
                                                     test_probabilities,
                                                     test_targets])
 
+               # print("Got to b")
                 size = batch_test_probs.shape[0]
                 test_loss += float(size) * batch_eval_loss
+                print(batch_test_targets)
+                print(batch_test_probs)
                 if count == 0:
                     test_probs_arr = batch_test_probs  # shape: (num_batches, 1)
                     test_labels_arr = batch_test_targets[:, np.newaxis]  # becomes shape: (num_batches, 1)

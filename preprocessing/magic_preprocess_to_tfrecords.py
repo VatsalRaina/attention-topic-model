@@ -30,6 +30,8 @@ parser.add_argument('data_dir', type=str,
                                     'speakers, grades etc. .txt data')
 parser.add_argument('input_wlist_path', type=str,
                                help='absolute path to input word list')
+parser.add_argument('input_wlist_bert_path', type=str,
+                               help='absolute path to bert input word list')
 parser.add_argument('destination_dir', type=str,
                                help='absolute path to directory location where to setup and save the tfrecords data')
 parser.add_argument('--valid_fraction', type=float, default=0.1,
@@ -135,6 +137,7 @@ def main(args):
         os.makedirs(args.destination_dir)
 
     shutil.copyfile(args.input_wlist_path, os.path.join(args.destination_dir, 'input.wlist.index'))
+    shutil.copyfile(args.input_wlist_bert_path, os.path.join(args.destination_dir, 'input.wlist_bert.index'))
 
     # Get the paths to the relevant files
     responses_path = os.path.join(args.data_dir, args.responses_file)
@@ -165,7 +168,7 @@ def main(args):
 
     # Load responses and prompts as sequences of word ids
     responses, _ = load_text(responses_path, args.input_wlist_path, strip_start_end=args.remove_sentence_tags)
-    prompts, _ = load_text(prompts_path, args.input_wlist_path, strip_start_end=args.remove_sentence_tags)
+    prompts, _ = load_text(prompts_path, args.input_wlist_bert_path, strip_start_end=args.remove_sentence_tags)
 
     # Load up the speakers and grades
     with open(grades_path, 'r') as file:

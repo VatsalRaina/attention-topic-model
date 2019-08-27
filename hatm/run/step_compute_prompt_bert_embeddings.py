@@ -31,7 +31,7 @@ def main(argv=None):
 
     # Tokenise prompts
     vocab_file = '/home/alta/relevance/vr311/uncased_L-12_H-768_A-12/vocab.txt'
-    prompt_path = '/home/alta/relevance/vr311/data/BLTSgrp24_CDE/tfrecords/sorted_topics.txt' 
+    prompt_path = '/home/alta/relevance/vr311/data_vatsal/LINSK/tfrecords_train/sorted_topics.txt' 
     prompts, prompt_lens = text_to_array_bert(prompt_path, vocab_file)
     
     # Get BERT embeddings
@@ -49,13 +49,13 @@ def main(argv=None):
 
     print(pooled_output.shape)
 
-    save_path = '/home/alta/relevance/vr311/models_bert'
+    save_path = '/home/alta/relevance/vr311/models_new/ATM'
 
     init_op = tf.initialize_all_variables()
     with tf.Session() as sess:
         sess.run(init_op)
         embeddings = sess.run(pooled_output)
-    path = os.path.join(save_path, 'prompt_embeddings.txt')
+    path = os.path.join(save_path, 'sorted_prompt_embeddings_eval_unseen_improved.txt')
     np.savetxt(path, embeddings)
 
 

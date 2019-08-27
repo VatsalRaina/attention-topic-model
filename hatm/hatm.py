@@ -176,7 +176,8 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
             a_inputs_bw = tf.transpose(tf.reverse_sequence(a_inputs, seq_lengths=a_seqlens, seq_axis=1, batch_axis=0),
                                        [1, 0, 2])
 
-           
+ 
+        with tf.variable_scope('Berty', initializer=initializer(self._seed)) as scope:          
             input_mask = tf.sequence_mask(p_seqlens, tf.shape(p_input)[1])
             config = modeling.BertConfig(vocab_size=32000)
             bert_model = modeling.BertModel(config=config, is_training=False, input_ids=p_input, input_mask=input_mask)
@@ -251,13 +252,13 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
                 # Draw the prompt attention keep probability from a uniform distribution
                 floor = 0.05 #TODO change to command line argument and use tf.placeholder
                 ceil = 0.55
-                attention_keep_prob = tf.random_uniform(shape=(), minval=floor, maxval=ceil) #TODO Remove att_keep_prob
+                attention_keep_prob = tf.random_uniform(shape=(), minval=floor, maxval=ceil, seed=self._seed) #TODO Remove att_keep_prob
             else:
                 attention_keep_prob = tf.constant(1.0, dtype=tf.float32)
             #TEMP
-            if is_training:
-                attention_keep_prob = 1.0
-           # a = tf.nn.dropout(a, attention_keep_prob)
+           # if is_training:
+            #    attention_keep_prob = 1.0
+            a = tf.nn.dropout(a, attention_keep_prob, seed=self._seed)
             zero_frac = tf.nn.zero_fraction(a) # To plot distribution of attention_keep_prob
             prompt_attention = a / tf.reduce_sum(a, axis=1, keep_dims=True)
             attended_prompt_embedding = tf.matmul(prompt_attention, prompt_embeddings)
@@ -427,6 +428,7 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
             variables1 =tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='.*((PROMPT_ATN)|(RNN_KEY)).*')
             variables2 = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
                                            scope='.*((PROMPT_ATN)|(RNN_KEY)|(Attention)).*')
+            variables_temp = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope='.*((PROMPT_ATN)|(RNN_KEY)|(Attention)|(RNN_A_FW)|(RNN_A_BW)|(Grader)).*')
             train_op_new = util.create_train_op(total_loss=total_loss,
                                             learning_rate=learning_rate,
                                             optimizer=optimizer,
@@ -454,6 +456,17 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
                                             optimizer=optimizer,
                                             optimizer_params=optimizer_params,
                                             n_examples=n_examples,
+                                            batch_size=batch_size,
+                                            learning_rate_decay=lr_decay,
+                                            global_step=global_step,
+                                            clip_gradient_norm=10.0,
+                                            summarize_gradients=False)
+            train_op_tmp = util.create_train_op(total_loss=total_loss,
+                                            learning_rate=learning_rate,
+                                            optimizer=optimizer,
+                                            optimizer_params=optimizer_params,
+                                            n_examples=n_examples,
+                                            variables_to_train=variables_temp,
                                             batch_size=batch_size,
                                             learning_rate_decay=lr_decay,
                                             global_step=global_step,
@@ -494,10 +507,10 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
                 loss = 0.0
                 batch_time = time.time()
                 for batch in xrange(n_batches):
-                    print("TRAINING NOW")
+                   # print("TRAINING NOW")
                    # print(temp_att.eval(session=self.sess))
                     if epoch <= 2:
-                        _, loss_value, kappa_eval, x1e,x2e,x3e,x4e = self.sess.run([train_op_new, trn_cost, kappa, x1,x2,x3,x4], feed_dict={self.dropout: dropout})
+                        _, loss_value, kappa_eval, x1e,x2e,x3e,x4e = self.sess.run([train_op_atn, trn_cost, kappa, x1,x2,x3,x4], feed_dict={self.dropout: dropout})
                        # print("keys: ")
                        # print(x1e.shape)
                        # print("tkeys: ")
@@ -507,12 +520,12 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
                        # print("mems: ")
                        # print(x4e.shape)
                     elif epoch == 3:
-                        _, loss_value, kappa_eval = self.sess.run([train_op_atn, trn_cost, kappa], feed_dict={self.dropout: dropout})
+                        _, loss_value, kappa_eval = self.sess.run([train_op_tmp, trn_cost, kappa], feed_dict={self.dropout: dropout})
                     else:
-                        _, loss_value, kappa_eval = self.sess.run([train_op_all, trn_cost, kappa], feed_dict={self.dropout: dropout})
+                        _, loss_value, kappa_eval = self.sess.run([train_op_tmp, trn_cost, kappa], feed_dict={self.dropout: dropout})
                     assert not np.isnan(loss_value), 'Model diverged with loss = NaN'
                     loss += loss_value
-                    print(loss_value)
+                   # print(loss_value)
                     kappa_arr.append(kappa_eval)
 
                 duration = time.time() - batch_time
@@ -638,7 +651,7 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
                                                        test_responses, test_response_lengths, test_prompts,
                                                        test_prompt_lens)
             else:
-                return self._predict_loop(loss, test_probabilities,  test_attention, test_targets, tot_prompts_batch, tot_prompt_lens_batch, test_p_ids)
+                return self._predict_loop(loss, test_probabilities,  test_attention, test_targets, tot_prompts, tot_prompt_lens, test_p_ids)
 
     def _predict_loop_with_caching(self, loss, test_probabilities, test_attention, test_targets, test_responses, test_response_lengths,
                                    test_prompts, test_prompt_lens):
@@ -707,7 +720,7 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
         total_size = 0
         count = 0
 
-       # f = open("/home/alta/relevance/vr311/models_bert/test_prompts.txt", "w+")
+       # f = open("/home/alta/relevance/vr311/models_bert/test_prompts_seen.txt", "w+")
 
         # Variables for storing the batch_ordered data
         while True:
@@ -720,19 +733,19 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
                                                     test_attention,
                                                     test_targets, test_prompts, test_prompt_lens, test_p_ids], feed_dict={self.test_row: count*20})
 
-                print("Batch test prompts: ")
-                print(batch_test_prompt_lens)
+              #  print("Batch test prompts: ")
+              #  print(batch_test_prompt_lens)
                 #TODO the following code to do in the predict() function but using tf tensors
               #  wlist_path = 'data/input.wlist.index'
-               # idToWordConverter = IdToWordConverter(wlist_path)
+              #  idToWordConverter = IdToWordConverter(wlist_path)
               #  print("Now printing prompts as words: ")
               #  for i, ugh in enumerate(batch_test_prompts):
-              #      ug = ugh[:batch_test_prompt_lens[i]]
-              #      gug = (idToWordConverter.id_list_to_word(ug))
-              #      blug = " ".join(gug)
+               #     ug = ugh[:batch_test_prompt_lens[i]]
+               #     gug = (idToWordConverter.id_list_to_word(ug))
+               #     blug = " ".join(gug)
                #     print(batch_test_p_ids[i])
               #      print(blug)
-              #      f.write(blug + "\n")
+               #     f.write(blug + "\n")
 
                 size = batch_test_probs.shape[0]
                 test_loss += float(size) * batch_eval_loss
@@ -747,16 +760,11 @@ m core.utilities.utilities import text_to_array, get_train_size_from_meta, text_
 
                 total_size += size
                 count += 1
-                print(count)
-
-                # TEMP - should remove
-               # if count == 1:
-                   # break
- 
+                print(count) 
             except:  # todo: tf.errors.OutOfRangeError:
                 break
 
-       # f.close()
+      #  f.close()
         test_loss = test_loss / float(total_size)
 
         return (test_loss,

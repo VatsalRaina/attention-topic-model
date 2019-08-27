@@ -70,6 +70,9 @@ def main(args):
 
     apply_bucketing = (not args.preserve_order)
 
+    prompt_embeddings = np.loadtxt('/home/alta/relevance/vr311/models_new/ATM/sorted_prompt_embeddings_eval_unseen_improved.txt', dtype=np.float32)
+    topics = prompt_embeddings
+
     start_time = time.time()
 
     if args.save_reordered_input:
@@ -83,7 +86,7 @@ def main(args):
     else:
         test_loss, \
         test_probs_arr, \
-        test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False, apply_bucketing=apply_bucketing)
+        test_labels_arr = atm.predict(args.data_pattern, cache_inputs=False, apply_bucketing=apply_bucketing, topics=topics)
 
     end_time = time.time()
     print("Time taken for evaluating the dataset: {} minutes".format((end_time - start_time) / 60.0))

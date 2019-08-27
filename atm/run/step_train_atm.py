@@ -67,13 +67,14 @@ def main(args):
 
    # topics, topic_lens = text_to_array(args.topic_path, args.wlist_path, strip_start_end=args.strip_start_end)
 
-    vocab_file = '/home/alta/relevance/vr311/uncased_L-12_H-768_A-12/vocab.txt'
-    topics, topic_lens = text_to_array_bert(args.topic_path, vocab_file)
+#    vocab_file = '/home/alta/relevance/vr311/uncased_L-12_H-768_A-12/vocab.txt'
+ #   topics, topic_lens = text_to_array_bert(args.topic_path, vocab_file)
+
+    prompt_embeddings = np.loadtxt('/home/alta/relevance/vr311/models_new/ATM/sorted_prompt_embeddings_train.txt', dtype=np.float32)
+    topics = prompt_embeddings
 
     print('topics')
     print(np.array(topics).shape)
-    print('topic_lens')
-    print(topic_lens)
 
     if args.strip_start_end:
         print("Stripping the first and last word (should correspond to <s> and </s> marks) from the input prompts. Should only be used with legacy dataset formatting")
@@ -90,7 +91,7 @@ def main(args):
             valid_data=args.valid_data,
             load_path=args.init,
             topics=topics,
-            topic_lens=topic_lens,
+            topic_lens=None,
             unigram_path=args.topic_count_path,
             train_size=train_size,
             learning_rate=args.learning_rate,

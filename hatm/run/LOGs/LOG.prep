@@ -1,0 +1,32 @@
+/var/spool/gridengine/execd/air208/job_scripts/5388106: line 8: ./atm/hatm/run/step_compute_prompt_bert_embeddings.py: No such file or directory
+Traceback (most recent call last):
+  File "/home/alta/relevance/vr311/attention-topic-model/hatm/run/step_compute_prompt_bert_embeddings.py", line 10, in <module>
+    from core.utilities.utilities import text_to_array_bert
+ImportError: No module named core.utilities.utilities
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+from: can't read /var/mail/core.utilities.utilities
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+Badly placed ()'s.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+from: can't read /var/mail/core.utilities.utilities
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+Badly placed ()'s.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+from: can't read /var/mail/core.utilities.utilities
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
+Badly placed ()'s.
