@@ -98,40 +98,37 @@ class AttentionTopicModel(BaseModel):
                                             device='/GPU:0')
             a_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, a_input, name='embedded_data'),
                                      keep_prob=keep_prob, seed=self._seed + 1)
-           # q_inputs = tf.nn.dropout(tf.nn.embedding_lookup(embedding, q_input, name='embedded_data'),
-            #                         keep_prob=keep_prob, seed=self._seed + 2)
-
-           # q_inputs_fw = tf.transpose(q_inputs, [1, 0, 2])
-           # q_inputs_bw = tf.transpose(tf.reverse_sequence(q_inputs, seq_lengths=q_seqlens, seq_axis=1, batch_axis=0),
-            #                           [1, 0, 2])
 
             a_inputs_fw = tf.transpose(a_inputs, [1, 0, 2])
             a_inputs_bw = tf.transpose(tf.reverse_sequence(a_inputs, seq_lengths=a_seqlens, seq_axis=1, batch_axis=0),
                                        [1, 0, 2])
 
-           # input_mask = tf.sequence_mask(q_seqlens, tf.shape(q_input)[1])
-          #  config = modeling.BertConfig(vocab_size=32000)
-           # bert_model = modeling.BertModel(config=config, is_training=False, input_ids=q_input, input_mask=input_mask)
-           # question_embeddings = bert_model.get_pooled_output()
+            question_embeddings = tf.convert_to_tensor(q_input, tf.float32)  
+        """
+        with tf.variable_scope('Activation', initializer=initializer(self._seed)) as scope:
+            # Apply cascading activation functions
+            m1 = tf.get_variable('qout1', shape=[768,768], regularizer=slim.l2_regularizer(L2), trainable=True)
+            qout1 = tf.nn.relu6(tf.einsum('ik,jk->ij', question_embeddings, m1))
+            m2 = tf.get_variable('qout2', shape=[768,768], regularizer=slim.l2_regularizer(L2), trainable=True)
+            qout2 = tf.nn.relu6(tf.einsum('ik,jk->ij', qout1, m2))
+            m3 = tf.get_variable('qout3', shape=[768,768], regularizer=slim.l2_regularizer(L2), trainable=True)
+            qout3 = tf.nn.relu6(tf.einsum('ik,jk->ij', qout2, m3))
+        """
 
-            question_embeddings = tf.convert_to_tensor(q_input, tf.float32)
-
-        # Prompt Encoder RNN
-      #  with tf.variable_scope('RNN_Q_FW', initializer=initializer(self._seed)) as scope:
-       #     rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-       #     _, state_fw = rnn_fw(q_inputs_fw, sequence_length=q_seqlens, dtype=tf.float32)
-
-       # with tf.variable_scope('RNN_Q_BW', initializer=initializer(self._seed)) as scope:
-       #     rnn_bw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
-       #     _, state_bw = rnn_bw(q_inputs_bw, sequence_length=q_seqlens, dtype=tf.float32)
-
-       # question_embeddings = tf.concat([state_fw[1], state_bw[1]], axis=1)
-       # question_embeddings = tf.nn.dropout(question_embeddings, keep_prob=keep_prob, seed=self._seed)
-
-       
-        print('blah')
-        print(question_embeddings.shape)
-
+        #    qout1 = slim.fully_connected(question_embeddings,
+         #                                num_outputs=768,
+         #                                activation_fn=tf.nn.relu6,
+         #                                weights_regularizer=slim.l2_regularizer(L2),
+         #                                scope="qout1")
+         #   qout2 = slim.fully_connected(qout1,
+         #                                num_outputs=768,
+         #                                activation_fn=tf.nn.relu6,
+         #                                weights_regularizer=slim.l2_regularizer(L2))
+         #   qout3 = slim.fully_connected(qout2,
+         #                                num_outputs=768,
+         #                                activation_fn=tf.nn.relu6,
+         #                                weights_regularizer=slim.l2_regularizer(L2))
+            
         # Response Encoder RNN
         with tf.variable_scope('RNN_A_FW', initializer=initializer(self._seed)) as scope:
             rnn_fw = tf.contrib.rnn.LSTMBlockFusedCell(num_units=self.network_architecture['n_phid'])
@@ -461,9 +458,9 @@ class AttentionTopicModel(BaseModel):
 
             topics = tf.convert_to_tensor(topics, dtype=tf.float32)
 
-            # Change number of topics for evaluation dataset
-            self.network_architecture['n_topics'] = 56
-            unigram_path = '/home/alta/relevance/vr311/data_vatsal/LINSK/tfrecords_train/unigrams.txt'
+            # Change number of topics for unseen evaluation dataset
+            #self.network_architecture['n_topics'] = 56
+            unigram_path = '/home/alta/relevance/vr311/data_vatsal/BULATS/tfrecords_train/unigrams.txt'
             test_targets, test_q_ids = self._sampling_function(targets=test_targets,
                                                      q_ids=test_q_ids,
                                                      unigram_path=unigram_path,
@@ -474,14 +471,7 @@ class AttentionTopicModel(BaseModel):
 
 
             test_prompts_bertified = tf.nn.embedding_lookup(topics, test_q_ids, name='test_prompt_loopkup')
-
-            # Convert test prompts to bert sentence embeddings
-           # input_mask = tf.sequence_mask(test_prompt_lens, tf.shape(test_prompts)[1])
-           # config = modeling.BertConfig(vocab_size=32000)
-           # bert_model = modeling.BertModel(config=config, is_training=False, input_ids=test_prompts, input_mask=input_mask)
-           # test_prompts_bertified = bert_model.get_pooled_output()
              
-
             with tf.variable_scope(self._model_scope, reuse=True) as scope:
                 test_predictions, \
                 test_probabilities, \
@@ -573,7 +563,7 @@ class AttentionTopicModel(BaseModel):
         # Variables for storing the batch_ordered data
         while True:
             try:
-                print("Got to a")
+            #    print("Got to a")
                 batch_eval_loss, \
                 batch_test_probs, \
                 batch_test_targets = self.sess.run([loss,
@@ -583,14 +573,14 @@ class AttentionTopicModel(BaseModel):
                # print("Got to b")
                 size = batch_test_probs.shape[0]
                 test_loss += float(size) * batch_eval_loss
-                print(batch_test_targets)
-                print(batch_test_probs)
+                #print(batch_test_targets)
+                #print(batch_test_probs)
                 if count == 0:
                     test_probs_arr = batch_test_probs  # shape: (num_batches, 1)
-                    test_labels_arr = batch_test_targets[:, np.newaxis]  # becomes shape: (num_batches, 1)
+                    test_labels_arr = batch_test_targets  # becomes shape: (num_batches, 1)
                 else:
                     test_probs_arr = np.concatenate((test_probs_arr, batch_test_probs), axis=0)
-                    test_labels_arr = np.concatenate((test_labels_arr, batch_test_targets[:, np.newaxis]), axis=0)
+                    test_labels_arr = np.concatenate((test_labels_arr, batch_test_targets), axis=0)
 
                 total_size += size
                 count += 1

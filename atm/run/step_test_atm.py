@@ -70,7 +70,10 @@ def main(args):
 
     apply_bucketing = (not args.preserve_order)
 
-    prompt_embeddings = np.loadtxt('/home/alta/relevance/vr311/models_new/ATM/sorted_prompt_embeddings_eval_unseen_improved.txt', dtype=np.float32)
+    # For unseen
+    #prompt_embeddings = np.loadtxt('/home/alta/relevance/vr311/models_new/correct_bert/ATM/sorted_prompt_embeddings_eval_unseen.txt', dtype=np.float32)
+    # For seen
+    prompt_embeddings = np.loadtxt('/home/alta/relevance/vr311/models_new/correct_bert/ATM/sorted_prompt_embeddings.txt', dtype=np.float32)
     topics = prompt_embeddings
 
     start_time = time.time()

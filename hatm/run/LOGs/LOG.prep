@@ -1,32 +1,40 @@
-/var/spool/gridengine/execd/air208/job_scripts/5388106: line 8: ./atm/hatm/run/step_compute_prompt_bert_embeddings.py: No such file or directory
+import: Command not found.
+import: Command not found.
+import: Command not found.
+import: Command not found.
+import: Command not found.
+from: can't read /var/mail/core.utilities.bertEmbeddings
+from: can't read /var/mail/core.utilities.utilities
+Badly placed ()'s.
+import: Command not found.
+import: Command not found.
+import: Command not found.
+import: Command not found.
+import: Command not found.
+from: can't read /var/mail/core.utilities.bertEmbeddings
+from: can't read /var/mail/core.utilities.utilities
+Badly placed ()'s.
+2019-10-21 17:16:58.230578: I tensorflow/core/platform/cpu_feature_guard.cc:137] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
+2019-10-21 17:16:58.379728: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1030] Found device 0 with properties: 
+name: Tesla K80 major: 3 minor: 7 memoryClockRate(GHz): 0.8235
+pciBusID: 0000:06:00.0
+totalMemory: 11.17GiB freeMemory: 11.11GiB
+2019-10-21 17:16:58.379776: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: Tesla K80, pci bus id: 0000:06:00.0, compute capability: 3.7)
 Traceback (most recent call last):
-  File "/home/alta/relevance/vr311/attention-topic-model/hatm/run/step_compute_prompt_bert_embeddings.py", line 10, in <module>
-    from core.utilities.utilities import text_to_array_bert
-ImportError: No module named core.utilities.utilities
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-from: can't read /var/mail/core.utilities.utilities
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-Badly placed ()'s.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-from: can't read /var/mail/core.utilities.utilities
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-Badly placed ()'s.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-from: can't read /var/mail/core.utilities.utilities
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-import: unable to open X server `' @ error/import.c/ImportImageCommand/364.
-Badly placed ()'s.
+  File "/home/alta/relevance/vr311/attention-topic-model/hatm/run/step_compute_prompt_bert_embeddings.py", line 43, in <module>
+    main()
+  File "/home/alta/relevance/vr311/attention-topic-model/hatm/run/step_compute_prompt_bert_embeddings.py", line 35, in main
+    embeddings = bse.get_embeddings(ids)
+NameError: global name 'ids' is not defined
+2019-10-21 17:17:55.158722: I tensorflow/core/platform/cpu_feature_guard.cc:137] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
+2019-10-21 17:17:55.351476: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1030] Found device 0 with properties: 
+name: Tesla K80 major: 3 minor: 7 memoryClockRate(GHz): 0.8235
+pciBusID: 0000:06:00.0
+totalMemory: 11.17GiB freeMemory: 11.11GiB
+2019-10-21 17:17:55.351519: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: Tesla K80, pci bus id: 0000:06:00.0, compute capability: 3.7)
+2019-10-21 18:59:25.071859: I tensorflow/core/platform/cpu_feature_guard.cc:137] Your CPU supports instructions that this TensorFlow binary was not compiled to use: SSE4.1 SSE4.2 AVX AVX2 FMA
+2019-10-21 18:59:25.432403: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1030] Found device 0 with properties: 
+name: Tesla P100-PCIE-16GB major: 6 minor: 0 memoryClockRate(GHz): 1.202
+pciBusID: 0000:81:00.0
+totalMemory: 15.89GiB freeMemory: 15.60GiB
+2019-10-21 18:59:25.432455: I tensorflow/core/common_runtime/gpu/gpu_device.cc:1120] Creating TensorFlow device (/device:GPU:0) -> (device: 0, name: Tesla P100-PCIE-16GB, pci bus id: 0000:81:00.0, compute capability: 6.0)
