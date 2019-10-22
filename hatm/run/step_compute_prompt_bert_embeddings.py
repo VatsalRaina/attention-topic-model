@@ -26,7 +26,7 @@ def main(argv=None):
         f.write(' '.join(sys.argv) + '\n')
 
     vocab_file = '/home/alta/relevance/vr311/uncased_L-12_H-768_A-12/vocab.txt'
-    prompt_path = '/home/alta/relevance/vr311/data_vatsal/LINSK/tfrecords_train/sorted_topics.txt'
+    prompt_path = '/home/alta/relevance/vr311/data_vatsal/BULATS/tfrecords_train/sorted_topics.txt'
     prompts, _ = text_to_array_bert(prompt_path, vocab_file)
 
     # Create instance of Bert sentence embedding (BSE)
@@ -35,7 +35,7 @@ def main(argv=None):
     embeddings = bse.get_embeddings(prompts)
 
     save_path = '/home/alta/relevance/vr311/models_new/correct_bert/ATM'
-    path = os.path.join(save_path, 'sorted_prompt_embeddings_eval_unseen.txt')
+    path = os.path.join(save_path, 'sorted_prompt_embeddings_eval_seen2.txt')
     np.savetxt(path, embeddings)
 
 

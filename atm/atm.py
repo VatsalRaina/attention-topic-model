@@ -436,17 +436,17 @@ class AttentionTopicModel(BaseModel):
                 test_prompt_lengths, test_responses_list, test_prompts_list
         """
         with self._graph.as_default():
-           # test_files = tf.gfile.Glob(test_pattern)
-           # if apply_bucketing:
-            #    batching_function = self._batch_func
-           # else:
-           #     batching_function = self._batch_func_without_bucket
-            n_examples = batch_size * 2
-            n_batches = n_examples / (batch_size * 2)
-            test_iterator = self._construct_dataset_from_tfrecord([test_pattern],
+            test_files = tf.gfile.Glob(test_pattern)
+            if apply_bucketing:
+                batching_function = self._batch_func
+            else:
+                batching_function = self._batch_func_without_bucket
+           # n_examples = batch_size * 2
+            #n_batches = n_examples / (batch_size * 2)
+            test_iterator = self._construct_dataset_from_tfrecord(test_files,
                                                                   self._parse_func,
                                                                   self._map_func,
-                                                                  self._batch_func,
+                                                                  batching_function,
                                                                   batch_size=batch_size,
                                                                   train=False,
                                                                   capacity_mul=100,
@@ -457,9 +457,9 @@ class AttentionTopicModel(BaseModel):
             test_response_lengths, _, _ = test_iterator.get_next(name='valid_data')
 
             topics = tf.convert_to_tensor(topics, dtype=tf.float32)
-
+            """
             # Change number of topics for unseen evaluation dataset
-            #self.network_architecture['n_topics'] = 56
+            self.network_architecture['n_topics'] = 56
             unigram_path = '/home/alta/relevance/vr311/data_vatsal/BULATS/tfrecords_train/unigrams.txt'
             test_targets, test_q_ids = self._sampling_function(targets=test_targets,
                                                      q_ids=test_q_ids,
@@ -469,7 +469,7 @@ class AttentionTopicModel(BaseModel):
                                                      name='test',
                                                      distortion=1.0)
 
-
+            """
             test_prompts_bertified = tf.nn.embedding_lookup(topics, test_q_ids, name='test_prompt_loopkup')
              
             with tf.variable_scope(self._model_scope, reuse=True) as scope:
@@ -478,14 +478,14 @@ class AttentionTopicModel(BaseModel):
                 test_logits, \
                 test_attention = self._construct_network(a_input=test_responses,
                                                          a_seqlens=test_response_lengths,
-                                                         n_samples=1,
+                                                         n_samples=0,
                                                          q_input=test_prompts_bertified,
                                                          q_seqlens=None,
                                                          maxlen=tf.reduce_max(test_response_lengths),
                                                          batch_size=batch_size,
                                                          keep_prob=1.0)
 
-            loss = self._construct_xent_cost(targets=test_targets, logits=test_logits, pos_weight=1.0,
+            loss = self._construct_xent_cost(targets=test_targets, logits=tf.squeeze(test_logits), pos_weight=1.0,
                                              is_training=False)
             self.sess.run(test_iterator.initializer)
             if cache_inputs:
@@ -493,7 +493,7 @@ class AttentionTopicModel(BaseModel):
                                                        test_responses, test_response_lengths, test_prompts,
                                                        test_prompt_lens)
             else:
-                return self._predict_loop(loss, test_probabilities, test_targets)
+                return self._predict_loop(loss, test_probabilities, test_targets, test_q_ids)
 
     def _predict_loop_with_caching(self, loss, test_probabilities, test_targets, test_responses, test_response_lengths,
                                    test_prompts, test_prompt_lens):
@@ -552,35 +552,33 @@ class AttentionTopicModel(BaseModel):
                 test_responses_list,
                 test_prompts_list)
 
-    def _predict_loop(self, loss, test_probabilities, test_targets):
+    def _predict_loop(self, loss, test_probabilities, test_targets, test_q_ids):
         test_loss = 0.0
         total_size = 0
         count = 0
 
-       # init = tf.variables_initializer(set(tf.global_variables()) - temp)
-       # self.sess.run(init)
-
         # Variables for storing the batch_ordered data
         while True:
             try:
-            #    print("Got to a")
+                print("Got to a")
                 batch_eval_loss, \
                 batch_test_probs, \
-                batch_test_targets = self.sess.run([loss,
+                batch_test_targets, batch_test_q_ids = self.sess.run([loss,
                                                     test_probabilities,
-                                                    test_targets])
+                                                    test_targets, test_q_ids])
 
-               # print("Got to b")
+                print("Got to b")
                 size = batch_test_probs.shape[0]
                 test_loss += float(size) * batch_eval_loss
                 #print(batch_test_targets)
                 #print(batch_test_probs)
+                print(batch_test_q_ids)
                 if count == 0:
                     test_probs_arr = batch_test_probs  # shape: (num_batches, 1)
-                    test_labels_arr = batch_test_targets  # becomes shape: (num_batches, 1)
+                    test_labels_arr = batch_test_targets[:, np.newaxis]  # becomes shape: (num_batches, 1)
                 else:
                     test_probs_arr = np.concatenate((test_probs_arr, batch_test_probs), axis=0)
-                    test_labels_arr = np.concatenate((test_labels_arr, batch_test_targets), axis=0)
+                    test_labels_arr = np.concatenate((test_labels_arr, batch_test_targets[:, np.newaxis]), axis=0)
 
                 total_size += size
                 count += 1
